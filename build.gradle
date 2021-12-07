@@ -20,6 +20,8 @@ dependencies {
     compileOnly project(":parser")
     annotationProcessor project(":parser")
 
+    testImplementation "org.junit.jupiter:junit-jupiter-engine:$junit_version"
+
     if (JavaVersion.current().isJava8()) {
         compileOnly "com.google.code.findbugs:annotations:$findbugs_version"
     } else {
@@ -47,11 +49,6 @@ allprojects {
 
         api "io.projectreactor.netty:reactor-netty"
         api "io.projectreactor.addons:reactor-extra"
-
-        api "com.fasterxml.jackson.core:jackson-databind:$jackson_version"
-        api "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:$jackson_version"
-
-        testImplementation "org.junit.jupiter:junit-jupiter-engine:$junit_version"
     }
 
     tasks.withType(JavaCompile) {
@@ -65,19 +62,17 @@ allprojects {
         }
     }
 
-    test {
-        useJUnitPlatform()
-    }
-
     java {
         withJavadocJar()
         withSourcesJar()
     }
-
-    sourcesJar {
-        from "build/generated/sources/annotationProcessor/java/main"
-    }
 }
+
+test {
+    useJUnitPlatform()
+}
+
+sourceSets.main.java.srcDirs += "build/generated/sources/annotationProcessor/java/main"
 
 publishing {
     publications {

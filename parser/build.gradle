@@ -6,6 +6,9 @@ dependencies {
     compileOnly "org.immutables:encode:$immutables_version"
     annotationProcessor "org.immutables:value:$immutables_version"
 
+    api "com.fasterxml.jackson.core:jackson-databind:$jackson_version"
+    api "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:$jackson_version"
+
     if (JavaVersion.current().isJava8()) {
         compileOnly "com.google.code.findbugs:annotations:$findbugs_version"
     } else {
