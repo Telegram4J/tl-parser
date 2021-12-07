@@ -31,7 +31,8 @@ allprojects {
     apply plugin: 'java-library'
 
     group = 'com.telegram4j'
-    description = 'Telegram API schema parser.'
+    description = 'Telegram API schema parser'
+    version = '0.1.0'
 
     targetCompatibility = JavaVersion.VERSION_1_8
     sourceCompatibility = JavaVersion.VERSION_1_8
@@ -91,7 +92,7 @@ publishing {
 
             pom {
                 name = 'Telegram4J'
-                description = 'Telegram API schema parser.'
+                description = 'Telegram API schema parser'
                 url = 'https://github.com/Telegram4J/tl-parser'
 
                 scm {
