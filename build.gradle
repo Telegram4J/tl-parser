@@ -73,6 +73,10 @@ allprojects {
         withJavadocJar()
         withSourcesJar()
     }
+
+    sourcesJar {
+        from "build/generated/sources/annotationProcessor/java/main"
+    }
 }
 
 publishing {
