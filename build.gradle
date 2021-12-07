@@ -1,0 +1,105 @@
+apply plugin: 'java-library'
+apply plugin: 'maven-publish'
+
+ext {
+    reactor_bom_version = '2020.0.13'
+    jackson_version = '2.13.0-rc1'
+    immutables_version = '2.9.0-beta3'
+    findbugs_version = '3.0.1'
+    javax_annotation = '1.3.2'
+    junit_version = '5.7.2'
+    javapoet_version = '1.13.0'
+}
+
+dependencies {
+    api project(":api")
+
+    compileOnly "org.immutables:value:$immutables_version"
+    compileOnly "org.immutables:encode:$immutables_version"
+    annotationProcessor "org.immutables:value:$immutables_version"
+    compileOnly project(":parser")
+    annotationProcessor project(":parser")
+
+    if (JavaVersion.current().isJava8()) {
+        compileOnly "com.google.code.findbugs:annotations:$findbugs_version"
+    } else {
+        compileOnly "javax.annotation:javax.annotation-api:$javax_annotation"
+    }
+}
+
+allprojects {
+    apply plugin: 'java-library'
+
+    group = 'com.telegram4j'
+    description = 'Telegram API schema parser.'
+
+    targetCompatibility = JavaVersion.VERSION_1_8
+    sourceCompatibility = JavaVersion.VERSION_1_8
+
+    repositories {
+        mavenLocal()
+        mavenCentral()
+    }
+
+    dependencies {
+        api platform("io.projectreactor:reactor-bom:$reactor_bom_version")
+
+        api "io.projectreactor.netty:reactor-netty"
+        api "io.projectreactor.addons:reactor-extra"
+
+        api "com.fasterxml.jackson.core:jackson-databind:$jackson_version"
+        api "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:$jackson_version"
+
+        testImplementation "org.junit.jupiter:junit-jupiter-engine:$junit_version"
+    }
+
+    tasks.withType(JavaCompile) {
+        options.encoding = "UTF-8"
+        options.incremental = true
+    }
+
+    tasks.withType(Javadoc) {
+        if (JavaVersion.current().isJava9Compatible()) {
+            options.addBooleanOption('html5', true)
+        }
+    }
+
+    test {
+        useJUnitPlatform()
+    }
+
+    java {
+        withJavadocJar()
+        withSourcesJar()
+    }
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+            artifactId archivesBaseName
+
+            versionMapping {
+                usage('java-api') {
+                    fromResolutionOf('runtimeClasspath')
+                }
+                usage('java-runtime') {
+                    fromResolutionResult()
+                }
+            }
+
+            pom {
+                name = 'Telegram4J'
+                description = 'Telegram API schema parser.'
+                url = 'https://github.com/Telegram4J/tl-parser'
+
+                scm {
+                    url = 'https://github.com/Telegram4J/tl-parser'
+                    connection = 'scm:git:git://github.com/Telegram4J/tl-parser.git'
+                    developerConnection = 'scm:git:ssh://git@github.com:Telegram4J/tl-parser.git'
+                }
+            }
+        }
+    }
+}
