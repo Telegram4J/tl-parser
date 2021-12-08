@@ -1,6 +1,4 @@
-/**
- * Telegram objects created as immutable objects.
- */
+/** Telegram API objects generated as immutable objects. */
 @GenerateSchema
 @Value.Style(
         depluralize = true,

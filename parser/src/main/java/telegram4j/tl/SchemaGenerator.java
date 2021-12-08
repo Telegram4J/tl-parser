@@ -1033,10 +1033,27 @@ public class SchemaGenerator extends AbstractProcessor {
             case "SendMessage":
             case "SendMedia":
                 return ClassName.get(UTIL_PACKAGE, "BaseSendMessageRequest");
+
             case "UpdateNewMessage":
             case "UpdateEditMessage":
             case "UpdateNewChannelMessage":
+            case "UpdateDeleteMessages":
+            case "UpdateReadHistoryOutbox":
+            case "UpdateWebPage":
+            case "UpdateReadMessagesContents":
+            case "UpdateDeleteChannelMessages":
+            case "UpdateEditChannelMessage":
+            case "UpdateChannelWebPage":
+            case "UpdateFolderPeers":
+            case "UpdatePinnedMessages":
                 return ClassName.get(UTIL_PACKAGE, "PtsUpdate");
+
+            case "UpdateNewEncryptedMessage":
+            case "UpdateMessagePollVote":
+            case "UpdateChatParticipant":
+            case "UpdateChannelParticipant":
+            case "UpdateBotStopped":
+                return ClassName.get(UTIL_PACKAGE, "QtsUpdate");
 
             case "MsgDetailedInfo":
             case "MsgResendReq":
@@ -1045,6 +1062,7 @@ public class SchemaGenerator extends AbstractProcessor {
             case "MsgsStateInfo":
             case "MsgsStateReq":
                 return ClassName.get(RpcMethod.class);
+
             default:
                 if (type.endsWith("Empty")) {
                     return ClassName.get(EmptyObject.class);
