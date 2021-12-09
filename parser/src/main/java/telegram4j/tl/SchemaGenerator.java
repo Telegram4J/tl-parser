@@ -1032,7 +1032,7 @@ public class SchemaGenerator extends AbstractProcessor {
         switch (type) {
             case "SendMessage":
             case "SendMedia":
-                return ClassName.get(UTIL_PACKAGE, "BaseSendMessageRequest");
+                return ClassName.get(UTIL_PACKAGE + ".request.messages", "BaseSendMessageRequest");
 
             case "UpdateNewMessage":
             case "UpdateEditMessage":
