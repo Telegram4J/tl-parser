@@ -1,6 +1,7 @@
-package telegram4j.tl;
+package telegram4j.tl.request.messages;
 
 import reactor.util.annotation.Nullable;
+import telegram4j.tl.*;
 
 import java.util.List;
 
