@@ -248,7 +248,7 @@ public final class TlSerialUtil {
         }
     }
 
-    protected static Object deserializeUnknownVector(ByteBuf buf) {
+    protected static List<Object> deserializeUnknownVector(ByteBuf buf) {
         // vector id skipped.
         int size = buf.readIntLE();
         List<Object> list = new ArrayList<>(size);
