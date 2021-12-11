@@ -12,6 +12,7 @@ import io.netty.buffer.ByteBufAllocator;
 import org.immutables.value.Value;
 import reactor.core.Exceptions;
 import reactor.util.annotation.Nullable;
+import telegram4j.tl.api.*;
 import telegram4j.tl.model.*;
 
 import javax.annotation.processing.*;

@@ -2,6 +2,7 @@ package telegram4j.tl;
 
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeVariableName;
+import telegram4j.tl.api.TlObject;
 import telegram4j.tl.model.ImmutableTlParam;
 
 import javax.lang.model.element.Modifier;

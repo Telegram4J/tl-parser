@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.node.*;
 import io.netty.buffer.*;
 import reactor.core.Exceptions;
 import reactor.util.annotation.Nullable;
+import telegram4j.tl.api.TlObject;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
