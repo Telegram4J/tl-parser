@@ -396,9 +396,9 @@ public class SchemaGenerator extends AbstractProcessor {
                     String precompute = method.params().stream()
                             .filter(p -> p.type().startsWith("flags."))
                             .map(this::parseFlag)
-                            .map(f -> String.format("(%s()%s ? 1 : 0) << %d", formatFieldName(f.getParam()),
+                            .map(f -> String.format("(%s()%s ? 1 : 0) << 0x%s", formatFieldName(f.getParam()),
                                     f.getType().equals("true") ? "" : " != null",
-                                    f.getPosition()))
+                                    Integer.toHexString(f.getPosition())))
                             .collect(Collectors.joining(" | "));
 
                     attribute.addCode("return " + precompute + ";");
@@ -579,9 +579,9 @@ public class SchemaGenerator extends AbstractProcessor {
                         String precompute = constructor.params().stream()
                                 .filter(p -> p.type().startsWith("flags."))
                                 .map(this::parseFlag)
-                                .map(f -> String.format("(%s()%s ? 1 : 0) << %d", formatFieldName(f.getParam()),
+                                .map(f -> String.format("(%s()%s ? 1 : 0) << 0x%s", formatFieldName(f.getParam()),
                                         f.getType().equals("true") ? "" : " != null",
-                                        f.getPosition()))
+                                        Integer.toHexString(f.getPosition())))
                                 .collect(Collectors.joining(" | "));
 
                         attribute.addCode("return " + precompute + ";");
