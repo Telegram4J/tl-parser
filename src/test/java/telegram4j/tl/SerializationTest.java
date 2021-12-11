@@ -23,7 +23,7 @@ public class SerializationTest {
                 .id(10)
                 .photo(ChatPhotoEmpty.instance())
                 .participantsCount(99)
-                .flags(0x2 | 0x18)
+                .callNotEmpty(true)
                 .build();
 
         ByteBuf bytes = TlSerializer.serialize(alloc, expected);
