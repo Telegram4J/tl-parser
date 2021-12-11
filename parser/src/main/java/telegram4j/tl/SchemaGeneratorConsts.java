@@ -7,7 +7,6 @@ import telegram4j.tl.model.ImmutableTlParam;
 import javax.lang.model.element.Modifier;
 import java.util.Arrays;
 import java.util.List;
-import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
 final class SchemaGeneratorConsts {
@@ -29,8 +28,6 @@ final class SchemaGeneratorConsts {
     static final TypeVariableName genericTypeRef = TypeVariableName.get("T");
 
     static final ImmutableTlParam flagParameter = ImmutableTlParam.of("flags", "#");
-
-    static final Supplier<IllegalStateException> ise = IllegalStateException::new;
 
     static final MethodSpec privateConstructor = MethodSpec.constructorBuilder()
             .addModifiers(Modifier.PRIVATE)

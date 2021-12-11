@@ -1,8 +1,6 @@
 package telegram4j.tl;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
@@ -18,20 +16,20 @@ public class SerializationTest {
 
     @Test
     void chat() {
-        Chat expected = BaseChat.builder()
+        BaseChat expected = BaseChat.builder()
                 .version(1)
                 .date(1337)
                 .title("A!")
                 .id(10)
                 .photo(ChatPhotoEmpty.instance())
                 .participantsCount(99)
-                .left(true)
-                .callNotEmpty(true)
+                .flags(0x2 | 0x18)
                 .build();
 
         ByteBuf bytes = TlSerializer.serialize(alloc, expected);
+        BaseChat result = TlDeserializer.deserialize(bytes);
+        bytes.release();
 
-        Chat result = TlDeserializer.deserialize(bytes);
         assertEquals(result, expected);
     }
 
@@ -47,15 +45,21 @@ public class SerializationTest {
 
         ByteBuf serialized = TlSerializer.serialize(alloc, pack);
         GzipPacked packDeserialized = TlDeserializer.deserialize(serialized);
-        Chat deserializedChat = TlSerialUtil.decompressGzip(alloc.buffer().writeBytes(packDeserialized.packedData()));
+        serialized.release();
+
+        ByteBuf deserialized = alloc.buffer().writeBytes(packDeserialized.packedData());
+        Chat deserializedChat = TlSerialUtil.decompressGzip(deserialized);
+        deserialized.release();
+
         assertEquals(chat, deserializedChat);
     }
 
     @Test
     void jsonNode() {
-        TextNode n = JsonNodeFactory.instance.textNode("test str");
+        TextNode n = TextNode.valueOf("test str");
         ByteBuf buf = TlSerialUtil.serializeJsonNode(alloc, n);
         JsonNode n0 = TlSerialUtil.deserializeJsonNode(buf);
+        buf.release();
 
         assertEquals(n, n0);
     }
