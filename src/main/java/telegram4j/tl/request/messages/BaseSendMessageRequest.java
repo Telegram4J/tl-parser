@@ -8,6 +8,8 @@ import java.util.List;
 
 public interface BaseSendMessageRequest extends TlMethod<Updates> {
 
+    int flags();
+
     InputPeer peer();
 
     @Nullable
