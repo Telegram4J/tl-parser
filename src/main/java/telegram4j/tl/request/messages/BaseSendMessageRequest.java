@@ -10,6 +10,22 @@ public interface BaseSendMessageRequest extends TlMethod<Updates> {
 
     int flags();
 
+    default boolean noWebpage() {
+        return false;
+    }
+
+    default boolean silent() {
+        return false;
+    }
+
+    default boolean background() {
+        return false;
+    }
+
+    default boolean clearDraft() {
+        return false;
+    }
+
     InputPeer peer();
 
     @Nullable
