@@ -871,7 +871,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     String innerMethod = deserializeMethod(typeRaw);
                     String pos = Integer.toHexString(1 << position);
                     if (typeRaw.equals("true")) {
-                        return "(flags & " + pos + ") != 0";
+                        return "(flags & 0x" + pos + ") != 0";
                     }
                     return "(flags & 0x" + pos + ") != 0 ? " + innerMethod + " : null";
                 }
