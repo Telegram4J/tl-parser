@@ -46,7 +46,7 @@ public class SchemaGenerator extends AbstractProcessor {
     private static final String METHOD_PACKAGE_PREFIX = "request";
     private static final String MTPROTO_PACKAGE_PREFIX = "mtproto";
     private static final String TEMPLATE_PACKAGE_INFO = "package-info.template";
-    private static final String UTIL_PACKAGE = "telegram4j.tl";
+    private static final String BASE_PACKAGE = "telegram4j.tl";
     private static final String API_SCHEMA = "api.json";
     private static final String MTPROTO_SCHEMA = "mtproto.json";
     private static final String INDENT = "\t";
@@ -237,7 +237,7 @@ public class SchemaGenerator extends AbstractProcessor {
         serializer.addMethod(serializeMethod.build());
 
         writeTo(JavaFile.builder(getBasePackageName(), serializer.build())
-                .addStaticImport(ClassName.get(UTIL_PACKAGE, "TlSerialUtil"), "*")
+                .addStaticImport(ClassName.get(BASE_PACKAGE, "TlSerialUtil"), "*")
                 .addStaticImport(ClassName.get(getBasePackageName(), "TlPrimitives"), "*")
                 .indent(INDENT)
                 .skipJavaLangImports(true)
@@ -249,7 +249,7 @@ public class SchemaGenerator extends AbstractProcessor {
         deserializer.addMethod(deserializeMethod.build());
 
         writeTo(JavaFile.builder(getBasePackageName(), deserializer.build())
-                .addStaticImport(ClassName.get(UTIL_PACKAGE, "TlSerialUtil"), "*")
+                .addStaticImport(ClassName.get(BASE_PACKAGE, "TlSerialUtil"), "*")
                 .addStaticImport(ClassName.get(getBasePackageName(), "TlPrimitives"), "*")
                 .indent(INDENT)
                 .skipJavaLangImports(true)
@@ -1011,7 +1011,11 @@ public class SchemaGenerator extends AbstractProcessor {
         switch (type) {
             case "SendMessage":
             case "SendMedia":
-                return ClassName.get(UTIL_PACKAGE + ".request.messages", "BaseSendMessageRequest");
+                return ClassName.get(BASE_PACKAGE + ".request.messages", "BaseSendMessageRequest");
+
+            case "BaseChatPhoto":
+            case "BaseUserProfilePhoto":
+                return ClassName.get(BASE_PACKAGE, "ChatPhotoFields");
 
             case "UpdateNewMessage":
             case "UpdateEditMessage":
@@ -1025,14 +1029,14 @@ public class SchemaGenerator extends AbstractProcessor {
             case "UpdateChannelWebPage":
             case "UpdateFolderPeers":
             case "UpdatePinnedMessages":
-                return ClassName.get(UTIL_PACKAGE, "PtsUpdate");
+                return ClassName.get(BASE_PACKAGE, "PtsUpdate");
 
             case "UpdateNewEncryptedMessage":
             case "UpdateMessagePollVote":
             case "UpdateChatParticipant":
             case "UpdateChannelParticipant":
             case "UpdateBotStopped":
-                return ClassName.get(UTIL_PACKAGE, "QtsUpdate");
+                return ClassName.get(BASE_PACKAGE, "QtsUpdate");
 
             case "MsgDetailedInfo":
             case "MsgResendReq":

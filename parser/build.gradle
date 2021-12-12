@@ -3,7 +3,6 @@ dependencies {
 
     implementation "com.squareup:javapoet:$javapoet_version"
     compileOnly "org.immutables:value:$immutables_version"
-    compileOnly "org.immutables:encode:$immutables_version"
     annotationProcessor "org.immutables:value:$immutables_version"
 
     api "com.fasterxml.jackson.core:jackson-databind:$jackson_version"

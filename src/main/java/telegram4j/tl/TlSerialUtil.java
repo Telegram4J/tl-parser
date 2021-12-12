@@ -114,8 +114,7 @@ public final class TlSerialUtil {
 
         int offset = ((bytes.length >= 0xfe ? 4 : 1) + bytes.length) % 4;
         if (offset != 0) {
-            byte[] data = new byte[4 - offset];
-            buf.writeBytes(data);
+            buf.writeZero(4 - offset);
         }
 
         return buf;
