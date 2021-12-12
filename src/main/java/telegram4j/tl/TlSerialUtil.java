@@ -41,16 +41,16 @@ public final class TlSerialUtil {
             int remaining = Integer.MAX_VALUE;
             int n;
             do {
-                byte[] buf1 = new byte[Math.min(remaining, 1024 * 8)];
+                byte[] buf = new byte[Math.min(remaining, 1024 * 8)];
                 int nread = 0;
 
-                while ((n = in.read(buf1, nread, Math.min(buf1.length - nread, remaining))) > 0) {
+                while ((n = in.read(buf, nread, Math.min(buf.length - nread, remaining))) > 0) {
                     nread += n;
                     remaining -= n;
                 }
 
                 if (nread > 0) {
-                    result.writeBytes(buf1, 0, nread);
+                    result.writeBytes(buf, 0, nread);
                 }
             } while (n >= 0 && remaining > 0);
 

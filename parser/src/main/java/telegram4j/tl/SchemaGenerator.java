@@ -279,10 +279,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     ClassName.get(TlMethod.class),
                     parseType(method.type(), schema).box());
 
-            ClassName customType = awareSuperType(name);
-            if (customType != null) {
-                spec.addSuperinterface(customType);
-            }
+            spec.addSuperinterfaces(awareSuperType(name));
 
             spec.addSuperinterface(returnType);
             if (schema.superType() != TlObject.class) {
@@ -454,10 +451,7 @@ public class SchemaGenerator extends AbstractProcessor {
             TypeSpec.Builder spec = TypeSpec.interfaceBuilder(name)
                     .addModifiers(Modifier.PUBLIC);
 
-            ClassName customType = awareSuperType(name);
-            if (customType != null) {
-                spec.addSuperinterface(customType);
-            }
+            spec.addSuperinterfaces(awareSuperType(name));
 
             if (multiple) {
                 spec.addSuperinterface(ClassName.get(packageName, type));
@@ -1006,20 +1000,25 @@ public class SchemaGenerator extends AbstractProcessor {
         return new Flag(position, param, type);
     }
 
-    @Nullable
-    private ClassName awareSuperType(String type) {
+    private List<ClassName> awareSuperType(String type) {
+        List<ClassName> types = new ArrayList<>();
+
         switch (type) {
             case "SendMessage":
             case "SendMedia":
-                return ClassName.get(BASE_PACKAGE + ".request.messages", "BaseSendMessageRequest");
+                types.add(ClassName.get(BASE_PACKAGE + ".request.messages", "BaseSendMessageRequest"));
+                break;
 
             case "BaseChatPhoto":
             case "BaseUserProfilePhoto":
-                return ClassName.get(BASE_PACKAGE, "ChatPhotoFields");
+                types.add(ClassName.get(BASE_PACKAGE, "ChatPhotoFields"));
+                break;
 
             case "UpdateNewMessage":
-            case "UpdateEditMessage":
             case "UpdateNewChannelMessage":
+                types.add(ClassName.get(BASE_PACKAGE, "UpdateBaseNewMessage"));
+
+            case "UpdateEditMessage":
             case "UpdateDeleteMessages":
             case "UpdateReadHistoryOutbox":
             case "UpdateWebPage":
@@ -1029,14 +1028,16 @@ public class SchemaGenerator extends AbstractProcessor {
             case "UpdateChannelWebPage":
             case "UpdateFolderPeers":
             case "UpdatePinnedMessages":
-                return ClassName.get(BASE_PACKAGE, "PtsUpdate");
+                types.add(ClassName.get(BASE_PACKAGE, "PtsUpdate"));
+                break;
 
             case "UpdateNewEncryptedMessage":
             case "UpdateMessagePollVote":
             case "UpdateChatParticipant":
             case "UpdateChannelParticipant":
             case "UpdateBotStopped":
-                return ClassName.get(BASE_PACKAGE, "QtsUpdate");
+                types.add(ClassName.get(BASE_PACKAGE, "QtsUpdate"));
+                break;
 
             case "MsgDetailedInfo":
             case "MsgResendReq":
@@ -1044,15 +1045,16 @@ public class SchemaGenerator extends AbstractProcessor {
             case "MsgsAllInfo":
             case "MsgsStateInfo":
             case "MsgsStateReq":
-                return ClassName.get(RpcMethod.class);
+                types.add(ClassName.get(RpcMethod.class));
+                break;
 
             default:
                 if (type.endsWith("Empty")) {
-                    return ClassName.get(EmptyObject.class);
+                    types.add(ClassName.get(EmptyObject.class));
                 }
-
-                return null;
         }
+
+        return types;
     }
 
     // java 9
