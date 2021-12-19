@@ -215,9 +215,7 @@ public final class TlSerialUtil {
     }
 
     public static ByteBuf serializeUnknown(ByteBufAllocator allocator, Object value) {
-        if (value instanceof Byte) {
-            return allocator.buffer(Byte.BYTES).writeByte((int) value);
-        } else if (value instanceof Integer) {
+        if (value instanceof Integer) {
             return allocator.buffer(Integer.BYTES).writeIntLE((int) value);
         } else if (value instanceof Long) {
             return allocator.buffer(Long.BYTES).writeLongLE((long) value);
@@ -227,7 +225,9 @@ public final class TlSerialUtil {
             return allocator.buffer(Double.BYTES).writeDoubleLE((long) value);
         } else if (value instanceof byte[]) {
             byte[] value0 = (byte[]) value;
-            return allocator.buffer(value0.length).writeBytes(value0);
+            return serializeBytes(allocator, value0);
+        } else if (value instanceof String) {
+            return serializeString(allocator, (String) value);
         } else if (value instanceof List) {
             List<?> value0 = (List<?>) value;
             ByteBuf buf = allocator.buffer();
