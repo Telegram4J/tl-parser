@@ -1017,10 +1017,12 @@ public class SchemaGenerator extends AbstractProcessor {
             case "UpdateNewMessage":
             case "UpdateNewChannelMessage":
                 types.add(ClassName.get(BASE_PACKAGE, "UpdateNewMessageFields"));
+                break;
 
             case "UpdateEditMessage":
             case "UpdateEditChannelMessage":
                 types.add(ClassName.get(BASE_PACKAGE, "UpdateEditMessageFields"));
+                break;
 
             case "UpdateDeleteMessages":
             case "UpdateReadHistoryOutbox":
