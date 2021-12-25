@@ -311,7 +311,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
             AnnotationSpec.Builder value = AnnotationSpec.builder(Value.Immutable.class);
 
-            boolean singleton = method.params().stream().allMatch(p -> p.type().startsWith("flags."));
+            boolean singleton = method.params().stream().allMatch(p -> p.type().startsWith("flags.") || p.type().equals("#"));
             if (singleton) {
                 value.addMember("singleton", "true");
 
@@ -473,7 +473,7 @@ public class SchemaGenerator extends AbstractProcessor {
             Set<TlParam> attributes = new LinkedHashSet<>(constructor.params());
             collectAttributesRecursive(type, attributes);
 
-            boolean singleton = attributes.stream().allMatch(p -> p.type().startsWith("flags."));
+            boolean singleton = attributes.stream().allMatch(p -> p.type().startsWith("flags.") || p.type().equals("#"));
             AnnotationSpec.Builder value = AnnotationSpec.builder(Value.Immutable.class);
             if (singleton) {
                 value.addMember("singleton", "true");
