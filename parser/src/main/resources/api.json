@@ -581,7 +581,7 @@
       "type": "Chat"
     },
     {
-      "id": "1304281241",
+      "id": "-779165146",
       "predicate": "chatFull",
       "params": [
         {
@@ -647,6 +647,18 @@
         {
           "name": "theme_emoticon",
           "type": "flags.16?string"
+        },
+        {
+          "name": "requests_pending",
+          "type": "flags.17?int"
+        },
+        {
+          "name": "recent_requesters",
+          "type": "flags.17?Vector<long>"
+        },
+        {
+          "name": "available_reactions",
+          "type": "flags.18?Vector<string>"
         }
       ],
       "type": "ChatFull"
@@ -761,7 +773,7 @@
       "type": "Message"
     },
     {
-      "id": "-2049520670",
+      "id": "940666592",
       "predicate": "message",
       "params": [
         {
@@ -803,6 +815,10 @@
         {
           "name": "pinned",
           "type": "flags.24?true"
+        },
+        {
+          "name": "noforwards",
+          "type": "flags.26?true"
         },
         {
           "name": "id",
@@ -871,6 +887,10 @@
         {
           "name": "grouped_id",
           "type": "flags.17?long"
+        },
+        {
+          "name": "reactions",
+          "type": "flags.20?MessageReactions"
         },
         {
           "name": "restriction_reason",
@@ -1317,12 +1337,20 @@
       "type": "auth.SentCode"
     },
     {
-      "id": "-855308010",
+      "id": "872119224",
       "predicate": "auth.authorization",
       "params": [
         {
           "name": "flags",
           "type": "#"
+        },
+        {
+          "name": "setup_password_required",
+          "type": "flags.1?true"
+        },
+        {
+          "name": "otherwise_relogin_days",
+          "type": "flags.1?int"
         },
         {
           "name": "tmp_sessions",
@@ -1428,7 +1456,7 @@
       "type": "PeerNotifySettings"
     },
     {
-      "id": "1933519201",
+      "id": "-1525149427",
       "predicate": "peerSettings",
       "params": [
         {
@@ -1468,8 +1496,20 @@
           "type": "flags.8?true"
         },
         {
+          "name": "request_chat_broadcast",
+          "type": "flags.10?true"
+        },
+        {
           "name": "geo_distance",
           "type": "flags.6?int"
+        },
+        {
+          "name": "request_chat_title",
+          "type": "flags.9?string"
+        },
+        {
+          "name": "request_chat_date",
+          "type": "flags.9?int"
         }
       ],
       "type": "PeerSettings"
@@ -1552,7 +1592,7 @@
       "type": "ReportReason"
     },
     {
-      "id": "-694681851",
+      "id": "-818518751",
       "predicate": "userFull",
       "params": [
         {
@@ -1584,8 +1624,8 @@
           "type": "flags.13?true"
         },
         {
-          "name": "user",
-          "type": "User"
+          "name": "id",
+          "type": "long"
         },
         {
           "name": "about",
@@ -1626,6 +1666,10 @@
         {
           "name": "theme_emoticon",
           "type": "flags.15?string"
+        },
+        {
+          "name": "private_forward_name",
+          "type": "flags.16?string"
         }
       ],
       "type": "UserFull"
@@ -4347,6 +4391,10 @@
           "type": "flags.3?true"
         },
         {
+          "name": "call_requests_disabled",
+          "type": "flags.4?true"
+        },
+        {
           "name": "hash",
           "type": "long"
         },
@@ -4398,9 +4446,13 @@
       "type": "Authorization"
     },
     {
-      "id": "307276766",
+      "id": "1275039392",
       "predicate": "account.authorizations",
       "params": [
+        {
+          "name": "authorization_ttl_days",
+          "type": "int"
+        },
         {
           "name": "authorizations",
           "type": "Vector<Authorization>"
@@ -4606,7 +4658,7 @@
       "type": "ReceivedNotifyMessage"
     },
     {
-      "id": "-1316944408",
+      "id": "179611673",
       "predicate": "chatInviteExported",
       "params": [
         {
@@ -4620,6 +4672,10 @@
         {
           "name": "permanent",
           "type": "flags.5?true"
+        },
+        {
+          "name": "request_needed",
+          "type": "flags.6?true"
         },
         {
           "name": "link",
@@ -4648,6 +4704,14 @@
         {
           "name": "usage",
           "type": "flags.3?int"
+        },
+        {
+          "name": "requested",
+          "type": "flags.7?int"
+        },
+        {
+          "name": "title",
+          "type": "flags.8?string"
         }
       ],
       "type": "ExportedChatInvite"
@@ -4664,7 +4728,7 @@
       "type": "ChatInvite"
     },
     {
-      "id": "-540871282",
+      "id": "806110401",
       "predicate": "chatInvite",
       "params": [
         {
@@ -4688,8 +4752,16 @@
           "type": "flags.3?true"
         },
         {
+          "name": "request_needed",
+          "type": "flags.6?true"
+        },
+        {
           "name": "title",
           "type": "string"
+        },
+        {
+          "name": "about",
+          "type": "flags.5?string"
         },
         {
           "name": "photo",
@@ -5569,7 +5641,7 @@
       "type": "contacts.ResolvedPeer"
     },
     {
-      "id": "-374179305",
+      "id": "-516145888",
       "predicate": "channelFull",
       "params": [
         {
@@ -5731,6 +5803,22 @@
         {
           "name": "theme_emoticon",
           "type": "flags.27?string"
+        },
+        {
+          "name": "requests_pending",
+          "type": "flags.28?int"
+        },
+        {
+          "name": "recent_requesters",
+          "type": "flags.28?Vector<long>"
+        },
+        {
+          "name": "default_send_as",
+          "type": "flags.29?Peer"
+        },
+        {
+          "name": "available_reactions",
+          "type": "flags.30?Vector<string>"
         }
       ],
       "type": "ChatFull"
@@ -6060,9 +6148,17 @@
       "type": "ChannelParticipant"
     },
     {
-      "id": "682146919",
+      "id": "900251559",
       "predicate": "channelParticipantSelf",
       "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "via_request",
+          "type": "flags.0?true"
+        },
         {
           "name": "user_id",
           "type": "long"
@@ -10452,6 +10548,10 @@
         {
           "name": "invites",
           "type": "flags.15?true"
+        },
+        {
+          "name": "send",
+          "type": "flags.16?true"
         }
       ],
       "type": "ChannelAdminLogEventsFilter"
@@ -12982,7 +13082,7 @@
       "type": "account.WallPapers"
     },
     {
-      "id": "-557924733",
+      "id": "-1973130814",
       "predicate": "codeSettings",
       "params": [
         {
@@ -13000,6 +13100,14 @@
         {
           "name": "allow_app_hash",
           "type": "flags.4?true"
+        },
+        {
+          "name": "allow_missed_call",
+          "type": "flags.5?true"
+        },
+        {
+          "name": "logout_tokens",
+          "type": "flags.6?Vector<bytes>"
         }
       ],
       "type": "CodeSettings"
@@ -13980,7 +14088,7 @@
       "type": "InputTheme"
     },
     {
-      "id": "-402474788",
+      "id": "-1609668650",
       "predicate": "theme",
       "params": [
         {
@@ -14021,7 +14129,11 @@
         },
         {
           "name": "settings",
-          "type": "flags.3?ThemeSettings"
+          "type": "flags.3?Vector<ThemeSettings>"
+        },
+        {
+          "name": "emoticon",
+          "type": "flags.6?string"
         },
         {
           "name": "installs_count",
@@ -16315,9 +16427,17 @@
       "type": "Update"
     },
     {
-      "id": "190633460",
+      "id": "-1940201511",
       "predicate": "chatInviteImporter",
       "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "requested",
+          "type": "flags.0?true"
+        },
         {
           "name": "user_id",
           "type": "long"
@@ -16325,6 +16445,14 @@
         {
           "name": "date",
           "type": "int"
+        },
+        {
+          "name": "about",
+          "type": "flags.2?string"
+        },
+        {
+          "name": "approved_by",
+          "type": "flags.1?long"
         }
       ],
       "type": "ChatInviteImporter"
@@ -16863,46 +16991,6 @@
       "type": "Update"
     },
     {
-      "id": "-318022605",
-      "predicate": "chatTheme",
-      "params": [
-        {
-          "name": "emoticon",
-          "type": "string"
-        },
-        {
-          "name": "theme",
-          "type": "Theme"
-        },
-        {
-          "name": "dark_theme",
-          "type": "Theme"
-        }
-      ],
-      "type": "ChatTheme"
-    },
-    {
-      "id": "-535699004",
-      "predicate": "account.chatThemesNotModified",
-      "params": [],
-      "type": "account.ChatThemes"
-    },
-    {
-      "id": "-28524867",
-      "predicate": "account.chatThemes",
-      "params": [
-        {
-          "name": "hash",
-          "type": "int"
-        },
-        {
-          "name": "themes",
-          "type": "Vector<ChatTheme>"
-        }
-      ],
-      "type": "account.ChatThemes"
-    },
-    {
       "id": "-1434950843",
       "predicate": "messageActionSetChatTheme",
       "params": [
@@ -16920,7 +17008,7 @@
       "type": "SendMessageAction"
     },
     {
-      "id": "708589599",
+      "id": "981691896",
       "predicate": "sponsoredMessage",
       "params": [
         {
@@ -16933,7 +17021,19 @@
         },
         {
           "name": "from_id",
-          "type": "Peer"
+          "type": "flags.3?Peer"
+        },
+        {
+          "name": "chat_invite",
+          "type": "flags.4?ChatInvite"
+        },
+        {
+          "name": "chat_invite_hash",
+          "type": "flags.4?string"
+        },
+        {
+          "name": "channel_post",
+          "type": "flags.2?int"
         },
         {
           "name": "start_param",
@@ -17027,6 +17127,545 @@
         }
       ],
       "type": "InputBotInlineMessageID"
+    },
+    {
+      "id": "-911191137",
+      "predicate": "searchResultsCalendarPeriod",
+      "params": [
+        {
+          "name": "date",
+          "type": "int"
+        },
+        {
+          "name": "min_msg_id",
+          "type": "int"
+        },
+        {
+          "name": "max_msg_id",
+          "type": "int"
+        },
+        {
+          "name": "count",
+          "type": "int"
+        }
+      ],
+      "type": "SearchResultsCalendarPeriod"
+    },
+    {
+      "id": "343859772",
+      "predicate": "messages.searchResultsCalendar",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "inexact",
+          "type": "flags.0?true"
+        },
+        {
+          "name": "count",
+          "type": "int"
+        },
+        {
+          "name": "min_date",
+          "type": "int"
+        },
+        {
+          "name": "min_msg_id",
+          "type": "int"
+        },
+        {
+          "name": "offset_id_offset",
+          "type": "flags.1?int"
+        },
+        {
+          "name": "periods",
+          "type": "Vector<SearchResultsCalendarPeriod>"
+        },
+        {
+          "name": "messages",
+          "type": "Vector<Message>"
+        },
+        {
+          "name": "chats",
+          "type": "Vector<Chat>"
+        },
+        {
+          "name": "users",
+          "type": "Vector<User>"
+        }
+      ],
+      "type": "messages.SearchResultsCalendar"
+    },
+    {
+      "id": "2137295719",
+      "predicate": "searchResultPosition",
+      "params": [
+        {
+          "name": "msg_id",
+          "type": "int"
+        },
+        {
+          "name": "date",
+          "type": "int"
+        },
+        {
+          "name": "offset",
+          "type": "int"
+        }
+      ],
+      "type": "SearchResultsPosition"
+    },
+    {
+      "id": "1404185519",
+      "predicate": "messages.searchResultsPositions",
+      "params": [
+        {
+          "name": "count",
+          "type": "int"
+        },
+        {
+          "name": "positions",
+          "type": "Vector<SearchResultsPosition>"
+        }
+      ],
+      "type": "messages.SearchResultsPositions"
+    },
+    {
+      "id": "-339958837",
+      "predicate": "messageActionChatJoinedByRequest",
+      "params": [],
+      "type": "MessageAction"
+    },
+    {
+      "id": "1885586395",
+      "predicate": "updatePendingJoinRequests",
+      "params": [
+        {
+          "name": "peer",
+          "type": "Peer"
+        },
+        {
+          "name": "requests_pending",
+          "type": "int"
+        },
+        {
+          "name": "recent_requesters",
+          "type": "Vector<long>"
+        }
+      ],
+      "type": "Update"
+    },
+    {
+      "id": "299870598",
+      "predicate": "updateBotChatInviteRequester",
+      "params": [
+        {
+          "name": "peer",
+          "type": "Peer"
+        },
+        {
+          "name": "date",
+          "type": "int"
+        },
+        {
+          "name": "user_id",
+          "type": "long"
+        },
+        {
+          "name": "about",
+          "type": "string"
+        },
+        {
+          "name": "invite",
+          "type": "ExportedChatInvite"
+        },
+        {
+          "name": "qts",
+          "type": "int"
+        }
+      ],
+      "type": "Update"
+    },
+    {
+      "id": "-1347021750",
+      "predicate": "channelAdminLogEventActionParticipantJoinByRequest",
+      "params": [
+        {
+          "name": "invite",
+          "type": "ExportedChatInvite"
+        },
+        {
+          "name": "approved_by",
+          "type": "long"
+        }
+      ],
+      "type": "ChannelAdminLogEventAction"
+    },
+    {
+      "id": "-376962181",
+      "predicate": "inputKeyboardButtonUserProfile",
+      "params": [
+        {
+          "name": "text",
+          "type": "string"
+        },
+        {
+          "name": "user_id",
+          "type": "InputUser"
+        }
+      ],
+      "type": "KeyboardButton"
+    },
+    {
+      "id": "814112961",
+      "predicate": "keyboardButtonUserProfile",
+      "params": [
+        {
+          "name": "text",
+          "type": "string"
+        },
+        {
+          "name": "user_id",
+          "type": "long"
+        }
+      ],
+      "type": "KeyboardButton"
+    },
+    {
+      "id": "-2091463255",
+      "predicate": "channels.sendAsPeers",
+      "params": [
+        {
+          "name": "peers",
+          "type": "Vector<Peer>"
+        },
+        {
+          "name": "chats",
+          "type": "Vector<Chat>"
+        },
+        {
+          "name": "users",
+          "type": "Vector<User>"
+        }
+      ],
+      "type": "channels.SendAsPeers"
+    },
+    {
+      "id": "-886388890",
+      "predicate": "channelAdminLogEventActionToggleNoForwards",
+      "params": [
+        {
+          "name": "new_value",
+          "type": "Bool"
+        }
+      ],
+      "type": "ChannelAdminLogEventAction"
+    },
+    {
+      "id": "-738646805",
+      "predicate": "messages.stickerSetNotModified",
+      "params": [],
+      "type": "messages.StickerSet"
+    },
+    {
+      "id": "997004590",
+      "predicate": "users.userFull",
+      "params": [
+        {
+          "name": "full_user",
+          "type": "UserFull"
+        },
+        {
+          "name": "chats",
+          "type": "Vector<Chat>"
+        },
+        {
+          "name": "users",
+          "type": "Vector<User>"
+        }
+      ],
+      "type": "users.UserFull"
+    },
+    {
+      "id": "1753266509",
+      "predicate": "messages.peerSettings",
+      "params": [
+        {
+          "name": "settings",
+          "type": "PeerSettings"
+        },
+        {
+          "name": "chats",
+          "type": "Vector<Chat>"
+        },
+        {
+          "name": "users",
+          "type": "Vector<User>"
+        }
+      ],
+      "type": "messages.PeerSettings"
+    },
+    {
+      "id": "663693416",
+      "predicate": "channelAdminLogEventActionSendMessage",
+      "params": [
+        {
+          "name": "message",
+          "type": "Message"
+        }
+      ],
+      "type": "ChannelAdminLogEventAction"
+    },
+    {
+      "id": "-702884114",
+      "predicate": "auth.codeTypeMissedCall",
+      "params": [],
+      "type": "auth.CodeType"
+    },
+    {
+      "id": "-2113903484",
+      "predicate": "auth.sentCodeTypeMissedCall",
+      "params": [
+        {
+          "name": "prefix",
+          "type": "string"
+        },
+        {
+          "name": "length",
+          "type": "int"
+        }
+      ],
+      "type": "auth.SentCodeType"
+    },
+    {
+      "id": "-1012759713",
+      "predicate": "auth.loggedOut",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "future_auth_token",
+          "type": "flags.0?bytes"
+        }
+      ],
+      "type": "auth.LoggedOut"
+    },
+    {
+      "id": "357013699",
+      "predicate": "updateMessageReactions",
+      "params": [
+        {
+          "name": "peer",
+          "type": "Peer"
+        },
+        {
+          "name": "msg_id",
+          "type": "int"
+        },
+        {
+          "name": "reactions",
+          "type": "MessageReactions"
+        }
+      ],
+      "type": "Update"
+    },
+    {
+      "id": "1873957073",
+      "predicate": "reactionCount",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "chosen",
+          "type": "flags.0?true"
+        },
+        {
+          "name": "reaction",
+          "type": "string"
+        },
+        {
+          "name": "count",
+          "type": "int"
+        }
+      ],
+      "type": "ReactionCount"
+    },
+    {
+      "id": "142306870",
+      "predicate": "messageReactions",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "min",
+          "type": "flags.0?true"
+        },
+        {
+          "name": "can_see_list",
+          "type": "flags.2?true"
+        },
+        {
+          "name": "results",
+          "type": "Vector<ReactionCount>"
+        },
+        {
+          "name": "recent_reactons",
+          "type": "flags.1?Vector<MessageUserReaction>"
+        }
+      ],
+      "type": "MessageReactions"
+    },
+    {
+      "id": "-1826077446",
+      "predicate": "messageUserReaction",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "long"
+        },
+        {
+          "name": "reaction",
+          "type": "string"
+        }
+      ],
+      "type": "MessageUserReaction"
+    },
+    {
+      "id": "-1553558980",
+      "predicate": "messages.messageReactionsList",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "count",
+          "type": "int"
+        },
+        {
+          "name": "reactions",
+          "type": "Vector<MessageUserReaction>"
+        },
+        {
+          "name": "users",
+          "type": "Vector<User>"
+        },
+        {
+          "name": "next_offset",
+          "type": "flags.0?string"
+        }
+      ],
+      "type": "messages.MessageReactionsList"
+    },
+    {
+      "id": "-1065882623",
+      "predicate": "availableReaction",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "inactive",
+          "type": "flags.0?true"
+        },
+        {
+          "name": "reaction",
+          "type": "string"
+        },
+        {
+          "name": "title",
+          "type": "string"
+        },
+        {
+          "name": "static_icon",
+          "type": "Document"
+        },
+        {
+          "name": "appear_animation",
+          "type": "Document"
+        },
+        {
+          "name": "select_animation",
+          "type": "Document"
+        },
+        {
+          "name": "activate_animation",
+          "type": "Document"
+        },
+        {
+          "name": "effect_animation",
+          "type": "Document"
+        },
+        {
+          "name": "around_animation",
+          "type": "flags.1?Document"
+        },
+        {
+          "name": "center_icon",
+          "type": "flags.1?Document"
+        }
+      ],
+      "type": "AvailableReaction"
+    },
+    {
+      "id": "-1626924713",
+      "predicate": "messages.availableReactionsNotModified",
+      "params": [],
+      "type": "messages.AvailableReactions"
+    },
+    {
+      "id": "1989032621",
+      "predicate": "messages.availableReactions",
+      "params": [
+        {
+          "name": "hash",
+          "type": "int"
+        },
+        {
+          "name": "reactions",
+          "type": "Vector<AvailableReaction>"
+        }
+      ],
+      "type": "messages.AvailableReactions"
+    },
+    {
+      "id": "852137487",
+      "predicate": "messageEntitySpoiler",
+      "params": [
+        {
+          "name": "offset",
+          "type": "int"
+        },
+        {
+          "name": "length",
+          "type": "int"
+        }
+      ],
+      "type": "MessageEntity"
+    },
+    {
+      "id": "-1661470870",
+      "predicate": "channelAdminLogEventActionChangeAvailableReactions",
+      "params": [
+        {
+          "name": "prev_value",
+          "type": "Vector<string>"
+        },
+        {
+          "name": "new_value",
+          "type": "Vector<string>"
+        }
+      ],
+      "type": "ChannelAdminLogEventAction"
     }
   ],
   "methods": [
@@ -17126,10 +17765,10 @@
       "type": "auth.Authorization"
     },
     {
-      "id": "1461180992",
+      "id": "1047706137",
       "method": "auth.logOut",
       "params": [],
-      "type": "Bool"
+      "type": "auth.LoggedOut"
     },
     {
       "id": "-1616179942",
@@ -17348,7 +17987,7 @@
       "type": "Vector<User>"
     },
     {
-      "id": "-902781519",
+      "id": "-1240508136",
       "method": "users.getFullUser",
       "params": [
         {
@@ -17356,7 +17995,7 @@
           "type": "InputUser"
         }
       ],
-      "type": "UserFull"
+      "type": "users.UserFull"
     },
     {
       "id": "2061264541",
@@ -17624,7 +18263,7 @@
       "type": "messages.AffectedMessages"
     },
     {
-      "id": "469850889",
+      "id": "-1332768214",
       "method": "messages.deleteHistory",
       "params": [
         {
@@ -17646,6 +18285,14 @@
         {
           "name": "max_id",
           "type": "int"
+        },
+        {
+          "name": "min_date",
+          "type": "flags.2?int"
+        },
+        {
+          "name": "max_date",
+          "type": "flags.3?int"
         }
       ],
       "type": "messages.AffectedHistory"
@@ -17704,7 +18351,7 @@
       "type": "Bool"
     },
     {
-      "id": "1376532592",
+      "id": "228423076",
       "method": "messages.sendMessage",
       "params": [
         {
@@ -17726,6 +18373,10 @@
         {
           "name": "clear_draft",
           "type": "flags.7?true"
+        },
+        {
+          "name": "noforwards",
+          "type": "flags.14?true"
         },
         {
           "name": "peer",
@@ -17754,12 +18405,16 @@
         {
           "name": "schedule_date",
           "type": "flags.10?int"
+        },
+        {
+          "name": "send_as",
+          "type": "flags.13?InputPeer"
         }
       ],
       "type": "Updates"
     },
     {
-      "id": "881978281",
+      "id": "-497026848",
       "method": "messages.sendMedia",
       "params": [
         {
@@ -17777,6 +18432,10 @@
         {
           "name": "clear_draft",
           "type": "flags.7?true"
+        },
+        {
+          "name": "noforwards",
+          "type": "flags.14?true"
         },
         {
           "name": "peer",
@@ -17809,12 +18468,16 @@
         {
           "name": "schedule_date",
           "type": "flags.10?int"
+        },
+        {
+          "name": "send_as",
+          "type": "flags.13?InputPeer"
         }
       ],
       "type": "Updates"
     },
     {
-      "id": "-637606386",
+      "id": "-869258997",
       "method": "messages.forwardMessages",
       "params": [
         {
@@ -17842,6 +18505,10 @@
           "type": "flags.12?true"
         },
         {
+          "name": "noforwards",
+          "type": "flags.14?true"
+        },
+        {
           "name": "from_peer",
           "type": "InputPeer"
         },
@@ -17860,6 +18527,10 @@
         {
           "name": "schedule_date",
           "type": "flags.10?int"
+        },
+        {
+          "name": "send_as",
+          "type": "flags.13?InputPeer"
         }
       ],
       "type": "Updates"
@@ -17876,7 +18547,7 @@
       "type": "Bool"
     },
     {
-      "id": "913498268",
+      "id": "-270948702",
       "method": "messages.getPeerSettings",
       "params": [
         {
@@ -17884,7 +18555,7 @@
           "type": "InputPeer"
         }
       ],
-      "type": "PeerSettings"
+      "type": "messages.PeerSettings"
     },
     {
       "id": "-1991005362",
@@ -18817,7 +19488,7 @@
       "type": "X"
     },
     {
-      "id": "347716823",
+      "id": "-1607670315",
       "method": "messages.exportChatInvite",
       "params": [
         {
@@ -18827,6 +19498,10 @@
         {
           "name": "legacy_revoke_permanent",
           "type": "flags.2?true"
+        },
+        {
+          "name": "request_needed",
+          "type": "flags.3?true"
         },
         {
           "name": "peer",
@@ -18839,6 +19514,10 @@
         {
           "name": "usage_limit",
           "type": "flags.1?int"
+        },
+        {
+          "name": "title",
+          "type": "flags.4?string"
         }
       ],
       "type": "ExportedChatInvite"
@@ -18866,12 +19545,16 @@
       "type": "Updates"
     },
     {
-      "id": "639215886",
+      "id": "-928977804",
       "method": "messages.getStickerSet",
       "params": [
         {
           "name": "stickerset",
           "type": "InputStickerSet"
+        },
+        {
+          "name": "hash",
+          "type": "int"
         }
       ],
       "type": "messages.StickerSet"
@@ -18986,22 +19669,7 @@
       "type": "messages.AffectedMessages"
     },
     {
-      "id": "-787622117",
-      "method": "channels.deleteUserHistory",
-      "params": [
-        {
-          "name": "channel",
-          "type": "InputChannel"
-        },
-        {
-          "name": "user_id",
-          "type": "InputUser"
-        }
-      ],
-      "type": "messages.AffectedHistory"
-    },
-    {
-      "id": "-32999408",
+      "id": "-196443371",
       "method": "channels.reportSpam",
       "params": [
         {
@@ -19009,8 +19677,8 @@
           "type": "InputChannel"
         },
         {
-          "name": "user_id",
-          "type": "InputUser"
+          "name": "participant",
+          "type": "InputPeer"
         },
         {
           "name": "id",
@@ -19511,7 +20179,7 @@
       "type": "Bool"
     },
     {
-      "id": "570955184",
+      "id": "2057376407",
       "method": "messages.sendInlineBotResult",
       "params": [
         {
@@ -19557,6 +20225,10 @@
         {
           "name": "schedule_date",
           "type": "flags.10?int"
+        },
+        {
+          "name": "send_as",
+          "type": "flags.13?InputPeer"
         }
       ],
       "type": "Updates"
@@ -21165,7 +21837,7 @@
       "type": "messages.Messages"
     },
     {
-      "id": "-872345397",
+      "id": "-134016113",
       "method": "messages.sendMultiMedia",
       "params": [
         {
@@ -21185,6 +21857,10 @@
           "type": "flags.7?true"
         },
         {
+          "name": "noforwards",
+          "type": "flags.14?true"
+        },
+        {
           "name": "peer",
           "type": "InputPeer"
         },
@@ -21199,6 +21875,10 @@
         {
           "name": "schedule_date",
           "type": "flags.10?int"
+        },
+        {
+          "name": "send_as",
+          "type": "flags.13?InputPeer"
         }
       ],
       "type": "Updates"
@@ -22344,7 +23024,7 @@
       "type": "Document"
     },
     {
-      "id": "-2077048289",
+      "id": "1697530880",
       "method": "account.createTheme",
       "params": [
         {
@@ -22365,13 +23045,13 @@
         },
         {
           "name": "settings",
-          "type": "flags.3?InputThemeSettings"
+          "type": "flags.3?Vector<InputThemeSettings>"
         }
       ],
       "type": "Theme"
     },
     {
-      "id": "1555261397",
+      "id": "737414348",
       "method": "account.updateTheme",
       "params": [
         {
@@ -22400,7 +23080,7 @@
         },
         {
           "name": "settings",
-          "type": "flags.3?InputThemeSettings"
+          "type": "flags.3?Vector<InputThemeSettings>"
         }
       ],
       "type": "Theme"
@@ -22421,7 +23101,7 @@
       "type": "Bool"
     },
     {
-      "id": "2061776695",
+      "id": "-953697477",
       "method": "account.installTheme",
       "params": [
         {
@@ -22433,12 +23113,16 @@
           "type": "flags.0?true"
         },
         {
-          "name": "format",
-          "type": "flags.1?string"
-        },
-        {
           "name": "theme",
           "type": "flags.1?InputTheme"
+        },
+        {
+          "name": "format",
+          "type": "flags.2?string"
+        },
+        {
+          "name": "base_theme",
+          "type": "flags.3?BaseTheme"
         }
       ],
       "type": "Bool"
@@ -23353,7 +24037,7 @@
       "type": "messages.ExportedChatInvite"
     },
     {
-      "id": "48562110",
+      "id": "-1110823051",
       "method": "messages.editExportedChatInvite",
       "params": [
         {
@@ -23379,6 +24063,14 @@
         {
           "name": "usage_limit",
           "type": "flags.1?int"
+        },
+        {
+          "name": "request_needed",
+          "type": "flags.3?Bool"
+        },
+        {
+          "name": "title",
+          "type": "flags.4?string"
         }
       ],
       "type": "messages.ExportedChatInvite"
@@ -23425,16 +24117,28 @@
       "type": "messages.ChatAdminsWithInvites"
     },
     {
-      "id": "654013065",
+      "id": "-553329330",
       "method": "messages.getChatInviteImporters",
       "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "requested",
+          "type": "flags.0?true"
+        },
         {
           "name": "peer",
           "type": "InputPeer"
         },
         {
           "name": "link",
-          "type": "string"
+          "type": "flags.1?string"
+        },
+        {
+          "name": "q",
+          "type": "flags.2?string"
         },
         {
           "name": "offset_date",
@@ -23773,15 +24477,15 @@
       "type": "Bool"
     },
     {
-      "id": "-690545285",
+      "id": "-700916087",
       "method": "account.getChatThemes",
       "params": [
         {
           "name": "hash",
-          "type": "int"
+          "type": "long"
         }
       ],
-      "type": "account.ChatThemes"
+      "type": "account.Themes"
     },
     {
       "id": "-432283329",
@@ -23838,6 +24542,294 @@
         }
       ],
       "type": "Vector<long>"
+    },
+    {
+      "id": "1240514025",
+      "method": "messages.getSearchResultsCalendar",
+      "params": [
+        {
+          "name": "peer",
+          "type": "InputPeer"
+        },
+        {
+          "name": "filter",
+          "type": "MessagesFilter"
+        },
+        {
+          "name": "offset_id",
+          "type": "int"
+        },
+        {
+          "name": "offset_date",
+          "type": "int"
+        }
+      ],
+      "type": "messages.SearchResultsCalendar"
+    },
+    {
+      "id": "1855292323",
+      "method": "messages.getSearchResultsPositions",
+      "params": [
+        {
+          "name": "peer",
+          "type": "InputPeer"
+        },
+        {
+          "name": "filter",
+          "type": "MessagesFilter"
+        },
+        {
+          "name": "offset_id",
+          "type": "int"
+        },
+        {
+          "name": "limit",
+          "type": "int"
+        }
+      ],
+      "type": "messages.SearchResultsPositions"
+    },
+    {
+      "id": "2145904661",
+      "method": "messages.hideChatJoinRequest",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "approved",
+          "type": "flags.0?true"
+        },
+        {
+          "name": "peer",
+          "type": "InputPeer"
+        },
+        {
+          "name": "user_id",
+          "type": "InputUser"
+        }
+      ],
+      "type": "Updates"
+    },
+    {
+      "id": "-528091926",
+      "method": "messages.hideAllChatJoinRequests",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "approved",
+          "type": "flags.0?true"
+        },
+        {
+          "name": "peer",
+          "type": "InputPeer"
+        },
+        {
+          "name": "link",
+          "type": "flags.1?string"
+        }
+      ],
+      "type": "Updates"
+    },
+    {
+      "id": "-1323389022",
+      "method": "messages.toggleNoForwards",
+      "params": [
+        {
+          "name": "peer",
+          "type": "InputPeer"
+        },
+        {
+          "name": "enabled",
+          "type": "Bool"
+        }
+      ],
+      "type": "Updates"
+    },
+    {
+      "id": "-855777386",
+      "method": "messages.saveDefaultSendAs",
+      "params": [
+        {
+          "name": "peer",
+          "type": "InputPeer"
+        },
+        {
+          "name": "send_as",
+          "type": "InputPeer"
+        }
+      ],
+      "type": "Bool"
+    },
+    {
+      "id": "231174382",
+      "method": "channels.getSendAs",
+      "params": [
+        {
+          "name": "peer",
+          "type": "InputPeer"
+        }
+      ],
+      "type": "channels.SendAsPeers"
+    },
+    {
+      "id": "-1081501024",
+      "method": "account.setAuthorizationTTL",
+      "params": [
+        {
+          "name": "authorization_ttl_days",
+          "type": "int"
+        }
+      ],
+      "type": "Bool"
+    },
+    {
+      "id": "1089766498",
+      "method": "account.changeAuthorizationSettings",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "hash",
+          "type": "long"
+        },
+        {
+          "name": "encrypted_requests_disabled",
+          "type": "flags.0?Bool"
+        },
+        {
+          "name": "call_requests_disabled",
+          "type": "flags.1?Bool"
+        }
+      ],
+      "type": "Bool"
+    },
+    {
+      "id": "913655003",
+      "method": "channels.deleteParticipantHistory",
+      "params": [
+        {
+          "name": "channel",
+          "type": "InputChannel"
+        },
+        {
+          "name": "participant",
+          "type": "InputPeer"
+        }
+      ],
+      "type": "messages.AffectedHistory"
+    },
+    {
+      "id": "627641572",
+      "method": "messages.sendReaction",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "peer",
+          "type": "InputPeer"
+        },
+        {
+          "name": "msg_id",
+          "type": "int"
+        },
+        {
+          "name": "reaction",
+          "type": "flags.0?string"
+        }
+      ],
+      "type": "Updates"
+    },
+    {
+      "id": "-1950707482",
+      "method": "messages.getMessagesReactions",
+      "params": [
+        {
+          "name": "peer",
+          "type": "InputPeer"
+        },
+        {
+          "name": "id",
+          "type": "Vector<int>"
+        }
+      ],
+      "type": "Updates"
+    },
+    {
+      "id": "-521245833",
+      "method": "messages.getMessageReactionsList",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "peer",
+          "type": "InputPeer"
+        },
+        {
+          "name": "id",
+          "type": "int"
+        },
+        {
+          "name": "reaction",
+          "type": "flags.0?string"
+        },
+        {
+          "name": "offset",
+          "type": "flags.1?string"
+        },
+        {
+          "name": "limit",
+          "type": "int"
+        }
+      ],
+      "type": "messages.MessageReactionsList"
+    },
+    {
+      "id": "335875750",
+      "method": "messages.setChatAvailableReactions",
+      "params": [
+        {
+          "name": "peer",
+          "type": "InputPeer"
+        },
+        {
+          "name": "available_reactions",
+          "type": "Vector<string>"
+        }
+      ],
+      "type": "Updates"
+    },
+    {
+      "id": "417243308",
+      "method": "messages.getAvailableReactions",
+      "params": [
+        {
+          "name": "hash",
+          "type": "int"
+        }
+      ],
+      "type": "messages.AvailableReactions"
+    },
+    {
+      "id": "-647969580",
+      "method": "messages.setDefaultReaction",
+      "params": [
+        {
+          "name": "reaction",
+          "type": "string"
+        }
+      ],
+      "type": "Bool"
     }
   ]
 }
