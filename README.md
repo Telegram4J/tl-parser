@@ -5,4 +5,4 @@
 Parses schemas in json format and generates interfaces with [Immutables](http://immutables.github.io/).
 Building this project requires JDK 11.
 
-**Current Layout:** 133
+**Current Layout:** 137
