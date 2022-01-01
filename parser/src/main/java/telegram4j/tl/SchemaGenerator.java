@@ -202,17 +202,17 @@ public class SchemaGenerator extends AbstractProcessor {
 
     private void finalizeSerialization() {
 
-        Map<String, List<TlEntityObject>> enumTypes = typeTree.entrySet().stream()
+        var enumTypes = typeTree.entrySet().stream()
                 .filter(e -> e.getValue().stream()
                         .mapToInt(c -> c.params().size())
                         .sum() == 0)
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-        for (Iterator<Map.Entry<String, List<TlEntityObject>>> it = enumTypes.entrySet().iterator(); it.hasNext(); ) {
-            Map.Entry<String, List<TlEntityObject>> e = it.next();
+        for (var it = enumTypes.entrySet().iterator(); it.hasNext(); ) {
+            var e = it.next();
             String packageName = parentPackageName(e.getKey());
 
-            List<TlEntityObject> chunk = e.getValue();
+            var chunk = e.getValue();
             for (int i = 0; i < chunk.size(); i++) {
                 TlEntityObject obj = chunk.get(i);
 
@@ -257,6 +257,7 @@ public class SchemaGenerator extends AbstractProcessor {
     }
 
     private void generateMethods() {
+        List<TlEntityObject> singletons = new ArrayList<>(50);
         for (TlEntityObject method : schema.methods()) {
             String name = normalizeName(method.name());
             if (ignoredTypes.contains(name.toLowerCase())) {
@@ -354,81 +355,128 @@ public class SchemaGenerator extends AbstractProcessor {
             ClassName typeRaw = ClassName.get(packageName, name);
             TypeName type = generic ? ParameterizedTypeName.get(typeRaw, ClassName.get(schema.superType())) : typeRaw;
 
-            serializeMethod.addCode("case $L: return $L(allocator, ($T) payload);\n",
-                    "0x" + Integer.toHexString(method.id()),
-                    methodName, type);
+            if (method.params().isEmpty()) {
+                singletons.add(method);
+            } else {
 
-            TypeName payloadType = generic ? ParameterizedTypeName.get(typeRaw, genericTypeRef) : typeRaw;
+                serializeMethod.addCode("case $L: return $L(allocator, ($T) payload);\n",
+                        "0x" + Integer.toHexString(method.id()),
+                        methodName, type);
 
-            MethodSpec.Builder serializerBuilder = MethodSpec.methodBuilder(methodName)
-                    .returns(ByteBuf.class)
-                    .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                    .addParameters(Arrays.asList(
-                            ParameterSpec.builder(ByteBufAllocator.class, "allocator").build(),
-                            ParameterSpec.builder(payloadType, "payload").build()));
+                TypeName payloadType = generic ? ParameterizedTypeName.get(typeRaw, genericTypeRef) : typeRaw;
 
-            if (generic) {
-                serializerBuilder.addTypeVariable(TypeVariableName.get("T", schema.superType()));
-            }
+                MethodSpec.Builder serializerBuilder = MethodSpec.methodBuilder(methodName)
+                        .returns(ByteBuf.class)
+                        .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
+                        .addParameters(Arrays.asList(
+                                ParameterSpec.builder(ByteBufAllocator.class, "allocator").build(),
+                                ParameterSpec.builder(payloadType, "payload").build()));
 
-            serializerBuilder.addCode("return allocator.buffer()\n");
-            serializerBuilder.addCode("\t\t.writeIntLE(payload.identifier())");
-
-            for (TlParam param : method.params()) {
-                String paramName = formatFieldName(param);
-
-                // serialization
-                String wrapping = serializeMethod(param);
-                if (wrapping != null) {
-                    serializerBuilder.addCode("\n\t\t." + wrapping, paramName);
+                if (generic) {
+                    serializerBuilder.addTypeVariable(TypeVariableName.get("T", schema.superType()));
                 }
 
-                TypeName paramType = parseType(param.type(), schema);
+                boolean hasReleasable = method.params().stream()
+                        .anyMatch(p -> isReleasable(p.type()));
 
-                MethodSpec.Builder attribute = MethodSpec.methodBuilder(paramName)
-                        .addModifiers(Modifier.PUBLIC);
+                CodeBlock.Builder serFinallyBlock = CodeBlock.builder();
+                CodeBlock.Builder serPrecomputeBlock = CodeBlock.builder();
+                CodeBlock.Builder std = CodeBlock.builder();
 
-                if (param.type().equals("#")) {
-                    attribute.addModifiers(Modifier.DEFAULT);
-                    String precompute = method.params().stream()
-                            .filter(p -> p.type().startsWith("flags."))
-                            .map(this::parseFlag)
-                            .map(f -> String.format("(%s()%s ? 1 : 0) << 0x%s", formatFieldName(f.getParam()),
-                                    f.getType().equals("true") ? "" : " != null",
-                                    Integer.toHexString(f.getPosition())))
-                            .collect(Collectors.joining(" | "));
+                for (TlParam param : method.params()) {
+                    String paramName = formatFieldName(param);
+                    boolean releasable = isReleasable(param.type());
 
-                    attribute.addCode("return " + precompute + ";");
-                } else if (param.type().endsWith("true")) {
-                    attribute.addModifiers(Modifier.DEFAULT);
-                    attribute.addCode("return false;");
-                } else if (param.type().startsWith("flags.")) {
-                    paramType = paramType.box();
-                    attribute.addAnnotation(Nullable.class);
-                    attribute.addModifiers(Modifier.ABSTRACT);
-                } else {
-                    attribute.addModifiers(Modifier.ABSTRACT);
+                    // serialization
+                    String ser = serializeMethod(param);
+                    String met = byteBufMethod(param);
+                    if (ser != null) {
+                        if (releasable) {
+                            serPrecomputeBlock.addStatement("$T $L = " + ser, ByteBuf.class, paramName, paramName);
+                            serFinallyBlock.addStatement("$L.release()", paramName);
+                            std.add("\n\t\t.$L($L)", met, paramName);
+                        } else {
+                            std.add("\n\t\t." + met + "(" + ser + ")", paramName);
+                        }
+                    }
+
+                    TypeName paramType = parseType(param.type(), schema);
+
+                    MethodSpec.Builder attribute = MethodSpec.methodBuilder(paramName)
+                            .addModifiers(Modifier.PUBLIC);
+
+                    if (param.type().equals("#")) {
+                        attribute.addModifiers(Modifier.DEFAULT);
+                        String precompute = method.params().stream()
+                                .filter(p -> p.type().startsWith("flags."))
+                                .map(this::parseFlag)
+                                .map(f -> String.format("(%s()%s ? 1 : 0) << 0x%s", formatFieldName(f.getParam()),
+                                        f.getType().equals("true") ? "" : " != null",
+                                        Integer.toHexString(f.getPosition())))
+                                .collect(Collectors.joining(" | "));
+
+                        attribute.addCode("return " + precompute + ";");
+                    } else if (param.type().endsWith("true")) {
+                        attribute.addModifiers(Modifier.DEFAULT);
+                        attribute.addCode("return false;");
+                    } else if (param.type().startsWith("flags.")) {
+                        paramType = paramType.box();
+                        attribute.addAnnotation(Nullable.class);
+                        attribute.addModifiers(Modifier.ABSTRACT);
+                    } else {
+                        attribute.addModifiers(Modifier.ABSTRACT);
+                    }
+
+                    spec.addMethod(attribute
+                            .returns(paramType)
+                            .build());
                 }
 
-                spec.addMethod(attribute
-                        .returns(paramType)
-                        .build());
+                serializerBuilder.addCode(serPrecomputeBlock.build());
+
+                if (hasReleasable) {
+                    serializerBuilder.beginControlFlow("try");
+                }
+
+                serializerBuilder.addCode("return allocator.buffer()\n");
+                serializerBuilder.addCode("\t\t.writeIntLE(payload.identifier())");
+                serializerBuilder.addCode(std.add(";").build());
+
+                if (hasReleasable) {
+                    serializerBuilder.addCode("\n");
+                    serializerBuilder.nextControlFlow("finally");
+                    serializerBuilder.addCode(serFinallyBlock.build());
+                    serializerBuilder.endControlFlow();
+                }
+
+                serializer.addMethod(serializerBuilder.build());
             }
-
-            serializerBuilder.addCode(";");
-
-            serializer.addMethod(serializerBuilder.build());
 
             writeTo(JavaFile.builder(packageName, spec.build())
                     .indent(INDENT)
                     .skipJavaLangImports(true)
                     .build());
         }
+
+        processSingletonSerialization(singletons);
+    }
+
+    private void processSingletonSerialization(List<TlEntityObject> singletons) {
+        for (int i = 0; i < singletons.size(); i++) {
+            TlEntityObject obj = singletons.get(i);
+            String id = "0x" + Integer.toHexString(obj.id());
+            if (i + 1 == singletons.size()) {
+                serializeMethod.addCode("case $L: return allocator.buffer(Integer.BYTES).writeIntLE(payload.identifier());\n", id);
+            } else {
+                serializeMethod.addCode("case $L:\n", id);
+            }
+        }
     }
 
     private void generateConstructors() {
-        Map<String, List<TlEntityObject>> currTypeTree = collectTypeTree(schema);
+        var currTypeTree = collectTypeTree(schema);
 
+        List<TlEntityObject> singletons = new ArrayList<>(50);
         for (TlEntityObject constructor : schema.constructors()) {
             String type = normalizeName(constructor.type());
             String name = normalizeName(constructor.name());
@@ -507,19 +555,6 @@ public class SchemaGenerator extends AbstractProcessor {
             computedSerializers.add(serializeMethodName);
 
             TypeName payloadType = ClassName.get(packageName, name);
-            serializeMethod.addCode("case $L: return $L(allocator, ($T) payload);\n",
-                    "0x" + Integer.toHexString(constructor.id()),
-                    serializeMethodName, payloadType);
-
-            MethodSpec.Builder serializerBuilder = MethodSpec.methodBuilder(serializeMethodName)
-                    .returns(ByteBuf.class)
-                    .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                    .addParameters(Arrays.asList(
-                            ParameterSpec.builder(ByteBufAllocator.class, "allocator").build(),
-                            ParameterSpec.builder(payloadType, "payload").build()));
-
-            serializerBuilder.addCode("return allocator.buffer()\n");
-            serializerBuilder.addCode("\t\t.writeIntLE(payload.identifier())");
 
             // deserialization
             String deserializeMethodName = "deserialize" + name;
@@ -538,7 +573,13 @@ public class SchemaGenerator extends AbstractProcessor {
             if (attributes.isEmpty()) {
                 deserializeMethod.addCode("case $L: return (T) $T.of();\n",
                         "0x" + Integer.toHexString(constructor.id()), typeName);
+
+                singletons.add(constructor);
             } else {
+                serializeMethod.addCode("case $L: return $L(allocator, ($T) payload);\n",
+                        "0x" + Integer.toHexString(constructor.id()),
+                        serializeMethodName, payloadType);
+
                 deserializeMethod.addCode("case $L: return (T) $L(payload);\n",
                         "0x" + Integer.toHexString(constructor.id()), deserializeMethodName);
 
@@ -547,18 +588,32 @@ public class SchemaGenerator extends AbstractProcessor {
                         .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                         .addParameter(ParameterSpec.builder(ByteBuf.class, "payload").build());
 
+                boolean hasReleasable = attributes.stream()
+                        .anyMatch(p -> isReleasable(p.type()));
+
+                CodeBlock.Builder serFinallyBlock = CodeBlock.builder();
+                CodeBlock.Builder serPrecomputeBlock = CodeBlock.builder();
+                CodeBlock.Builder std = CodeBlock.builder();
                 if (attributes.contains(flagParameter)) {
-                    deserializerBuilder.addCode("int flags = payload.readIntLE();\n");
+                    deserializerBuilder.addStatement("int flags = payload.readIntLE()");
                 }
                 deserializerBuilder.addCode("return $T.builder()", typeName);
 
                 for (TlParam param : attributes) {
                     String paramName = formatFieldName(param);
+                    boolean releasable = isReleasable(param.type());
 
                     // serialization
-                    String wrapping = serializeMethod(param);
-                    if (wrapping != null) {
-                        serializerBuilder.addCode("\n\t\t." + wrapping, paramName);
+                    String ser = serializeMethod(param);
+                    String met = byteBufMethod(param);
+                    if (ser != null) {
+                        if (releasable) {
+                            serPrecomputeBlock.addStatement("$T $L = " + ser, ByteBuf.class, paramName, paramName);
+                            serFinallyBlock.addStatement("$L.release()", paramName);
+                            std.add("\n\t\t.$L($L)", met, paramName);
+                        } else {
+                            std.add("\n\t\t." + met + "(" + ser + ")", paramName);
+                        }
                     }
 
                     deserializerBuilder.addCode("\n\t\t.$L(" + deserializeMethod(param.type()) + ")", paramName);
@@ -599,12 +654,33 @@ public class SchemaGenerator extends AbstractProcessor {
                             .build());
                 }
 
-                deserializerBuilder.addCode("\n\t\t.build();");
-                deserializer.addMethod(deserializerBuilder.build());
-            }
+                deserializer.addMethod(deserializerBuilder.addCode("\n\t\t.build();").build());
 
-            serializerBuilder.addCode(";");
-            serializer.addMethod(serializerBuilder.build());
+                MethodSpec.Builder serializerBuilder = MethodSpec.methodBuilder(serializeMethodName)
+                        .returns(ByteBuf.class)
+                        .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
+                        .addParameters(Arrays.asList(
+                                ParameterSpec.builder(ByteBufAllocator.class, "allocator").build(),
+                                ParameterSpec.builder(payloadType, "payload").build()))
+                        .addCode(serPrecomputeBlock.build());
+
+                if (hasReleasable) {
+                    serializerBuilder.beginControlFlow("try");
+                }
+
+                serializerBuilder.addCode("return allocator.buffer()\n");
+                serializerBuilder.addCode("\t\t.writeIntLE(payload.identifier())");
+                serializerBuilder.addCode(std.add(";").build());
+
+                if (hasReleasable) {
+                    serializerBuilder.addCode("\n");
+                    serializerBuilder.nextControlFlow("finally");
+                    serializerBuilder.addCode(serFinallyBlock.build());
+                    serializerBuilder.endControlFlow();
+                }
+
+                serializer.addMethod(serializerBuilder.build());
+            }
 
             writeTo(JavaFile.builder(packageName, spec.build())
                     .indent(INDENT)
@@ -613,22 +689,41 @@ public class SchemaGenerator extends AbstractProcessor {
 
             computed.put(packageName + "." + name, constructor);
         }
+
+        processSingletonSerialization(singletons);
+    }
+
+    private boolean isReleasable(String type) {
+        switch (type.toLowerCase()) {
+            case "#":
+            case "int":
+            case "true":
+            case "bool":
+            case "long":
+            case "double":
+            case "bytes":
+            case "int128":
+            case "int256":
+                return false;
+            default:
+                return true;
+        }
     }
 
     private void generateSuperTypes() {
-        Map<String, List<TlEntityObject>> currTypeTree = collectTypeTree(schema);
+        var currTypeTree = collectTypeTree(schema);
 
-        Map<String, Set<TlParam>> superTypes = currTypeTree.entrySet().stream()
+        var superTypes = currTypeTree.entrySet().stream()
                 .filter(e -> e.getValue().size() > 1)
                 .collect(Collectors.groupingBy(Map.Entry::getKey,
-                        flatMapping(e -> e.getValue().stream()
+                        Collectors.flatMapping(e -> e.getValue().stream()
                                         .flatMap(c -> c.params().stream())
                                         .filter(p -> !p.type().endsWith("true"))
                                         .filter(p -> e.getValue().stream()
                                                 .allMatch(c -> c.params().contains(p))),
                                 Collectors.toCollection(LinkedHashSet::new))));
 
-        for (Map.Entry<String, Set<TlParam>> e : superTypes.entrySet()) {
+        for (var e : superTypes.entrySet()) {
             String name = normalizeName(e.getKey());
             Set<TlParam> params = e.getValue();
             String packageName = parentPackageName(e.getKey());
@@ -895,46 +990,33 @@ public class SchemaGenerator extends AbstractProcessor {
         }
     }
 
-    @Nullable
-    private String serializeMethod(TlParam param) {
-        String wrapping = "payload.$L()";
-        String method0;
+    private String byteBufMethod(TlParam param) {
         String paramTypeLower = param.type().toLowerCase();
         switch (paramTypeLower) {
             case "bool":
-                method0 = "writeIntLE";
-                wrapping = "payload.$L() ? BOOL_TRUE_ID : BOOL_FALSE_ID";
-                break;
             case "#":
+            case "int": return "writeIntLE";
+            case "long": return "writeLongLE";
+            case "double": return  "writeDoubleLE";
+            default: return "writeBytes";
+        }
+    }
+
+    @Nullable
+    private String serializeMethod(TlParam param) {
+        String paramTypeLower = param.type().toLowerCase();
+        switch (paramTypeLower) {
             case "int":
-                method0 = "writeIntLE";
-                break;
-            case "int256":
-            case "int128":
-                method0 = "writeBytes";
-                break;
+            case "#":
             case "long":
-                method0 = "writeLongLE";
-                break;
-            case "double":
-                method0 = "writeDoubleLE";
-                break;
-            case "string":
-                wrapping = "serializeString(allocator, payload.$L())";
-                method0 = "writeBytes";
-                break;
-            case "bytes":
-                wrapping = "serializeBytes(allocator, payload.$L())";
-                method0 = "writeBytes";
-                break;
-            case "jsonvalue":
-                wrapping = "serializeJsonNode(allocator, payload.$L())";
-                method0 = "writeBytes";
-                break;
-            case "object":
-                wrapping = "serializeUnknown(allocator, payload.$L())";
-                method0 = "writeBytes";
-                break;
+            case "int128":
+            case "int256":
+            case "double": return "payload.$L()";
+            case "bool": return "payload.$L() ? BOOL_TRUE_ID : BOOL_FALSE_ID";
+            case "string": return "serializeString(allocator, payload.$L())";
+            case "bytes": return "serializeBytes(allocator, payload.$L())";
+            case "jsonvalue": return "serializeJsonNode(allocator, payload.$L())";
+            case "object": return "serializeUnknown(allocator, payload.$L())";
             default:
                 Matcher vector = VECTOR_PATTERN.matcher(paramTypeLower);
                 if (vector.matches()) {
@@ -948,18 +1030,15 @@ public class SchemaGenerator extends AbstractProcessor {
                             specific = Character.toUpperCase(innerType.charAt(0)) + innerType.substring(1);
                             break;
                     }
-                    wrapping = "serialize" + specific + "Vector(allocator, payload.$L())";
+                    return "serialize" + specific + "Vector(allocator, payload.$L())";
                 } else if (paramTypeLower.endsWith("true")) {
                     return null;
                 } else if (paramTypeLower.startsWith("flags.")) {
-                    wrapping = "serializeFlags(allocator, payload.$L())";
+                    return "serializeFlags(allocator, payload.$L())";
                 } else {
-                    wrapping = "serialize(allocator, payload.$L())";
+                    return "serialize(allocator, payload.$L())";
                 }
-                method0 = "writeBytes";
         }
-
-        return method0 + "(" + wrapping + ")";
     }
 
     private String getPackageName(TlSchema schema, String type, boolean method) {
@@ -1059,21 +1138,5 @@ public class SchemaGenerator extends AbstractProcessor {
         }
 
         return types;
-    }
-
-    // java 9
-    static <T, U, A, R> Collector<T, ?, R> flatMapping(Function<? super T, ? extends Stream<? extends U>> mapper,
-                                                       Collector<? super U, A, R> downstream) {
-        BiConsumer<A, ? super U> downstreamAccumulator = downstream.accumulator();
-        return Collector.of(downstream.supplier(),
-                (r, t) -> {
-                    try (Stream<? extends U> result = mapper.apply(t)) {
-                        if (result != null) {
-                            result.sequential().forEach(u -> downstreamAccumulator.accept(r, u));
-                        }
-                    }
-                },
-                downstream.combiner(), downstream.finisher(),
-                downstream.characteristics().toArray(new Collector.Characteristics[0]));
     }
 }

@@ -29,8 +29,9 @@ public final class TlSerialUtil {
         try (GZIPOutputStream out = new GZIPOutputStream(bufOut)) {
             ByteBuf buf = TlSerializer.serialize(allocator, object);
             out.write(ByteBufUtil.getBytes(buf));
+            buf.release();
             return bufOut.buffer();
-        }catch (IOException e) {
+        } catch (IOException e) {
             throw Exceptions.propagate(e);
         }
     }
@@ -55,7 +56,7 @@ public final class TlSerialUtil {
             } while (n >= 0 && remaining > 0);
 
             return TlDeserializer.deserialize(result);
-        }catch (IOException e) {
+        } catch (IOException e) {
             throw Exceptions.propagate(e);
         }
     }
@@ -182,7 +183,9 @@ public final class TlSerialUtil {
         buf.writeIntLE(VECTOR_ID);
         buf.writeIntLE(vector.size());
         for (String o : vector) {
-            buf.writeBytes(serializeString(allocator, o));
+            ByteBuf obuf = serializeString(allocator, o);
+            buf.writeBytes(obuf);
+            obuf.release();
         }
         return buf;
     }
@@ -202,7 +205,9 @@ public final class TlSerialUtil {
         buf.writeIntLE(VECTOR_ID);
         buf.writeIntLE(vector.size());
         for (TlObject o : vector) {
-            buf.writeBytes(TlSerializer.serialize(allocator, o));
+            ByteBuf obuf = TlSerializer.serialize(allocator, o);
+            buf.writeBytes(obuf);
+            obuf.release();
         }
         return buf;
     }
@@ -234,7 +239,9 @@ public final class TlSerialUtil {
             buf.writeIntLE(VECTOR_ID);
             buf.writeIntLE(value0.size());
             for (Object o : value0) {
-                buf.writeBytes(serializeUnknown(allocator, o));
+                ByteBuf obuf = serializeUnknown(allocator, o);
+                buf.writeBytes(obuf);
+                obuf.release();
             }
             return buf;
         } else if (value instanceof TlObject) {
@@ -275,8 +282,12 @@ public final class TlSerialUtil {
         ByteBuf buf = allocator.buffer();
         switch (node.getNodeType()) {
             case NULL: return buf.writeIntLE(JSON_NULL_ID);
-            case STRING: return buf.writeIntLE(JSON_STRING_ID)
-                    .writeBytes(serializeString(allocator, node.asText()));
+            case STRING:
+                buf.writeIntLE(JSON_STRING_ID);
+                ByteBuf str = serializeString(allocator, node.asText());
+                buf.writeBytes(str);
+                str.release();
+                return buf;
             case NUMBER: return buf.writeIntLE(JSON_NUMBER_ID)
                     .writeDoubleLE(node.asDouble());
             case BOOLEAN: return buf.writeIntLE(JSON_BOOL_ID)
@@ -285,15 +296,25 @@ public final class TlSerialUtil {
                 buf.writeIntLE(JSON_ARRAY_ID);
                 buf.writeIntLE(VECTOR_ID);
                 buf.writeIntLE(node.size());
-                node.elements().forEachRemaining(n -> buf.writeBytes(serializeJsonNode(allocator, n)));
+                node.elements().forEachRemaining(n -> {
+                    ByteBuf value = serializeJsonNode(allocator, n);
+                    buf.writeBytes(value);
+                    value.release();
+                });
                 return buf;
             case OBJECT:
                 buf.writeIntLE(JSON_OBJECT_ID);
                 buf.writeIntLE(VECTOR_ID);
                 buf.writeIntLE(node.size());
-                node.fields().forEachRemaining(f -> buf.writeIntLE(JSON_OBJECT_VALUE_ID)
-                        .writeBytes(serializeString(allocator, f.getKey()))
-                        .writeBytes(serializeJsonNode(allocator, f.getValue())));
+                node.fields().forEachRemaining(f -> {
+                    buf.writeIntLE(JSON_OBJECT_VALUE_ID);
+                    ByteBuf name = serializeString(allocator, f.getKey());
+                    buf.writeBytes(name);
+                    name.release();
+                    ByteBuf value = serializeJsonNode(allocator, f.getValue());
+                    buf.writeBytes(value);
+                    value.release();
+                });
                 return buf;
             default: throw new IllegalStateException("Incorrect json node type: " + node.getNodeType());
         }
