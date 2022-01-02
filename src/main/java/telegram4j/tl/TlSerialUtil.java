@@ -19,8 +19,6 @@ import static telegram4j.tl.TlPrimitives.*;
 
 public final class TlSerialUtil {
 
-    private static final ByteBuf EMPTY_BUFFER = new EmptyByteBuf(ByteBufAllocator.DEFAULT);
-
     private TlSerialUtil() {
     }
 
@@ -102,7 +100,9 @@ public final class TlSerialUtil {
     }
 
     public static ByteBuf serializeBytes(ByteBufAllocator allocator, byte[] bytes) {
-        ByteBuf buf = allocator.buffer();
+        int header = bytes.length >= 0xfe ? 4 : 1;
+        int offset = (header + bytes.length) % 4;
+        ByteBuf buf = allocator.buffer(header + bytes.length + 4 - offset);
 
         if (bytes.length >= 0xfe) {
             buf.writeByte(0xfe);
@@ -113,7 +113,6 @@ public final class TlSerialUtil {
 
         buf.writeBytes(bytes);
 
-        int offset = ((bytes.length >= 0xfe ? 4 : 1) + bytes.length) % 4;
         if (offset != 0) {
             buf.writeZero(4 - offset);
         }
@@ -159,7 +158,7 @@ public final class TlSerialUtil {
     }
 
     public static ByteBuf serializeLongVector(ByteBufAllocator allocator, List<Long> vector) {
-        ByteBuf buf = allocator.buffer();
+        ByteBuf buf = allocator.buffer(8 + 8 * vector.size());
         buf.writeIntLE(VECTOR_ID);
         buf.writeIntLE(vector.size());
         for (long l : vector) {
@@ -169,7 +168,7 @@ public final class TlSerialUtil {
     }
 
     public static ByteBuf serializeIntVector(ByteBufAllocator allocator, List<Integer> vector) {
-        ByteBuf buf = allocator.buffer();
+        ByteBuf buf = allocator.buffer(8 + 4 * vector.size());
         buf.writeIntLE(VECTOR_ID);
         buf.writeIntLE(vector.size());
         for (int i : vector) {
@@ -214,7 +213,7 @@ public final class TlSerialUtil {
 
     public static ByteBuf serializeFlags(ByteBufAllocator allocator, @Nullable Object value) {
         if (value == null) {
-            return EMPTY_BUFFER;
+            return Unpooled.EMPTY_BUFFER;
         }
         return serializeUnknown(allocator, value);
     }
@@ -279,20 +278,22 @@ public final class TlSerialUtil {
     }
 
     public static ByteBuf serializeJsonNode(ByteBufAllocator allocator, JsonNode node) {
-        ByteBuf buf = allocator.buffer();
         switch (node.getNodeType()) {
-            case NULL: return buf.writeIntLE(JSON_NULL_ID);
-            case STRING:
-                buf.writeIntLE(JSON_STRING_ID);
+            case NULL: return allocator.buffer(Integer.BYTES).writeIntLE(JSON_NULL_ID);
+            case STRING: {
                 ByteBuf str = serializeString(allocator, node.asText());
+                ByteBuf buf = allocator.buffer(4 + str.readableBytes());
+                buf.writeIntLE(JSON_STRING_ID);
                 buf.writeBytes(str);
                 str.release();
                 return buf;
-            case NUMBER: return buf.writeIntLE(JSON_NUMBER_ID)
+            }
+            case NUMBER: return allocator.buffer(12).writeIntLE(JSON_NUMBER_ID)
                     .writeDoubleLE(node.asDouble());
-            case BOOLEAN: return buf.writeIntLE(JSON_BOOL_ID)
+            case BOOLEAN: return allocator.buffer(8).writeIntLE(JSON_BOOL_ID)
                     .writeIntLE(node.asBoolean() ? BOOL_TRUE_ID : BOOL_FALSE_ID);
-            case ARRAY:
+            case ARRAY: {
+                ByteBuf buf = allocator.buffer();
                 buf.writeIntLE(JSON_ARRAY_ID);
                 buf.writeIntLE(VECTOR_ID);
                 buf.writeIntLE(node.size());
@@ -302,7 +303,9 @@ public final class TlSerialUtil {
                     value.release();
                 });
                 return buf;
-            case OBJECT:
+            }
+            case OBJECT: {
+                ByteBuf buf = allocator.buffer();
                 buf.writeIntLE(JSON_OBJECT_ID);
                 buf.writeIntLE(VECTOR_ID);
                 buf.writeIntLE(node.size());
@@ -316,6 +319,7 @@ public final class TlSerialUtil {
                     value.release();
                 });
                 return buf;
+            }
             default: throw new IllegalStateException("Incorrect json node type: " + node.getNodeType());
         }
     }
