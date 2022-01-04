@@ -409,9 +409,12 @@ public class SchemaGenerator extends AbstractProcessor {
                     String met = byteBufMethod(param);
                     if (ser != null) {
                         if (releasable) {
-                            serPrecomputeBlock.addStatement("$T $L = " + ser, ByteBuf.class, paramName, paramName);
-                            serFinallyBlock.addStatement("$L.release()", paramName);
-                            std.add("\n\t\t.$L($L)", met, paramName);
+                            // exception for InputMediaInvoice
+                            String fixedParamName = paramName.equals("payload") ? "payloadState" : paramName;
+
+                            serPrecomputeBlock.addStatement("$T $L = " + ser, ByteBuf.class, fixedParamName, paramName);
+                            serFinallyBlock.addStatement("$L.release()", fixedParamName);
+                            std.add("\n\t\t.$L($L)", met, fixedParamName);
                         } else {
                             std.add("\n\t\t." + met + "(" + ser + ")", paramName);
                         }
@@ -607,9 +610,12 @@ public class SchemaGenerator extends AbstractProcessor {
                     String met = byteBufMethod(param);
                     if (ser != null) {
                         if (releasable) {
-                            serPrecomputeBlock.addStatement("$T $L = " + ser, ByteBuf.class, paramName, paramName);
-                            serFinallyBlock.addStatement("$L.release()", paramName);
-                            std.add("\n\t\t.$L($L)", met, paramName);
+                            // exception for InputMediaInvoice
+                            String fixedParamName = paramName.equals("payload") ? "payloadState" : paramName;
+
+                            serPrecomputeBlock.addStatement("$T $L = " + ser, ByteBuf.class, fixedParamName, paramName);
+                            serFinallyBlock.addStatement("$L.release()", fixedParamName);
+                            std.add("\n\t\t.$L($L)", met, fixedParamName);
                         } else {
                             std.add("\n\t\t." + met + "(" + ser + ")", paramName);
                         }
@@ -698,7 +704,6 @@ public class SchemaGenerator extends AbstractProcessor {
             case "bool":
             case "long":
             case "double":
-            case "bytes":
             case "int128":
             case "int256":
                 return false;
@@ -1068,6 +1073,11 @@ public class SchemaGenerator extends AbstractProcessor {
         List<ClassName> types = new ArrayList<>();
 
         switch (type) {
+            case "BaseMessage":
+            case "MessageService":
+                types.add(ClassName.get(BASE_PACKAGE, "BaseMessageFields"));
+                break;
+
             case "SendMessage":
             case "SendMedia":
                 types.add(ClassName.get(BASE_PACKAGE + ".request.messages", "BaseSendMessageRequest"));
