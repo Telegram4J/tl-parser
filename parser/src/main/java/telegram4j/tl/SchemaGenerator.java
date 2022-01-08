@@ -1088,14 +1088,16 @@ public class SchemaGenerator extends AbstractProcessor {
                 types.add(ClassName.get(BASE_PACKAGE, "ChatPhotoFields"));
                 break;
 
-            case "UpdateNewMessage":
-            case "UpdateNewChannelMessage":
-                types.add(ClassName.get(BASE_PACKAGE, "UpdateNewMessageFields"));
-                break;
-
             case "UpdateEditMessage":
             case "UpdateEditChannelMessage":
                 types.add(ClassName.get(BASE_PACKAGE, "UpdateEditMessageFields"));
+                break;
+
+            case "UpdateNewMessage":
+            case "UpdateNewChannelMessage":
+                types.add(ClassName.get(BASE_PACKAGE, "PtsUpdate"));
+            case "UpdateNewScheduledMessage":
+                types.add(ClassName.get(BASE_PACKAGE, "UpdateNewMessageFields"));
                 break;
 
             case "UpdateDeleteMessages":
