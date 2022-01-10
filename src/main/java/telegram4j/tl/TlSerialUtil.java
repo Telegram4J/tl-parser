@@ -53,7 +53,9 @@ public final class TlSerialUtil {
                 }
             } while (n >= 0 && remaining > 0);
 
-            return TlDeserializer.deserialize(result);
+            T obj = TlDeserializer.deserialize(result);
+            result.release();
+            return obj;
         } catch (IOException e) {
             throw Exceptions.propagate(e);
         }
@@ -254,7 +256,7 @@ public final class TlSerialUtil {
         }
     }
 
-    protected static List<Object> deserializeUnknownVector(ByteBuf buf) {
+    static List<Object> deserializeUnknownVector(ByteBuf buf) {
         // vector id skipped.
         int size = buf.readIntLE();
         List<Object> list = new ArrayList<>(size);
