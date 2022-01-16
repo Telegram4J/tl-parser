@@ -12,8 +12,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
+import java.util.zip.Deflater;
+import java.util.zip.DeflaterOutputStream;
 import java.util.zip.GZIPInputStream;
-import java.util.zip.GZIPOutputStream;
 
 import static telegram4j.tl.TlPrimitives.*;
 
@@ -22,16 +23,20 @@ public final class TlSerialUtil {
     private TlSerialUtil() {
     }
 
-    public static ByteBuf compressGzip(ByteBufAllocator allocator, TlObject object) {
+    public static ByteBuf compressGzip(ByteBufAllocator allocator, ByteBuf buf) {
         ByteBufOutputStream bufOut = new ByteBufOutputStream(allocator.buffer());
-        try (GZIPOutputStream out = new GZIPOutputStream(bufOut)) {
-            ByteBuf buf = TlSerializer.serialize(allocator, object);
+        try (DeflaterOutputStream out = new DeflaterOutputStream(bufOut, new Deflater(9))) {
             out.write(ByteBufUtil.getBytes(buf));
+            out.finish();
             buf.release();
             return bufOut.buffer();
         } catch (IOException e) {
             throw Exceptions.propagate(e);
         }
+    }
+
+    public static ByteBuf compressGzip(ByteBufAllocator allocator, TlObject object) {
+        return compressGzip(allocator, TlSerializer.serialize(allocator, object));
     }
 
     public static <T> T decompressGzip(ByteBuf packed) {
