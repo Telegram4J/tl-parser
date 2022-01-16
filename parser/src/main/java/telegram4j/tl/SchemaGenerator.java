@@ -28,12 +28,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.Writer;
 import java.util.*;
-import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.regex.Matcher;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static telegram4j.tl.SchemaGeneratorConsts.*;
 import static telegram4j.tl.SourceNames.*;
@@ -1073,6 +1070,13 @@ public class SchemaGenerator extends AbstractProcessor {
         List<ClassName> types = new ArrayList<>();
 
         switch (type) {
+            case "UpdateDeleteMessages":
+            case "UpdateDeleteChannelMessages":
+                types.add(ClassName.get(BASE_PACKAGE, "PtsUpdate"));
+            case "UpdateDeleteScheduledMessages":
+                types.add(ClassName.get(BASE_PACKAGE, "UpdateDeleteMessagesFields"));
+                break;
+
             case "BaseMessage":
             case "MessageService":
                 types.add(ClassName.get(BASE_PACKAGE, "BaseMessageFields"));
@@ -1100,11 +1104,9 @@ public class SchemaGenerator extends AbstractProcessor {
                 types.add(ClassName.get(BASE_PACKAGE, "UpdateNewMessageFields"));
                 break;
 
-            case "UpdateDeleteMessages":
             case "UpdateReadHistoryOutbox":
             case "UpdateWebPage":
             case "UpdateReadMessagesContents":
-            case "UpdateDeleteChannelMessages":
             case "UpdateChannelWebPage":
             case "UpdateFolderPeers":
             case "UpdatePinnedMessages":
