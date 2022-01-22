@@ -8,9 +8,5 @@ dependencies {
     api "com.fasterxml.jackson.core:jackson-databind:$jackson_version"
     api "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:$jackson_version"
 
-    if (JavaVersion.current().isJava8()) {
-        compileOnly "com.google.code.findbugs:annotations:$findbugs_version"
-    } else {
-        compileOnly "javax.annotation:javax.annotation-api:$javax_annotation"
-    }
+    compileOnly "javax.annotation:javax.annotation-api:$javax_annotation"
 }
