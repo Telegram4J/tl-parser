@@ -74,10 +74,28 @@ public final class TlSerialUtil {
         return readBytes(buf, Long.BYTES * 4);
     }
 
+    // TODO: replace by this byte[] impl
+    public static ByteBuf deserializeBuf(ByteBuf buf) {
+        int n = buf.readUnsignedByte();
+        int h = 1;
+        if (n >= 0xfe) {
+            n = buf.readUnsignedMediumLE();
+            h = 4;
+        }
+
+        ByteBuf data = buf.readBytes(n);
+        int offset = (n + h) % 4;
+        if (offset != 0) {
+            buf.skipBytes(4 - offset);
+        }
+
+        return data;
+    }
+
     public static byte[] readBytes(ByteBuf buf, int length) {
-        byte[] bytes = new byte[length];
-        buf.readBytes(bytes);
-        return bytes;
+        byte[] arr = ByteBufUtil.getBytes(buf, buf.readerIndex(), length);
+        buf.skipBytes(length); // to change readerIndex
+        return arr;
     }
 
     public static byte[] deserializeBytes(ByteBuf buf) {
@@ -91,8 +109,7 @@ public final class TlSerialUtil {
         byte[] bytes = readBytes(buf, count);
         int offset = (count + start) % 4;
         if (offset != 0) {
-            int offsetCount = 4 - offset;
-            buf.skipBytes(offsetCount);
+            buf.skipBytes(4 - offset);
         }
 
         return bytes;
@@ -104,6 +121,27 @@ public final class TlSerialUtil {
 
     public static ByteBuf serializeString(ByteBufAllocator allocator, String value) {
         return serializeBytes(allocator, value.getBytes(StandardCharsets.UTF_8));
+    }
+
+    public static ByteBuf serializeBytes(ByteBufAllocator allocator, ByteBuf bytes) {
+        int n = bytes.readableBytes();
+        int header = n >= 0xfe ? 4 : 1;
+        int offset = (header + n) % 4;
+        ByteBuf buf = allocator.buffer(header + n + 4 - offset);
+
+        if (n >= 0xfe) {
+            buf.writeByte(0xfe);
+            buf.writeMediumLE(n);
+        } else {
+            buf.writeByte(n);
+        }
+
+        buf.writeBytes(bytes);
+        if (offset != 0) {
+            buf.writeZero(4 - offset);
+        }
+
+        return buf;
     }
 
     public static ByteBuf serializeBytes(ByteBufAllocator allocator, byte[] bytes) {
@@ -119,7 +157,6 @@ public final class TlSerialUtil {
         }
 
         buf.writeBytes(bytes);
-
         if (offset != 0) {
             buf.writeZero(4 - offset);
         }
@@ -338,7 +375,7 @@ public final class TlSerialUtil {
             case JSON_BOOL_ID: return BooleanNode.valueOf(buf.readIntLE() == BOOL_TRUE_ID);
             case JSON_STRING_ID: return TextNode.valueOf(deserializeString(buf));
             case JSON_NUMBER_ID: return DoubleNode.valueOf(buf.readDoubleLE());
-            case JSON_ARRAY_ID:
+            case JSON_ARRAY_ID: {
                 int vectorId;
                 if ((vectorId = buf.readIntLE()) != VECTOR_ID) {
                     throw new IllegalStateException("Incorrect vector identifier: " + vectorId);
@@ -349,18 +386,20 @@ public final class TlSerialUtil {
                     node.add(deserializeJsonNode(buf));
                 }
                 return node;
-            case JSON_OBJECT_ID:
-                int vectorId0;
-                if ((vectorId0 = buf.readIntLE()) != VECTOR_ID) {
-                    throw new IllegalStateException("Incorrect vector identifier: " + vectorId0);
+            }
+            case JSON_OBJECT_ID: {
+                int vectorId;
+                if ((vectorId = buf.readIntLE()) != VECTOR_ID) {
+                    throw new IllegalStateException("Incorrect vector identifier: " + vectorId);
                 }
-                int size0 = buf.readIntLE();
+                int size = buf.readIntLE();
                 ObjectNode node0 = JsonNodeFactory.instance.objectNode();
-                for (int i = 0; i < size0; i++) {
+                for (int i = 0; i < size; i++) {
                     String name = deserializeString(buf);
                     node0.set(name, deserializeJsonNode(buf));
                 }
                 return node0;
+            }
             default: throw new IllegalArgumentException("Incorrect json node identifier: 0x" + Integer.toHexString(identifier));
         }
     }
