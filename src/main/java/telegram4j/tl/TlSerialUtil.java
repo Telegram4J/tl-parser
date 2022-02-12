@@ -8,6 +8,7 @@ import reactor.util.annotation.Nullable;
 import telegram4j.tl.api.TlObject;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,6 +16,7 @@ import java.util.function.Function;
 import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 import static telegram4j.tl.TlPrimitives.*;
 
@@ -25,7 +27,7 @@ public final class TlSerialUtil {
 
     public static ByteBuf compressGzip(ByteBufAllocator allocator, ByteBuf buf) {
         ByteBufOutputStream bufOut = new ByteBufOutputStream(allocator.buffer());
-        try (DeflaterOutputStream out = new DeflaterOutputStream(bufOut, new Deflater(9))) {
+        try (DeflaterOutputStream out = new CompressibleGZIPOutputStream(bufOut)) {
             out.write(ByteBufUtil.getBytes(buf));
             out.finish();
             buf.release();
@@ -401,6 +403,15 @@ public final class TlSerialUtil {
                 return node0;
             }
             default: throw new IllegalArgumentException("Incorrect json node identifier: 0x" + Integer.toHexString(identifier));
+        }
+    }
+
+    /** Internal gzip output stream implementation, which has compression level {@code == Deflater.BEST_COMPRESSION} for best compression. */
+    static class CompressibleGZIPOutputStream extends GZIPOutputStream {
+
+        public CompressibleGZIPOutputStream(OutputStream out) throws IOException {
+            super(out);
+            def.setLevel(Deflater.BEST_COMPRESSION);
         }
     }
 }
