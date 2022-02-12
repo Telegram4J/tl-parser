@@ -1104,12 +1104,14 @@ public class SchemaGenerator extends AbstractProcessor {
                 types.add(ClassName.get(BASE_PACKAGE, "UpdateNewMessageFields"));
                 break;
 
+            case "UpdatePinnedMessages":
+            case "UpdatePinnedChannelMessages":
+                types.add(ClassName.get(BASE_PACKAGE, "UpdatePinnedMessagesFields"));
             case "UpdateReadHistoryOutbox":
             case "UpdateWebPage":
             case "UpdateReadMessagesContents":
             case "UpdateChannelWebPage":
             case "UpdateFolderPeers":
-            case "UpdatePinnedMessages":
                 types.add(ClassName.get(BASE_PACKAGE, "PtsUpdate"));
                 break;
 
