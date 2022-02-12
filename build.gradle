@@ -4,11 +4,14 @@ apply plugin: 'signing'
 
 ext {
     reactor_bom_version = '2020.0.13'
-    jackson_version = '2.13.0-rc1'
+    jackson_version = '2.13.1'
     immutables_version = '2.9.0'
     javax_annotation = '1.3.2'
-    junit_version = '5.7.2'
+    junit_version = '5.8.2'
     javapoet_version = '1.13.0'
+
+    isJitpack = System.getenv("JITPACK") == "true"
+    isSnapshot = version.toString().endsWith("-SNAPSHOT")
 }
 
 dependencies {
@@ -29,7 +32,11 @@ allprojects {
     apply plugin: 'java-library'
     apply plugin: 'maven-publish'
 
-    group = 'com.telegram4j'
+    if (!isJitpack && !isSnapshot) {
+        apply plugin: 'signing'
+    }
+
+    group = 'io.github.telegram4j'
     description = 'Telegram API schema parser'
     version = '0.1.0'
 
@@ -58,6 +65,14 @@ allprojects {
         if (JavaVersion.current().isJava9Compatible()) {
             options.addBooleanOption('html5', true)
         }
+
+        options {
+            encoding = "UTF-8"
+            addStringOption "encoding", "UTF-8"
+            tags = ["apiNote:a:API Note:",
+                    "implSpec:a:Implementation Requirements:",
+                    "implNote:a:Implementation Note:"]
+        }
     }
 
     java {
@@ -68,7 +83,29 @@ allprojects {
     configurations.all {
         resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
     }
+}
 
+subprojects {
+    archivesBaseName = "tl-parser-$project.name"
+
+    jar {
+        manifest {
+            attributes 'Implementation-Title': archivesBaseName,
+                    'Implementation-Version': archiveVersion,
+                    'Automatic-Module-Name': "telegram4j.tl.$project.name"
+        }
+    }
+}
+
+jar {
+    manifest {
+        attributes 'Implementation-Title': 'telegram4j.tl',
+                'Implementation-Version': archiveVersion,
+                'Automatic-Module-Name': 'telegram4j.tl'
+    }
+}
+
+configure(subprojects - project(":parser") + project){
     publishing {
         publications {
             mavenJava(MavenPublication) {
@@ -85,7 +122,7 @@ allprojects {
                 }
 
                 pom {
-                    name = 'Telegram4J'
+                    name = "$project.name"
                     description = 'Telegram API schema parser'
                     url = 'https://github.com/Telegram4J/tl-parser'
                     inceptionYear = '2021'
@@ -112,11 +149,39 @@ allprojects {
                 }
             }
         }
-    }
-}
 
-subprojects {
-    archivesBaseName = "telegram4j-tl-parser-$project.name"
+        if (!isJitpack) {
+            repositories {
+                maven {
+                    if (isSnapshot) {
+                        url 'https://s01.oss.sonatype.org/content/repositories/snapshots'
+                    } else {
+                        url 'https://s01.oss.sonatype.org/service/local/staging/deploy/maven2'
+                    }
+
+                    def sonatypeUsername = findProperty('sonatypeUsername')
+                    def sonatypePassword = findProperty('sonatypePassword')
+                    if (sonatypeUsername != null && sonatypePassword != null) {
+                        credentials {
+                            username sonatypeUsername
+                            password sonatypePassword
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (!isJitpack && !isSnapshot) {
+        signing {
+            def signingKey = findProperty('signingKey')
+            def signingPassword = findProperty('signingPassword')
+            if (signingKey != null && signingPassword != null) {
+                useInMemoryPgpKeys(signingKey, signingPassword)
+            }
+            sign publishing.publications.mavenJava
+        }
+    }
 }
 
 test {
