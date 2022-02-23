@@ -20,6 +20,7 @@ import java.util.zip.GZIPOutputStream;
 
 import static telegram4j.tl.TlPrimitives.*;
 
+/** Intrinsics serialization methods used in the scheme parser. */
 public final class TlSerialUtil {
 
     private TlSerialUtil() {
@@ -42,8 +43,8 @@ public final class TlSerialUtil {
     }
 
     public static <T> T decompressGzip(ByteBuf packed) {
+        ByteBuf result = packed.alloc().buffer();
         try (GZIPInputStream in = new GZIPInputStream(new ByteBufInputStream(packed))) {
-            ByteBuf result = packed.alloc().buffer();
             int remaining = Integer.MAX_VALUE;
             int n;
             do {
@@ -60,11 +61,11 @@ public final class TlSerialUtil {
                 }
             } while (n >= 0 && remaining > 0);
 
-            T obj = TlDeserializer.deserialize(result);
-            result.release();
-            return obj;
+            return TlDeserializer.deserialize(result);
         } catch (IOException e) {
             throw Exceptions.propagate(e);
+        } finally {
+            result.release();
         }
     }
 
@@ -185,7 +186,7 @@ public final class TlSerialUtil {
     public static <T> List<T> deserializeVector0(ByteBuf buf, boolean bare, Function<? super ByteBuf, ? extends T> parser) {
         int vectorId;
         if (!bare && (vectorId = buf.readIntLE()) != VECTOR_ID) {
-            throw new IllegalStateException("Incorrect vector identifier: " + vectorId);
+            throw new IllegalStateException("Incorrect vector identifier: 0x" + Integer.toHexString(vectorId));
         }
         int size = buf.readIntLE();
         List<T> list = new ArrayList<>(size);
@@ -380,7 +381,7 @@ public final class TlSerialUtil {
             case JSON_ARRAY_ID: {
                 int vectorId;
                 if ((vectorId = buf.readIntLE()) != VECTOR_ID) {
-                    throw new IllegalStateException("Incorrect vector identifier: " + vectorId);
+                    throw new IllegalStateException("Incorrect vector identifier: 0x" + Integer.toHexString(vectorId));
                 }
                 int size = buf.readIntLE();
                 ArrayNode node = JsonNodeFactory.instance.arrayNode(size);
@@ -392,7 +393,7 @@ public final class TlSerialUtil {
             case JSON_OBJECT_ID: {
                 int vectorId;
                 if ((vectorId = buf.readIntLE()) != VECTOR_ID) {
-                    throw new IllegalStateException("Incorrect vector identifier: " + vectorId);
+                    throw new IllegalStateException("Incorrect vector identifier: 0x" + Integer.toHexString(vectorId));
                 }
                 int size = buf.readIntLE();
                 ObjectNode node0 = JsonNodeFactory.instance.objectNode();

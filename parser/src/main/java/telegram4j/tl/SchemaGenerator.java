@@ -13,7 +13,10 @@ import org.immutables.value.Value;
 import reactor.core.Exceptions;
 import reactor.util.annotation.Nullable;
 import telegram4j.tl.api.*;
-import telegram4j.tl.model.*;
+import telegram4j.tl.model.ImmutableTlSchema;
+import telegram4j.tl.model.TlEntityObject;
+import telegram4j.tl.model.TlParam;
+import telegram4j.tl.model.TlSchema;
 
 import javax.annotation.processing.*;
 import javax.lang.model.SourceVersion;
@@ -73,7 +76,7 @@ public class SchemaGenerator extends AbstractProcessor {
     private final Set<String> computedDeserializers = new HashSet<>();
     private final Set<String> computedMethodSerializers = new HashSet<>();
 
-    private final List<TlEntityObject> singletons = new ArrayList<>(190);
+    private final List<TlEntityObject> singletons = new ArrayList<>(200);
 
     private final TypeSpec.Builder serializer = TypeSpec.classBuilder("TlSerializer")
             .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
@@ -83,7 +86,7 @@ public class SchemaGenerator extends AbstractProcessor {
             .returns(ByteBuf.class)
             .addTypeVariable(genericType)
             .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-            .addParameter(ByteBufAllocator.class, "allocator")
+            .addParameter(ByteBufAllocator.class, "alloc")
             .addParameter(genericType, "payload")
             .beginControlFlow("switch (payload.identifier())");
 
@@ -241,7 +244,7 @@ public class SchemaGenerator extends AbstractProcessor {
             TlEntityObject obj = singletons.get(i);
             String id = Integer.toHexString(obj.id());
             if (i + 1 == singletons.size()) {
-                serializeMethod.addCode("case 0x$L: return allocator.buffer(Integer.BYTES).writeIntLE(payload.identifier());\n", id);
+                serializeMethod.addCode("case 0x$L: return alloc.buffer(4).writeIntLE(payload.identifier());\n", id);
             } else {
                 serializeMethod.addCode("case 0x$L:\n", id);
             }
@@ -374,7 +377,7 @@ public class SchemaGenerator extends AbstractProcessor {
                 singletons.add(method);
             } else {
 
-                serializeMethod.addCode("case 0x$L: return $L(allocator, ($T) payload);\n",
+                serializeMethod.addCode("case 0x$L: return $L(alloc, ($T) payload);\n",
                         Integer.toHexString(method.id()), methodName, type);
 
                 TypeName payloadType = generic ? ParameterizedTypeName.get(typeRaw, genericTypeRef) : typeRaw;
@@ -383,7 +386,7 @@ public class SchemaGenerator extends AbstractProcessor {
                         .returns(ByteBuf.class)
                         .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
                         .addParameters(Arrays.asList(
-                                ParameterSpec.builder(ByteBufAllocator.class, "allocator").build(),
+                                ParameterSpec.builder(ByteBufAllocator.class, "alloc").build(),
                                 ParameterSpec.builder(payloadType, "payload").build()));
 
                 if (generic) {
@@ -425,11 +428,12 @@ public class SchemaGenerator extends AbstractProcessor {
                     if (param.type().equals("#")) {
                         attribute.addModifiers(Modifier.DEFAULT);
                         String precompute = method.params().stream()
-                                .filter(p -> p.type().startsWith("flags."))
-                                .map(this::parseFlag)
-                                .map(f -> String.format("(%s()%s ? 1 : 0) << 0x%s", formatFieldName(f.getParam()),
-                                        f.getType().equals("true") ? "" : " != null",
-                                        Integer.toHexString(f.getPosition())))
+                                .filter(p -> p.flagInfo().isPresent())
+                                .map(f -> {
+                                    var flagInfo = f.flagInfo().orElseThrow();
+                                    return String.format("(%s()%s ? 1 : 0) << 0x%x", formatFieldName(f),
+                                            flagInfo.getT2().equals("true") ? "" : " != null", flagInfo.getT1());
+                                })
                                 .collect(Collectors.joining(" | "));
 
                         attribute.addCode("return " + precompute + ";");
@@ -455,7 +459,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     serializerBuilder.beginControlFlow("try");
                 }
 
-                serializerBuilder.addCode("return allocator.buffer()\n");
+                serializerBuilder.addCode("return alloc.buffer()\n");
                 serializerBuilder.addCode("\t\t.writeIntLE(payload.identifier())");
                 serializerBuilder.addCode(std.add(";").build());
 
@@ -485,21 +489,21 @@ public class SchemaGenerator extends AbstractProcessor {
 
             boolean multiple = currTypeTree.getOrDefault(qualifiedTypeName, Collections.emptyList()).size() > 1;
 
-            // add Base* prefix to prevent matching with supertype name, e.g. SecureValueError
+            // add Base* prefix to prevent matching with type name, e.g. SecureValueError
             if (type.equalsIgnoreCase(name) && multiple) {
                 name = "Base" + name;
-            } else if (!multiple && !type.equals("Object")) { // use type name if this object type is singleton
+            } else if (!multiple && !type.equals("Object")) { // use type name if this object type is singleton and type isn't equals Object
                 name = type;
             }
 
+            // Check if type is ignored or has already been done
             if (ignoredTypes.contains(type.toLowerCase()) || computed.containsKey(packageName + "." + name)) {
                 continue;
             }
 
             TypeSpec.Builder spec = TypeSpec.interfaceBuilder(name)
-                    .addModifiers(Modifier.PUBLIC);
-
-            spec.addSuperinterfaces(awareSuperType(name));
+                    .addModifiers(Modifier.PUBLIC)
+                    .addSuperinterfaces(awareSuperType(name));
 
             if (multiple) {
                 spec.addSuperinterface(ClassName.get(packageName, type));
@@ -518,7 +522,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     .addCode("return Immutable$L.builder();", name)
                     .build());
 
-            Set<TlParam> attributes = new LinkedHashSet<>(constructor.params());
+            var attributes = new LinkedHashSet<>(constructor.params());
             collectAttributesRecursive(type, attributes);
 
             boolean singleton = attributes.stream().allMatch(p -> p.type().startsWith("flags.") || p.type().equals("#"));
@@ -542,6 +546,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     .build());
 
             // serialization
+            // Check serialization method name collision
             String serializeMethodName = "serialize" + name;
             if (computedSerializers.contains(serializeMethodName)) {
                 String prx = schema.packagePrefix();
@@ -576,7 +581,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
                 singletons.add(constructor);
             } else {
-                serializeMethod.addCode("case 0x$L: return $L(allocator, ($T) payload);\n",
+                serializeMethod.addCode("case 0x$L: return $L(alloc, ($T) payload);\n",
                         Integer.toHexString(constructor.id()), serializeMethodName, payloadType);
 
                 deserializeMethod.addCode("case 0x$L: return (T) $L(payload);\n",
@@ -628,24 +633,21 @@ public class SchemaGenerator extends AbstractProcessor {
                     if (param.type().equals("#")) {
                         attribute.addModifiers(Modifier.DEFAULT);
                         String precompute = constructor.params().stream()
-                                .filter(p -> p.type().startsWith("flags."))
-                                .map(this::parseFlag)
-                                .map(f -> String.format("(%s()%s ? 1 : 0) << 0x%s", formatFieldName(f.getParam()),
-                                        f.getType().equals("true") ? "" : " != null",
-                                        Integer.toHexString(f.getPosition())))
+                                .filter(p -> p.flagInfo().isPresent())
+                                .map(f -> {
+                                    var flagInfo = f.flagInfo().orElseThrow();
+                                    return String.format("(%s()%s ? 1 : 0) << 0x%x", formatFieldName(f),
+                                            flagInfo.getT2().equals("true") ? "" : " != null", flagInfo.getT1());
+                                })
                                 .collect(Collectors.joining(" | "));
 
                         attribute.addCode("return " + precompute + ";");
                     } else if (param.type().endsWith("true")) {
                         attribute.addModifiers(Modifier.DEFAULT);
                         attribute.addCode("return false;");
-                    } else if (param.type().startsWith("flags.") || currTypeTree.getOrDefault(qualifiedTypeName,
-                                    Collections.emptyList()).stream()
-                            .filter(c -> normalizeName(c.name()).equals(normalizeName(c.type())))
-                            .flatMap(c -> c.params().stream())
-                            .anyMatch(p -> p.type().startsWith("flags.") &&
-                                    p.name().equals(param.name()))) {
+                    } else if (param.type().startsWith("flags.")) {
                         paramType = paramType.box();
+
                         attribute.addAnnotation(Nullable.class);
                         attribute.addModifiers(Modifier.ABSTRACT);
                     } else {
@@ -662,7 +664,7 @@ public class SchemaGenerator extends AbstractProcessor {
                         .returns(ByteBuf.class)
                         .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
                         .addParameters(Arrays.asList(
-                                ParameterSpec.builder(ByteBufAllocator.class, "allocator").build(),
+                                ParameterSpec.builder(ByteBufAllocator.class, "alloc").build(),
                                 ParameterSpec.builder(payloadType, "payload").build()))
                         .addCode(serPrecomputeBlock.build());
 
@@ -670,7 +672,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     serializerBuilder.beginControlFlow("try");
                 }
 
-                serializerBuilder.addCode("return allocator.buffer()\n");
+                serializerBuilder.addCode("return alloc.buffer()\n");
                 serializerBuilder.addCode("\t\t.writeIntLE(payload.identifier())");
                 serializerBuilder.addCode(std.add(";").build());
 
@@ -944,11 +946,12 @@ public class SchemaGenerator extends AbstractProcessor {
                     int position = Integer.parseInt(flag.group(1));
                     String typeRaw = flag.group(2);
 
-                    String innerMethod = deserializeMethod(typeRaw);
                     String pos = Integer.toHexString(1 << position);
                     if (typeRaw.equals("true")) {
                         return "(flags & 0x" + pos + ") != 0";
                     }
+
+                    String innerMethod = deserializeMethod(typeRaw);
                     return "(flags & 0x" + pos + ") != 0 ? " + innerMethod + " : null";
                 }
 
@@ -1000,10 +1003,10 @@ public class SchemaGenerator extends AbstractProcessor {
             case "int256":
             case "double": return "payload.$L()";
             case "bool": return "payload.$L() ? BOOL_TRUE_ID : BOOL_FALSE_ID";
-            case "string": return "serializeString(allocator, payload.$L())";
-            case "bytes": return "serializeBytes(allocator, payload.$L())";
-            case "jsonvalue": return "serializeJsonNode(allocator, payload.$L())";
-            case "object": return "serializeUnknown(allocator, payload.$L())";
+            case "string": return "serializeString(alloc, payload.$L())";
+            case "bytes": return "serializeBytes(alloc, payload.$L())";
+            case "jsonvalue": return "serializeJsonNode(alloc, payload.$L())";
+            case "object": return "serializeUnknown(alloc, payload.$L())";
             default:
                 Matcher vector = VECTOR_PATTERN.matcher(paramTypeLower);
                 if (vector.matches()) {
@@ -1017,13 +1020,13 @@ public class SchemaGenerator extends AbstractProcessor {
                             specific = Character.toUpperCase(innerType.charAt(0)) + innerType.substring(1);
                             break;
                     }
-                    return "serialize" + specific + "Vector(allocator, payload.$L())";
+                    return "serialize" + specific + "Vector(alloc, payload.$L())";
                 } else if (paramTypeLower.endsWith("true")) {
                     return null;
                 } else if (paramTypeLower.startsWith("flags.")) {
-                    return "serializeFlags(allocator, payload.$L())";
+                    return "serializeFlags(alloc, payload.$L())";
                 } else {
-                    return "serialize(allocator, payload.$L())";
+                    return "serialize(alloc, payload.$L())";
                 }
         }
     }
@@ -1053,17 +1056,6 @@ public class SchemaGenerator extends AbstractProcessor {
                 .filter(c -> !ignoredTypes.contains(normalizeName(c.type()).toLowerCase()))
                 .collect(Collectors.groupingBy(c -> getPackageName(schema, c.type(), false)
                         + "." + normalizeName(c.type())));
-    }
-
-    private Flag parseFlag(TlParam param) {
-        Matcher matcher = FLAG_PATTERN.matcher(param.type());
-        if (!matcher.matches()) {
-            throw new IllegalArgumentException("Incorrect flag type: " + param.name() + "#" + param.type());
-        }
-
-        int position = Integer.parseInt(matcher.group(1));
-        String type = matcher.group(2);
-        return new Flag(position, param, type);
     }
 
     private List<ClassName> awareSuperType(String type) {
