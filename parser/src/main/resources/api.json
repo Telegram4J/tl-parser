@@ -1107,7 +1107,7 @@
       "type": "MessageAction"
     },
     {
-      "id": "739712882",
+      "id": "-1460809483",
       "predicate": "dialog",
       "params": [
         {
@@ -1144,6 +1144,10 @@
         },
         {
           "name": "unread_mentions_count",
+          "type": "int"
+        },
+        {
+          "name": "unread_reactions_count",
           "type": "int"
         },
         {
@@ -4863,6 +4867,10 @@
         {
           "name": "animated",
           "type": "flags.5?true"
+        },
+        {
+          "name": "videos",
+          "type": "flags.6?true"
         },
         {
           "name": "installed_date",
@@ -15836,6 +15844,14 @@
           "type": "flags.11?true"
         },
         {
+          "name": "rtmp_stream",
+          "type": "flags.12?true"
+        },
+        {
+          "name": "listeners_hidden",
+          "type": "flags.13?true"
+        },
+        {
           "name": "id",
           "type": "long"
         },
@@ -17497,7 +17513,7 @@
       "type": "ReactionCount"
     },
     {
-      "id": "142306870",
+      "id": "1328256121",
       "predicate": "messageReactions",
       "params": [
         {
@@ -17517,29 +17533,14 @@
           "type": "Vector<ReactionCount>"
         },
         {
-          "name": "recent_reactons",
-          "type": "flags.1?Vector<MessageUserReaction>"
+          "name": "recent_reactions",
+          "type": "flags.1?Vector<MessagePeerReaction>"
         }
       ],
       "type": "MessageReactions"
     },
     {
-      "id": "-1826077446",
-      "predicate": "messageUserReaction",
-      "params": [
-        {
-          "name": "user_id",
-          "type": "long"
-        },
-        {
-          "name": "reaction",
-          "type": "string"
-        }
-      ],
-      "type": "MessageUserReaction"
-    },
-    {
-      "id": "-1553558980",
+      "id": "834488621",
       "predicate": "messages.messageReactionsList",
       "params": [
         {
@@ -17552,7 +17553,11 @@
         },
         {
           "name": "reactions",
-          "type": "Vector<MessageUserReaction>"
+          "type": "Vector<MessagePeerReaction>"
+        },
+        {
+          "name": "chats",
+          "type": "Vector<Chat>"
         },
         {
           "name": "users",
@@ -17666,6 +17671,50 @@
         }
       ],
       "type": "ChannelAdminLogEventAction"
+    },
+    {
+      "id": "1741309751",
+      "predicate": "messages.translateNoResult",
+      "params": [],
+      "type": "messages.TranslatedText"
+    },
+    {
+      "id": "-1575684144",
+      "predicate": "messages.translateResultText",
+      "params": [
+        {
+          "name": "text",
+          "type": "string"
+        }
+      ],
+      "type": "messages.TranslatedText"
+    },
+    {
+      "id": "1370914559",
+      "predicate": "messagePeerReaction",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "big",
+          "type": "flags.0?true"
+        },
+        {
+          "name": "unread",
+          "type": "flags.1?true"
+        },
+        {
+          "name": "peer_id",
+          "type": "Peer"
+        },
+        {
+          "name": "reaction",
+          "type": "string"
+        }
+      ],
+      "type": "MessagePeerReaction"
     }
   ],
   "methods": [
@@ -21231,6 +21280,10 @@
           "type": "flags.1?true"
         },
         {
+          "name": "videos",
+          "type": "flags.4?true"
+        },
+        {
           "name": "user_id",
           "type": "InputUser"
         },
@@ -23718,6 +23771,10 @@
           "type": "#"
         },
         {
+          "name": "rtmp_stream",
+          "type": "flags.2?true"
+        },
+        {
           "name": "peer",
           "type": "InputPeer"
         },
@@ -24734,6 +24791,10 @@
           "type": "#"
         },
         {
+          "name": "big",
+          "type": "flags.1?true"
+        },
+        {
           "name": "peer",
           "type": "InputPeer"
         },
@@ -24830,6 +24891,79 @@
         }
       ],
       "type": "Bool"
+    },
+    {
+      "id": "617508334",
+      "method": "messages.translateText",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "peer",
+          "type": "flags.0?InputPeer"
+        },
+        {
+          "name": "msg_id",
+          "type": "flags.0?int"
+        },
+        {
+          "name": "text",
+          "type": "flags.1?string"
+        },
+        {
+          "name": "from_lang",
+          "type": "flags.2?string"
+        },
+        {
+          "name": "to_lang",
+          "type": "string"
+        }
+      ],
+      "type": "messages.TranslatedText"
+    },
+    {
+      "id": "-396644838",
+      "method": "messages.getUnreadReactions",
+      "params": [
+        {
+          "name": "peer",
+          "type": "InputPeer"
+        },
+        {
+          "name": "offset_id",
+          "type": "int"
+        },
+        {
+          "name": "add_offset",
+          "type": "int"
+        },
+        {
+          "name": "limit",
+          "type": "int"
+        },
+        {
+          "name": "max_id",
+          "type": "int"
+        },
+        {
+          "name": "min_id",
+          "type": "int"
+        }
+      ],
+      "type": "messages.Messages"
+    },
+    {
+      "id": "-2099097129",
+      "method": "messages.readReactions",
+      "params": [
+        {
+          "name": "peer",
+          "type": "InputPeer"
+        }
+      ],
+      "type": "messages.AffectedHistory"
     }
   ]
 }
