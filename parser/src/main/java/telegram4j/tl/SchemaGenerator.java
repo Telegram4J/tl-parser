@@ -330,7 +330,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
             AnnotationSpec.Builder value = AnnotationSpec.builder(Value.Immutable.class);
 
-            boolean singleton = method.params().stream().allMatch(p -> p.type().startsWith("flags.") || p.type().equals("#"));
+            boolean singleton = method.params().stream().allMatch(p -> p.type().equals("#") || p.type().startsWith("flags."));
             if (singleton) {
                 value.addMember("singleton", "true");
 
@@ -483,6 +483,10 @@ public class SchemaGenerator extends AbstractProcessor {
     private void generateConstructors() {
         for (TlEntityObject constructor : schema.constructors()) {
             String type = normalizeName(constructor.type());
+            if (ignoredTypes.contains(type.toLowerCase())) {
+                continue;
+            }
+
             String name = normalizeName(constructor.name());
             String packageName = getPackageName(schema, constructor.type(), false);
             String qualifiedTypeName = packageName + "." + type;
@@ -496,8 +500,8 @@ public class SchemaGenerator extends AbstractProcessor {
                 name = type;
             }
 
-            // Check if type is ignored or has already been done
-            if (ignoredTypes.contains(type.toLowerCase()) || computed.containsKey(packageName + "." + name)) {
+            // Check if type has already been done
+            if (computed.containsKey(packageName + "." + name)) {
                 continue;
             }
 
@@ -623,7 +627,7 @@ public class SchemaGenerator extends AbstractProcessor {
                         }
                     }
 
-                    deserializerBuilder.addCode("\n\t\t.$L(" + deserializeMethod(param.type()) + ")", paramName);
+                    deserializerBuilder.addCode("\n\t\t.$L(" + deserializeMethod(param) + ")", paramName);
 
                     TypeName paramType = parseType(param.type(), schema);
 
@@ -927,7 +931,26 @@ public class SchemaGenerator extends AbstractProcessor {
                 .orElseGet(() -> normalizeName(type));
     }
 
-    private String deserializeMethod(String type) {
+    private String deserializeMethod(TlParam param) {
+
+        var flagInfo = param.flagInfo().orElse(null);
+        if (flagInfo != null) {
+            int position = flagInfo.getT1();
+            String typeRaw = flagInfo.getT2();
+
+            String pos = Integer.toHexString(1 << position);
+            if (typeRaw.equals("true")) {
+                return "(flags & 0x" + pos + ") != 0";
+            }
+
+            String innerMethod = deserializeMethod0(typeRaw);
+            return "(flags & 0x" + pos + ") != 0 ? " + innerMethod + " : null";
+        }
+
+        return deserializeMethod0(param.type());
+    }
+
+    private String deserializeMethod0(String type) {
         switch (type.toLowerCase()) {
             case "true": return "true";
             case "#": return "flags";
@@ -941,20 +964,6 @@ public class SchemaGenerator extends AbstractProcessor {
             case "int256": return "readInt256(payload)";
             case "jsonvalue": return "deserializeJsonNode(payload)";
             default:
-                Matcher flag = FLAG_PATTERN.matcher(type);
-                if (flag.matches()) {
-                    int position = Integer.parseInt(flag.group(1));
-                    String typeRaw = flag.group(2);
-
-                    String pos = Integer.toHexString(1 << position);
-                    if (typeRaw.equals("true")) {
-                        return "(flags & 0x" + pos + ") != 0";
-                    }
-
-                    String innerMethod = deserializeMethod(typeRaw);
-                    return "(flags & 0x" + pos + ") != 0 ? " + innerMethod + " : null";
-                }
-
                 Matcher vector = VECTOR_PATTERN.matcher(type);
                 if (vector.matches()) {
                     String innerType = vector.group(1).toLowerCase();
@@ -1113,6 +1122,12 @@ public class SchemaGenerator extends AbstractProcessor {
             case "UpdateChannelParticipant":
             case "UpdateBotStopped":
                 types.add(ClassName.get(BASE_PACKAGE, "QtsUpdate"));
+                break;
+
+            case "BaseDocument":
+            case "BaseWebDocument":
+            case "WebDocumentNoProxy":
+                types.add(ClassName.get(BASE_PACKAGE, "BaseDocumentFields"));
                 break;
 
             case "MsgDetailedInfo":

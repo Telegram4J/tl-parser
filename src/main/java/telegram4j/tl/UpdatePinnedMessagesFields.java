@@ -2,7 +2,7 @@ package telegram4j.tl;
 
 import java.util.List;
 
-public interface UpdatePinnedMessagesFields extends Update {
+public interface UpdatePinnedMessagesFields extends PtsUpdate {
 
     boolean pinned();
 

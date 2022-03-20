@@ -10,21 +10,15 @@ public interface BaseSendMessageRequest extends TlMethod<Updates> {
 
     int flags();
 
-    default boolean noWebpage() {
-        return false;
-    }
+    boolean noWebpage();
 
-    default boolean silent() {
-        return false;
-    }
+    boolean silent();
 
-    default boolean background() {
-        return false;
-    }
+    boolean background();
 
-    default boolean clearDraft() {
-        return false;
-    }
+    boolean clearDraft();
+
+    boolean noforwards();
 
     InputPeer peer();
 
@@ -43,4 +37,7 @@ public interface BaseSendMessageRequest extends TlMethod<Updates> {
 
     @Nullable
     Integer scheduleDate();
+
+    @Nullable
+    InputPeer sendAs();
 }

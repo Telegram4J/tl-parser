@@ -38,7 +38,7 @@ allprojects {
 
     group = 'io.github.telegram4j'
     description = 'Telegram API schema parser'
-    version = '0.1.1'
+    version = '0.1.1-SNAPSHOT'
 
     targetCompatibility = JavaVersion.VERSION_11
     sourceCompatibility = JavaVersion.VERSION_11
