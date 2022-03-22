@@ -17715,6 +17715,63 @@
         }
       ],
       "type": "MessagePeerReaction"
+    },
+    {
+      "id": "-2132064081",
+      "predicate": "groupCallStreamChannel",
+      "params": [
+        {
+          "name": "channel",
+          "type": "int"
+        },
+        {
+          "name": "scale",
+          "type": "int"
+        },
+        {
+          "name": "last_timestamp_ms",
+          "type": "long"
+        }
+      ],
+      "type": "GroupCallStreamChannel"
+    },
+    {
+      "id": "-790330702",
+      "predicate": "phone.groupCallStreamChannels",
+      "params": [
+        {
+          "name": "channels",
+          "type": "Vector<GroupCallStreamChannel>"
+        }
+      ],
+      "type": "phone.GroupCallStreamChannels"
+    },
+    {
+      "id": "177124030",
+      "predicate": "inputReportReasonIllegalDrugs",
+      "params": [],
+      "type": "ReportReason"
+    },
+    {
+      "id": "-1631091139",
+      "predicate": "inputReportReasonPersonalDetails",
+      "params": [],
+      "type": "ReportReason"
+    },
+    {
+      "id": "767505458",
+      "predicate": "phone.groupCallStreamRtmpUrl",
+      "params": [
+        {
+          "name": "url",
+          "type": "string"
+        },
+        {
+          "name": "key",
+          "type": "string"
+        }
+      ],
+      "type": "phone.GroupCallStreamRtmpUrl"
     }
   ],
   "methods": [
@@ -24964,6 +25021,62 @@
         }
       ],
       "type": "messages.AffectedHistory"
+    },
+    {
+      "id": "-1963375804",
+      "method": "contacts.resolvePhone",
+      "params": [
+        {
+          "name": "phone",
+          "type": "string"
+        }
+      ],
+      "type": "contacts.ResolvedPeer"
+    },
+    {
+      "id": "447879488",
+      "method": "phone.getGroupCallStreamChannels",
+      "params": [
+        {
+          "name": "call",
+          "type": "InputGroupCall"
+        }
+      ],
+      "type": "phone.GroupCallStreamChannels"
+    },
+    {
+      "id": "-558650433",
+      "method": "phone.getGroupCallStreamRtmpUrl",
+      "params": [
+        {
+          "name": "peer",
+          "type": "InputPeer"
+        },
+        {
+          "name": "revoke",
+          "type": "Bool"
+        }
+      ],
+      "type": "phone.GroupCallStreamRtmpUrl"
+    },
+    {
+      "id": "276705696",
+      "method": "messages.searchSentMedia",
+      "params": [
+        {
+          "name": "q",
+          "type": "string"
+        },
+        {
+          "name": "filter",
+          "type": "MessagesFilter"
+        },
+        {
+          "name": "limit",
+          "type": "int"
+        }
+      ],
+      "type": "messages.Messages"
     }
   ]
 }
