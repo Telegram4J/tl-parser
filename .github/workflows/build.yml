@@ -27,8 +27,8 @@ jobs:
       - name: Build sources with Gradle
         run: ./gradlew build
   release:
-    name: Publish artifacts
     runs-on: ubuntu-latest
+    name: Publish artifacts
     needs: build
     steps:
       - uses: actions/checkout@v2
@@ -39,3 +39,8 @@ jobs:
           java-version: 11
       - name: Publish sources with Gradle
         run: ./gradlew publish
+        env:
+          signingKey: ${{ secrets.signingKey }}
+          signingPassword: ${{ secrets.signingPassword }}
+          sonatypeUsername: ${{ secrets.sonatypeUsername }}
+          sonatypePassword: ${{ secrets.sonatypePassword }}
