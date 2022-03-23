@@ -38,4 +38,4 @@ jobs:
           distribution: 'adopt'
           java-version: 11
       - name: Publish sources with Gradle
-        run: ./gradlew -PsonatypeUsername=${{ secrets.sonatypeUsername }} -PsonatypePassword=${{ secrets.sonatypePassword }} -PsigningKey=${{ secrets.signingKey }} -PsigningPassword=${{ secrets.signingPassword }} publish
+        run: ./gradlew -PsonatypeUsername=${{ secrets.sonatypeUsername }} -PsonatypePassword=${{ secrets.sonatypePassword }} -PsigningKey="${{ secrets.signingKey }}" -PsigningPassword=${{ secrets.signingPassword }} publish
