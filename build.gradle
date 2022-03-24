@@ -97,7 +97,7 @@ subprojects {
 
 jar {
     manifest {
-        attributes 'Implementation-Title': 'telegram4j.tl',
+        attributes 'Implementation-Title': 'tl-parser',
                 'Implementation-Version': archiveVersion,
                 'Automatic-Module-Name': 'telegram4j.tl'
     }
