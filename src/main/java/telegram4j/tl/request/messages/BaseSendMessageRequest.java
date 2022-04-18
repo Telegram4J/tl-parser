@@ -10,8 +10,6 @@ public interface BaseSendMessageRequest extends TlMethod<Updates> {
 
     int flags();
 
-    boolean noWebpage();
-
     boolean silent();
 
     boolean background();
