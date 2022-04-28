@@ -3,6 +3,7 @@ package telegram4j.tl;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.*;
 import io.netty.buffer.*;
+import io.netty.util.internal.EmptyArrays;
 import reactor.core.Exceptions;
 import reactor.util.annotation.Nullable;
 import telegram4j.tl.api.TlObject;
@@ -96,6 +97,10 @@ public final class TlSerialUtil {
     }
 
     public static byte[] readBytes(ByteBuf buf, int length) {
+        if (length == 0) {
+            return EmptyArrays.EMPTY_BYTES;
+        }
+
         byte[] arr = ByteBufUtil.getBytes(buf, buf.readerIndex(), length);
         buf.skipBytes(length); // to change readerIndex
         return arr;
