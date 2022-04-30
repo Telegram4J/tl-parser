@@ -49,7 +49,7 @@ final class Strings {
         if (s1.equals(s2)) {
             return s1;
         }
-        for (int i = 0; i < Math.min(s1.length(), s2.length()); i++) {
+        for (int i = 0, n = Math.min(s1.length(), s2.length()); i < n; i++) {
             if (s1.charAt(i) != s2.charAt(i)) {
                 return s1.substring(0, i);
             }

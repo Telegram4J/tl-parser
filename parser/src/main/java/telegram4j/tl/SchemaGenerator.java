@@ -40,6 +40,7 @@ import static telegram4j.tl.SourceNames.*;
 import static telegram4j.tl.Strings.camelize;
 import static telegram4j.tl.Strings.screamilize;
 
+@SupportedSourceVersion(SourceVersion.RELEASE_11)
 @SupportedAnnotationTypes("telegram4j.tl.GenerateSchema")
 public class SchemaGenerator extends AbstractProcessor {
 
@@ -102,7 +103,6 @@ public class SchemaGenerator extends AbstractProcessor {
             .addStatement("int identifier = payload.readIntLE()")
             .beginControlFlow("switch (identifier)")
             // This need because methods can return bool or vector objects
-            .addComment("Primitive types")
             .addCode("case BOOL_TRUE_ID: return (T) Boolean.TRUE;\n")
             .addCode("case BOOL_FALSE_ID: return (T) Boolean.FALSE;\n")
             .addCode("case VECTOR_ID: return (T) deserializeUnknownVector(payload);\n");
@@ -201,15 +201,6 @@ public class SchemaGenerator extends AbstractProcessor {
         }
 
         return true;
-    }
-
-    @Override
-    public SourceVersion getSupportedSourceVersion() {
-        SupportedSourceVersion sourceVersion = getClass().getAnnotation(SupportedSourceVersion.class);
-        if (sourceVersion != null) {
-            return sourceVersion.value();
-        }
-        return SourceVersion.latestSupported();
     }
 
     private void finalizeSerialization() {
@@ -401,7 +392,6 @@ public class SchemaGenerator extends AbstractProcessor {
                 CodeBlock.Builder std = CodeBlock.builder();
 
                 for (TlParam param : method.params()) {
-                    String paramName = formatFieldName(param);
                     boolean releasable = isReleasable(param.type());
 
                     // serialization
@@ -410,19 +400,21 @@ public class SchemaGenerator extends AbstractProcessor {
                     if (ser != null) {
                         if (releasable) {
                             // exception for InputMediaInvoice
-                            String fixedParamName = paramName.equals("payload") ? "payloadState" : paramName;
+                            String fixedParamName = param.formattedName().equals("payload")
+                                    ? "payloadState" : param.formattedName();
 
-                            serPrecomputeBlock.addStatement("$T $L = " + ser, ByteBuf.class, fixedParamName, paramName);
+                            serPrecomputeBlock.addStatement("$T $L = " + ser, ByteBuf.class,
+                                    fixedParamName, param.formattedName());
                             serFinallyBlock.addStatement("$L.release()", fixedParamName);
                             std.add("\n\t\t.$L($L)", met, fixedParamName);
                         } else {
-                            std.add("\n\t\t." + met + "(" + ser + ")", paramName);
+                            std.add("\n\t\t." + met + "(" + ser + ")", param.formattedName());
                         }
                     }
 
                     TypeName paramType = parseType(param.type(), schema);
 
-                    MethodSpec.Builder attribute = MethodSpec.methodBuilder(paramName)
+                    MethodSpec.Builder attribute = MethodSpec.methodBuilder(param.formattedName())
                             .addModifiers(Modifier.PUBLIC);
 
                     if (param.type().equals("#")) {
@@ -431,7 +423,7 @@ public class SchemaGenerator extends AbstractProcessor {
                                 .filter(p -> p.flagInfo().isPresent())
                                 .map(f -> {
                                     var flagInfo = f.flagInfo().orElseThrow();
-                                    return String.format("(%s()%s ? 1 : 0) << 0x%x", formatFieldName(f),
+                                    return String.format("(%s()%s ? 1 : 0) << 0x%x", f.formattedName(),
                                             flagInfo.getT2().equals("true") ? "" : " != null", flagInfo.getT1());
                                 })
                                 .collect(Collectors.joining(" | "));
@@ -491,7 +483,7 @@ public class SchemaGenerator extends AbstractProcessor {
             String packageName = getPackageName(schema, constructor.type(), false);
             String qualifiedTypeName = packageName + "." + type;
 
-            boolean multiple = currTypeTree.getOrDefault(qualifiedTypeName, Collections.emptyList()).size() > 1;
+            boolean multiple = currTypeTree.getOrDefault(qualifiedTypeName, List.of()).size() > 1;
 
             // add Base* prefix to prevent matching with type name, e.g. SecureValueError
             if (type.equalsIgnoreCase(name) && multiple) {
@@ -608,7 +600,6 @@ public class SchemaGenerator extends AbstractProcessor {
                 deserializerBuilder.addCode("return $T.builder()", typeName);
 
                 for (TlParam param : attributes) {
-                    String paramName = formatFieldName(param);
                     boolean releasable = isReleasable(param.type());
 
                     // serialization
@@ -617,21 +608,23 @@ public class SchemaGenerator extends AbstractProcessor {
                     if (ser != null) {
                         if (releasable) {
                             // exception for InputMediaInvoice
-                            String fixedParamName = paramName.equals("payload") ? "payloadState" : paramName;
+                            String fixedParamName = param.formattedName().equals("payload")
+                                    ? "payloadState" : param.formattedName();
 
-                            serPrecomputeBlock.addStatement("$T $L = " + ser, ByteBuf.class, fixedParamName, paramName);
+                            serPrecomputeBlock.addStatement("$T $L = " + ser, ByteBuf.class,
+                                    fixedParamName, param.formattedName());
                             serFinallyBlock.addStatement("$L.release()", fixedParamName);
                             std.add("\n\t\t.$L($L)", met, fixedParamName);
                         } else {
-                            std.add("\n\t\t." + met + "(" + ser + ")", paramName);
+                            std.add("\n\t\t." + met + "(" + ser + ")", param.formattedName());
                         }
                     }
 
-                    deserializerBuilder.addCode("\n\t\t.$L(" + deserializeMethod(param) + ")", paramName);
+                    deserializerBuilder.addCode("\n\t\t.$L(" + deserializeMethod(param) + ")", param.formattedName());
 
                     TypeName paramType = parseType(param.type(), schema);
 
-                    MethodSpec.Builder attribute = MethodSpec.methodBuilder(paramName)
+                    MethodSpec.Builder attribute = MethodSpec.methodBuilder(param.formattedName())
                             .addModifiers(Modifier.PUBLIC);
 
                     if (param.type().equals("#")) {
@@ -640,7 +633,7 @@ public class SchemaGenerator extends AbstractProcessor {
                                 .filter(p -> p.flagInfo().isPresent())
                                 .map(f -> {
                                     var flagInfo = f.flagInfo().orElseThrow();
-                                    return String.format("(%s()%s ? 1 : 0) << 0x%x", formatFieldName(f),
+                                    return String.format("(%s()%s ? 1 : 0) << 0x%x", f.formattedName(),
                                             flagInfo.getT2().equals("true") ? "" : " != null", flagInfo.getT1());
                                 })
                                 .collect(Collectors.joining(" | "));
@@ -789,7 +782,7 @@ public class SchemaGenerator extends AbstractProcessor {
                 for (TlParam param : params) {
                     TypeName paramType = parseType(param.type(), schema);
 
-                    MethodSpec.Builder attribute = MethodSpec.methodBuilder(formatFieldName(param))
+                    MethodSpec.Builder attribute = MethodSpec.methodBuilder(param.formattedName())
                             .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT);
 
                     boolean optionalInExt = currTypeTree.get(qualifiedName).stream()
@@ -820,7 +813,8 @@ public class SchemaGenerator extends AbstractProcessor {
                 .addMethod(privateConstructor);
 
         for (TlEntityObject e : apiSchema.constructors()) {
-            if (primitiveTypes.contains(normalizeName(e.type()).toLowerCase())) {
+            String type = normalizeName(e.type()).toLowerCase();
+            if (primitiveTypes.contains(type)) {
                 String name = screamilize(e.name()) + "_ID";
 
                 spec.addField(FieldSpec.builder(int.class, name, Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
@@ -881,7 +875,7 @@ public class SchemaGenerator extends AbstractProcessor {
             case "bytes":
             case "int128":
             case "int256": return TypeName.get(byte[].class);
-            case "string": return TypeName.get(String.class);
+            case "string": return ClassName.get(String.class);
             case "object": return ClassName.OBJECT;
             case "jsonvalue": return ClassName.get(JsonNode.class);
             default:
@@ -925,7 +919,7 @@ public class SchemaGenerator extends AbstractProcessor {
     }
 
     private String extractEnumName(String type) {
-        return concTypeTree.getOrDefault(type, Collections.emptyList()).stream()
+        return concTypeTree.getOrDefault(type, List.of()).stream()
                 .map(c -> normalizeName(c.name()))
                 .reduce(Strings::findCommonPart)
                 .orElseGet(() -> normalizeName(type));

@@ -1,19 +1,17 @@
 package telegram4j.tl;
 
-import telegram4j.tl.model.TlParam;
-
 import javax.lang.model.SourceVersion;
 import java.util.regex.Matcher;
 
 import static telegram4j.tl.SchemaGeneratorConsts.*;
 import static telegram4j.tl.Strings.camelize;
 
-final class SourceNames {
+public final class SourceNames {
 
     private SourceNames() {
     }
 
-    static String normalizeName(String type) {
+    public static String normalizeName(String type) {
         type = applyNamingExceptions(type);
 
         Matcher vector = VECTOR_PATTERN.matcher(type);
@@ -44,8 +42,8 @@ final class SourceNames {
         return camelize(type);
     }
 
-    static String formatFieldName(TlParam param) {
-        String name = camelize(param.name());
+    public static String formatFieldName(String name) {
+        name = camelize(name);
 
         char f = name.charAt(0);
         if (Character.isUpperCase(f)) {
@@ -61,7 +59,7 @@ final class SourceNames {
         return name;
     }
 
-    static String applyNamingExceptions(String s) {
+    public static String applyNamingExceptions(String s) {
         String l = s;
         for (NameTransformer t : namingExceptions) {
             l = t.apply(l);
@@ -69,7 +67,7 @@ final class SourceNames {
         return l;
     }
 
-    static String parentPackageName(String qualifiedName) {
+    public static String parentPackageName(String qualifiedName) {
         int dot = qualifiedName.lastIndexOf('.');
         if (dot != -1) {
             return qualifiedName.substring(0, dot);

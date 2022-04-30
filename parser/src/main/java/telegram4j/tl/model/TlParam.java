@@ -8,6 +8,7 @@ import reactor.util.annotation.Nullable;
 import reactor.util.function.Tuple2;
 import reactor.util.function.Tuples;
 import telegram4j.tl.SchemaGeneratorConsts;
+import telegram4j.tl.SourceNames;
 
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -20,6 +21,13 @@ public abstract class TlParam {
     public abstract String name();
 
     public abstract String type();
+
+    @Value.Auxiliary
+    @Value.Derived
+    @JsonIgnore
+    public String formattedName() {
+        return SourceNames.formatFieldName(name());
+    }
 
     @Value.Auxiliary
     @Value.Derived

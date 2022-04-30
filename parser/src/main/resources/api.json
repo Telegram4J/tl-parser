@@ -503,10 +503,6 @@
           "type": "flags.0?true"
         },
         {
-          "name": "kicked",
-          "type": "flags.1?true"
-        },
-        {
           "name": "left",
           "type": "flags.2?true"
         },
@@ -5546,6 +5542,14 @@
         {
           "name": "noforwards",
           "type": "flags.27?true"
+        },
+        {
+          "name": "join_to_send",
+          "type": "flags.28?true"
+        },
+        {
+          "name": "join_request",
+          "type": "flags.29?true"
         },
         {
           "name": "id",
@@ -15516,6 +15520,10 @@
         {
           "name": "flags",
           "type": "#"
+        },
+        {
+          "name": "reply_to_scheduled",
+          "type": "flags.2?true"
         },
         {
           "name": "reply_to_msg_id",

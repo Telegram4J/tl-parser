@@ -6,8 +6,8 @@ import telegram4j.tl.api.TlObject;
 import telegram4j.tl.model.ImmutableTlParam;
 
 import javax.lang.model.element.Modifier;
-import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 public final class SchemaGeneratorConsts {
@@ -18,11 +18,11 @@ public final class SchemaGeneratorConsts {
     public static final Pattern FLAG_PATTERN = Pattern.compile("^flags\\.(\\d+)\\?(.+)$");
     public static final Pattern VECTOR_PATTERN = Pattern.compile("^[vV]ector<%?([A-Za-z0-9._<>]+)>$");
 
-    public static final List<String> ignoredTypes = Arrays.asList(
+    public static final Set<String> ignoredTypes = Set.of(
             "bool", "true", "false", "null", "vector",
             "jsonvalue", "jsonobjectvalue", "httpwait");
 
-    public static final List<String> primitiveTypes = Arrays.asList(
+    public static final Set<String> primitiveTypes = Set.of(
             "bool", "true", "vector", "jsonvalue", "jsonobjectvalue");
 
     public static final TypeVariableName genericType = TypeVariableName.get("T", TlObject.class);
@@ -34,6 +34,6 @@ public final class SchemaGeneratorConsts {
             .addModifiers(Modifier.PRIVATE)
             .build();
 
-    public static final List<NameTransformer> namingExceptions = Arrays.asList(
+    public static final List<NameTransformer> namingExceptions = List.of(
             NameTransformer.create("messages.StickerSet", "messages.StickerSetWithDocuments"));
 }
