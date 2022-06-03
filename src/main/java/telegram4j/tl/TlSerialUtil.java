@@ -28,7 +28,7 @@ public final class TlSerialUtil {
     }
 
     public static ByteBuf compressGzip(ByteBufAllocator allocator, ByteBuf buf) {
-        ByteBufOutputStream bufOut = new ByteBufOutputStream(allocator.buffer());
+        ByteBufOutputStream bufOut = new ByteBufOutputStream(allocator.buffer(buf.readableBytes()));
         try (DeflaterOutputStream out = new CompressibleGZIPOutputStream(bufOut)) {
             out.write(ByteBufUtil.getBytes(buf));
             out.finish();

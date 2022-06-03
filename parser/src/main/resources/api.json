@@ -2593,6 +2593,10 @@
           "type": "flags.4?true"
         },
         {
+          "name": "this_port_only",
+          "type": "flags.5?true"
+        },
+        {
           "name": "id",
           "type": "int"
         },
@@ -2646,6 +2650,10 @@
         {
           "name": "pfs_enabled",
           "type": "flags.13?true"
+        },
+        {
+          "name": "force_try_ipv6",
+          "type": "flags.14?true"
         },
         {
           "name": "date",
@@ -17038,6 +17046,10 @@
         {
           "name": "flags",
           "type": "#"
+        },
+        {
+          "name": "recommended",
+          "type": "flags.5?true"
         },
         {
           "name": "random_id",
