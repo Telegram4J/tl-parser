@@ -16,7 +16,7 @@ public final class SchemaGeneratorConsts {
     }
 
     public static final Pattern FLAG_PATTERN = Pattern.compile("^flags\\.(\\d+)\\?(.+)$");
-    public static final Pattern VECTOR_PATTERN = Pattern.compile("^[vV]ector<%?([A-Za-z0-9._<>]+)>$");
+    public static final Pattern VECTOR_PATTERN = Pattern.compile("^[vV]ector<%?([\\w.<>]+)>$");
 
     public static final Set<String> ignoredTypes = Set.of(
             "bool", "true", "false", "null", "vector",

@@ -23,8 +23,6 @@ import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.util.Elements;
-import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import javax.tools.StandardLocation;
 import java.io.IOException;
@@ -36,13 +34,16 @@ import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 
 import static telegram4j.tl.SchemaGeneratorConsts.*;
-import static telegram4j.tl.SourceNames.*;
+import static telegram4j.tl.SourceNames.normalizeName;
+import static telegram4j.tl.SourceNames.parentPackageName;
 import static telegram4j.tl.Strings.camelize;
 import static telegram4j.tl.Strings.screamilize;
 
 @SupportedSourceVersion(SourceVersion.RELEASE_11)
 @SupportedAnnotationTypes("telegram4j.tl.GenerateSchema")
 public class SchemaGenerator extends AbstractProcessor {
+
+    // TODO: add serialization for JsonVALUE in TlSerializer.serialize(...)
 
     private static final String METHOD_PACKAGE_PREFIX = "request";
     private static final String MTPROTO_PACKAGE_PREFIX = "mtproto";
@@ -53,11 +54,6 @@ public class SchemaGenerator extends AbstractProcessor {
     private static final String INDENT = "\t";
 
     private final Map<String, TlEntityObject> computed = new HashMap<>();
-
-    private Filer filer;
-    private Messager messager;
-    private Elements elements;
-    private Types types;
 
     private PackageElement currentElement;
     private TlSchema apiSchema;
@@ -111,11 +107,6 @@ public class SchemaGenerator extends AbstractProcessor {
     public synchronized void init(ProcessingEnvironment processingEnv) {
         super.init(processingEnv);
 
-        this.filer = processingEnv.getFiler();
-        this.messager = processingEnv.getMessager();
-        this.elements = processingEnv.getElementUtils();
-        this.types = processingEnv.getTypeUtils();
-
         ObjectMapper mapper = JsonMapper.builder()
                 .addModules(new Jdk8Module())
                 .visibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE)
@@ -124,8 +115,10 @@ public class SchemaGenerator extends AbstractProcessor {
                 .build();
 
         try {
-            InputStream api = filer.getResource(StandardLocation.ANNOTATION_PROCESSOR_PATH, "", API_SCHEMA).openInputStream();
-            InputStream mtproto = filer.getResource(StandardLocation.ANNOTATION_PROCESSOR_PATH, "", MTPROTO_SCHEMA).openInputStream();
+            InputStream api = processingEnv.getFiler().getResource(
+                    StandardLocation.ANNOTATION_PROCESSOR_PATH, "", API_SCHEMA).openInputStream();
+            InputStream mtproto = processingEnv.getFiler().getResource(
+                    StandardLocation.ANNOTATION_PROCESSOR_PATH, "", MTPROTO_SCHEMA).openInputStream();
 
             apiSchema = ImmutableTlSchema.copyOf(mapper.readValue(api, TlSchema.class));
 
@@ -146,7 +139,7 @@ public class SchemaGenerator extends AbstractProcessor {
         }
 
         if (annotations.size() > 1) {
-            messager.printMessage(Diagnostic.Kind.ERROR, "[TL parser] Generation package must be specified once!", currentElement);
+            processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "[TL parser] Generation package must be specified once!", currentElement);
             return true;
         }
 
@@ -657,7 +650,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
                 deserializer.addMethod(deserializerBuilder.addCode("\n\t\t.build();").build());
 
-                MethodSpec.Builder serializerBuilder = MethodSpec.methodBuilder(serializeMethodName)
+                var serializerBuilder = MethodSpec.methodBuilder(serializeMethodName)
                         .returns(ByteBuf.class)
                         .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
                         .addParameters(Arrays.asList(
@@ -785,7 +778,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     MethodSpec.Builder attribute = MethodSpec.methodBuilder(param.formattedName())
                             .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT);
 
-                    boolean optionalInExt = currTypeTree.get(qualifiedName).stream()
+                    boolean optionalInExt = currTypeTree.getOrDefault(qualifiedName, List.of()).stream()
                             .flatMap(c -> c.params().stream())
                             .anyMatch(p -> p.type().startsWith("flags.") &&
                                     p.name().equals(param.name()));
@@ -833,11 +826,11 @@ public class SchemaGenerator extends AbstractProcessor {
         try {
 
             String processingPackageName = getBasePackageName();
-            String template = filer.getResource(StandardLocation.ANNOTATION_PROCESSOR_PATH,
+            String template = processingEnv.getFiler().getResource(StandardLocation.ANNOTATION_PROCESSOR_PATH,
                             "", TEMPLATE_PACKAGE_INFO).getCharContent(true)
                     .toString();
 
-            Set<String> packages = concTypeTree.keySet().stream()
+            var packages = concTypeTree.keySet().stream()
                     .map(SourceNames::parentPackageName)
                     .filter(s -> !s.equals(processingPackageName))
                     .collect(Collectors.toSet());
@@ -851,7 +844,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
             for (String pack : packages) {
                 String complete = template.replace("${package-name}", pack);
-                try (Writer writer = filer.createSourceFile(pack + ".package-info").openWriter()) {
+                try (Writer writer = processingEnv.getFiler().createSourceFile(pack + ".package-info").openWriter()) {
                     writer.write(complete);
                     writer.flush();
                 }
@@ -876,7 +869,7 @@ public class SchemaGenerator extends AbstractProcessor {
             case "int128":
             case "int256": return TypeName.get(byte[].class);
             case "string": return ClassName.get(String.class);
-            case "object": return ClassName.OBJECT;
+            case "object": return ClassName.get(TlObject.class);
             case "jsonvalue": return ClassName.get(JsonNode.class);
             default:
                 Matcher flag = FLAG_PATTERN.matcher(type);
@@ -912,7 +905,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
     private void writeTo(JavaFile file) {
         try {
-            file.writeTo(filer);
+            file.writeTo(processingEnv.getFiler());
         } catch (Throwable t) {
             throw Exceptions.propagate(t);
         }
@@ -1009,7 +1002,7 @@ public class SchemaGenerator extends AbstractProcessor {
             case "string": return "serializeString(alloc, payload.$L())";
             case "bytes": return "serializeBytes(alloc, payload.$L())";
             case "jsonvalue": return "serializeJsonNode(alloc, payload.$L())";
-            case "object": return "serializeUnknown(alloc, payload.$L())";
+            case "object": return "serialize(alloc, payload.$L())";
             default:
                 Matcher vector = VECTOR_PATTERN.matcher(paramTypeLower);
                 if (vector.matches()) {
