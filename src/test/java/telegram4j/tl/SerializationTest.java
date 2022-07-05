@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
-import io.netty.buffer.ByteBufUtil;
 import org.junit.jupiter.api.Test;
 import telegram4j.tl.mtproto.GzipPacked;
 
@@ -13,6 +12,23 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class SerializationTest {
 
     static ByteBufAllocator alloc = ByteBufAllocator.DEFAULT;
+
+    @Test
+    void optionalFields() {
+        Channel expected = Channel.builder()
+                .id(1)
+                .title("title")
+                .photo(ChatPhotoEmpty.instance())
+                .gigagroup(true)
+                .date(1)
+                .build();
+
+        ByteBuf bytes = TlSerializer.serialize(alloc, expected);
+        Channel result = TlDeserializer.deserialize(bytes);
+        bytes.release();
+
+        assertEquals(result, expected);
+    }
 
     @Test
     void chat() {
@@ -40,7 +56,7 @@ public class SerializationTest {
                 .build();
 
         GzipPacked pack = GzipPacked.builder()
-                .packedData(ByteBufUtil.getBytes(TlSerialUtil.compressGzip(alloc, chat)))
+                .packedData(TlSerialUtil.compressGzip(alloc, chat))
                 .build();
 
         ByteBuf serialized = TlSerializer.serialize(alloc, pack);

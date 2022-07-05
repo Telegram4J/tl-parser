@@ -16,6 +16,7 @@ ext {
 
 dependencies {
     api project(":api")
+    compileOnly project(":encoding")
 
     api "com.fasterxml.jackson.core:jackson-databind:$jackson_version"
     api "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:$jackson_version"

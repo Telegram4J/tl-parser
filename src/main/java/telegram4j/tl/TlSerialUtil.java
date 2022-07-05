@@ -70,16 +70,25 @@ public final class TlSerialUtil {
         }
     }
 
-    public static byte[] readInt128(ByteBuf buf) {
-        return readBytes(buf, Long.BYTES * 2);
+    public static ByteBuf readInt128(ByteBuf buf) {
+        return buf.readBytes(Long.BYTES * 2);
     }
 
-    public static byte[] readInt256(ByteBuf buf) {
-        return readBytes(buf, Long.BYTES * 4);
+    public static ByteBuf readInt256(ByteBuf buf) {
+        return buf.readBytes(Long.BYTES * 4);
     }
 
-    // TODO: replace by this byte[] impl
-    public static ByteBuf deserializeBuf(ByteBuf buf) {
+    public static byte[] readBytes(ByteBuf buf, int length) {
+        if (length == 0) {
+            return EmptyArrays.EMPTY_BYTES;
+        }
+
+        byte[] arr = ByteBufUtil.getBytes(buf, buf.readerIndex(), length);
+        buf.skipBytes(length); // to change readerIndex
+        return arr;
+    }
+
+    public static ByteBuf deserializeBytes(ByteBuf buf) {
         int n = buf.readUnsignedByte();
         int h = 1;
         if (n >= 0xfe) {
@@ -96,39 +105,12 @@ public final class TlSerialUtil {
         return data;
     }
 
-    public static byte[] readBytes(ByteBuf buf, int length) {
-        if (length == 0) {
-            return EmptyArrays.EMPTY_BYTES;
-        }
-
-        byte[] arr = ByteBufUtil.getBytes(buf, buf.readerIndex(), length);
-        buf.skipBytes(length); // to change readerIndex
-        return arr;
-    }
-
-    public static byte[] deserializeBytes(ByteBuf buf) {
-        int count = buf.readUnsignedByte();
-        int start = 1;
-        if (count >= 0xfe) {
-            count = buf.readUnsignedMediumLE();
-            start = 4;
-        }
-
-        byte[] bytes = readBytes(buf, count);
-        int offset = (count + start) % 4;
-        if (offset != 0) {
-            buf.skipBytes(4 - offset);
-        }
-
-        return bytes;
-    }
-
     public static String deserializeString(ByteBuf buf) {
-        return new String(deserializeBytes(buf), StandardCharsets.UTF_8);
+        return deserializeBytes(buf).toString(StandardCharsets.UTF_8);
     }
 
     public static ByteBuf serializeString(ByteBufAllocator allocator, String value) {
-        return serializeBytes(allocator, value.getBytes(StandardCharsets.UTF_8));
+        return serializeBytes(allocator, Unpooled.wrappedBuffer(value.getBytes(StandardCharsets.UTF_8)));
     }
 
     public static ByteBuf serializeBytes(ByteBufAllocator allocator, ByteBuf bytes) {
@@ -152,26 +134,6 @@ public final class TlSerialUtil {
         return buf;
     }
 
-    public static ByteBuf serializeBytes(ByteBufAllocator allocator, byte[] bytes) {
-        int header = bytes.length >= 0xfe ? 4 : 1;
-        int offset = (header + bytes.length) % 4;
-        ByteBuf buf = allocator.buffer(header + bytes.length + 4 - offset);
-
-        if (bytes.length >= 0xfe) {
-            buf.writeByte(0xfe);
-            buf.writeMediumLE(bytes.length);
-        } else {
-            buf.writeByte(bytes.length);
-        }
-
-        buf.writeBytes(bytes);
-        if (offset != 0) {
-            buf.writeZero(4 - offset);
-        }
-
-        return buf;
-    }
-
     public static List<Long> deserializeLongVector(ByteBuf buf) {
         return deserializeVector0(buf, false, ByteBuf::readLongLE);
     }
@@ -184,7 +146,7 @@ public final class TlSerialUtil {
         return deserializeVector0(buf, false, TlSerialUtil::deserializeString);
     }
 
-    public static List<byte[]> deserializeBytesVector(ByteBuf buf) {
+    public static List<ByteBuf> deserializeBytesVector(ByteBuf buf) {
         return deserializeVector0(buf, false, TlSerialUtil::deserializeBytes);
     }
 
@@ -201,12 +163,8 @@ public final class TlSerialUtil {
         return list;
     }
 
-    public static <T> List<T> deserializeVector(ByteBuf buf, boolean bare) {
-        return deserializeVector0(buf, bare, TlDeserializer::deserialize);
-    }
-
     public static <T> List<T> deserializeVector(ByteBuf buf) {
-        return deserializeVector(buf, false);
+        return deserializeVector0(buf, false, TlDeserializer::deserialize);
     }
 
     public static ByteBuf serializeLongVector(ByteBufAllocator allocator, List<Long> vector) {
@@ -241,11 +199,15 @@ public final class TlSerialUtil {
         return buf;
     }
 
-    public static ByteBuf serializeBytesVector(ByteBufAllocator allocator, List<byte[]> vector) {
-        ByteBuf buf = allocator.buffer();
+    public static ByteBuf serializeBytesVector(ByteBufAllocator allocator, List<ByteBuf> vector) {
+        int size = vector.stream()
+                .mapToInt(ByteBuf::readableBytes)
+                .reduce(8, Math::addExact);
+
+        ByteBuf buf = allocator.buffer(size);
         buf.writeIntLE(VECTOR_ID);
         buf.writeIntLE(vector.size());
-        for (byte[] bytes : vector) {
+        for (ByteBuf bytes : vector) {
             buf.writeBytes(bytes);
         }
         return buf;
@@ -279,9 +241,8 @@ public final class TlSerialUtil {
             return allocator.buffer(Integer.BYTES).writeIntLE((boolean) value ? BOOL_TRUE_ID : BOOL_FALSE_ID);
         } else if (value instanceof Double) {
             return allocator.buffer(Double.BYTES).writeDoubleLE((long) value);
-        } else if (value instanceof byte[]) {
-            byte[] value0 = (byte[]) value;
-            return serializeBytes(allocator, value0);
+        } else if (value instanceof ByteBuf) {
+            return serializeBytes(allocator, (ByteBuf) value);
         } else if (value instanceof String) {
             return serializeString(allocator, (String) value);
         } else if (value instanceof List) {
@@ -296,11 +257,9 @@ public final class TlSerialUtil {
             }
             return buf;
         } else if (value instanceof TlObject) {
-            TlObject value0 = (TlObject) value;
-            return TlSerializer.serialize(allocator, value0);
+            return TlSerializer.serialize(allocator, (TlObject) value);
         } else if (value instanceof JsonNode) {
-            JsonNode value0 = (JsonNode) value;
-            return serializeJsonNode(allocator, value0);
+            return serializeJsonNode(allocator, (JsonNode) value);
         } else {
             throw new IllegalArgumentException("Incorrect TL serializable type: " + value + " (" + value.getClass() + ")");
         }

@@ -2,3 +2,4 @@ rootProject.name = 'tl-parser'
 
 include 'api'
 include 'parser'
+include 'encoding'

@@ -426,8 +426,7 @@ public class SchemaGenerator extends AbstractProcessor {
                         attribute.addModifiers(Modifier.DEFAULT);
                         attribute.addCode("return false;");
                     } else if (param.type().startsWith("flags.")) {
-                        paramType = paramType.box();
-                        attribute.addAnnotation(Nullable.class);
+                        paramType = wrapOptional(attribute, paramType, param);
                         attribute.addModifiers(Modifier.ABSTRACT);
                     } else {
                         attribute.addModifiers(Modifier.ABSTRACT);
@@ -636,9 +635,7 @@ public class SchemaGenerator extends AbstractProcessor {
                         attribute.addModifiers(Modifier.DEFAULT);
                         attribute.addCode("return false;");
                     } else if (param.type().startsWith("flags.")) {
-                        paramType = paramType.box();
-
-                        attribute.addAnnotation(Nullable.class);
+                        paramType = wrapOptional(attribute, paramType, param);
                         attribute.addModifiers(Modifier.ABSTRACT);
                     } else {
                         attribute.addModifiers(Modifier.ABSTRACT);
@@ -693,8 +690,6 @@ public class SchemaGenerator extends AbstractProcessor {
             case "bool":
             case "long":
             case "double":
-            case "int128":
-            case "int256":
                 return false;
             default:
                 return true;
@@ -784,8 +779,7 @@ public class SchemaGenerator extends AbstractProcessor {
                                     p.name().equals(param.name()));
 
                     if (!param.type().endsWith("true") && (param.type().startsWith("flags.") || optionalInExt)) {
-                        paramType = paramType.box();
-                        attribute.addAnnotation(Nullable.class);
+                        paramType = wrapOptional(attribute, paramType, param);
                     }
 
                     spec.addMethod(attribute.returns(paramType).build());
@@ -867,7 +861,7 @@ public class SchemaGenerator extends AbstractProcessor {
             case "double": return TypeName.DOUBLE;
             case "bytes":
             case "int128":
-            case "int256": return TypeName.get(byte[].class);
+            case "int256": return ClassName.get(ByteBuf.class);
             case "string": return ClassName.get(String.class);
             case "object": return ClassName.get(TlObject.class);
             case "jsonvalue": return ClassName.get(JsonNode.class);
@@ -1025,6 +1019,15 @@ public class SchemaGenerator extends AbstractProcessor {
                     return "serialize(alloc, payload.$L())";
                 }
         }
+    }
+
+    private TypeName wrapOptional(MethodSpec.Builder attribute, TypeName type, TlParam param) {
+        if (param.type().endsWith("bytes")) {
+            return ParameterizedTypeName.get(ClassName.get(Optional.class), type);
+        }
+
+        attribute.addAnnotation(Nullable.class);
+        return type.box();
     }
 
     private String getPackageName(TlSchema schema, String type, boolean method) {
