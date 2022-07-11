@@ -4,7 +4,8 @@
         depluralize = true,
         jdkOnly = true,
         allMandatoryParameters = true,
-        defaultAsDefault = true
+        defaultAsDefault = true,
+        allowedClasspathAnnotations = {Override.class}
 )
 @NonNullApi
 @ByteBufEncodingEnabled

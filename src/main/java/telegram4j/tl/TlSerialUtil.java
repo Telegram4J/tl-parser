@@ -3,7 +3,6 @@ package telegram4j.tl;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.*;
 import io.netty.buffer.*;
-import io.netty.util.internal.EmptyArrays;
 import reactor.core.Exceptions;
 import reactor.util.annotation.Nullable;
 import telegram4j.tl.api.TlObject;
@@ -71,43 +70,14 @@ public final class TlSerialUtil {
     }
 
     public static ByteBuf readInt128(ByteBuf buf) {
-        return buf.readBytes(Long.BYTES * 2);
+        return buf.readSlice(Long.BYTES * 2);
     }
 
     public static ByteBuf readInt256(ByteBuf buf) {
-        return buf.readBytes(Long.BYTES * 4);
+        return buf.readSlice(Long.BYTES * 4);
     }
 
-    public static byte[] readBytes(ByteBuf buf, int length) {
-        if (length == 0) {
-            return EmptyArrays.EMPTY_BYTES;
-        }
-
-        byte[] arr = ByteBufUtil.getBytes(buf, buf.readerIndex(), length);
-        buf.skipBytes(length); // to change readerIndex
-        return arr;
-    }
-
-    public static ByteBuf deserializeBytes(ByteBuf buf) {
-        int n = buf.readUnsignedByte();
-        int h = 1;
-        if (n >= 0xfe) {
-            n = buf.readUnsignedMediumLE();
-            h = 4;
-        }
-
-        ByteBuf data = buf.readBytes(n);
-        int offset = (n + h) % 4;
-        if (offset != 0) {
-            buf.skipBytes(4 - offset);
-        }
-
-        return data;
-    }
-
-    public static String deserializeString(ByteBuf buf) {
-        return deserializeBytes(buf).toString(StandardCharsets.UTF_8);
-    }
+    // serialization
 
     public static ByteBuf serializeString(ByteBufAllocator allocator, String value) {
         return serializeBytes(allocator, Unpooled.wrappedBuffer(value.getBytes(StandardCharsets.UTF_8)));
@@ -134,39 +104,6 @@ public final class TlSerialUtil {
         return buf;
     }
 
-    public static List<Long> deserializeLongVector(ByteBuf buf) {
-        return deserializeVector0(buf, false, ByteBuf::readLongLE);
-    }
-
-    public static List<Integer> deserializeIntVector(ByteBuf buf) {
-        return deserializeVector0(buf, false, ByteBuf::readIntLE);
-    }
-
-    public static List<String> deserializeStringVector(ByteBuf buf) {
-        return deserializeVector0(buf, false, TlSerialUtil::deserializeString);
-    }
-
-    public static List<ByteBuf> deserializeBytesVector(ByteBuf buf) {
-        return deserializeVector0(buf, false, TlSerialUtil::deserializeBytes);
-    }
-
-    public static <T> List<T> deserializeVector0(ByteBuf buf, boolean bare, Function<? super ByteBuf, ? extends T> parser) {
-        int vectorId;
-        if (!bare && (vectorId = buf.readIntLE()) != VECTOR_ID) {
-            throw new IllegalStateException("Incorrect vector identifier: 0x" + Integer.toHexString(vectorId));
-        }
-        int size = buf.readIntLE();
-        List<T> list = new ArrayList<>(size);
-        for (int i = 0; i < size; i++) {
-            list.add(parser.apply(buf));
-        }
-        return list;
-    }
-
-    public static <T> List<T> deserializeVector(ByteBuf buf) {
-        return deserializeVector0(buf, false, TlDeserializer::deserialize);
-    }
-
     public static ByteBuf serializeLongVector(ByteBufAllocator allocator, List<Long> vector) {
         ByteBuf buf = allocator.buffer(8 + 8 * vector.size());
         buf.writeIntLE(VECTOR_ID);
@@ -188,41 +125,15 @@ public final class TlSerialUtil {
     }
 
     public static ByteBuf serializeStringVector(ByteBufAllocator allocator, List<String> vector) {
-        ByteBuf buf = allocator.buffer();
-        buf.writeIntLE(VECTOR_ID);
-        buf.writeIntLE(vector.size());
-        for (String o : vector) {
-            ByteBuf obuf = serializeString(allocator, o);
-            buf.writeBytes(obuf);
-            obuf.release();
-        }
-        return buf;
+        return serializeVector0(allocator, vector, e -> serializeString(allocator, e));
     }
 
-    public static ByteBuf serializeBytesVector(ByteBufAllocator allocator, List<ByteBuf> vector) {
-        int size = vector.stream()
-                .mapToInt(ByteBuf::readableBytes)
-                .reduce(8, Math::addExact);
-
-        ByteBuf buf = allocator.buffer(size);
-        buf.writeIntLE(VECTOR_ID);
-        buf.writeIntLE(vector.size());
-        for (ByteBuf bytes : vector) {
-            buf.writeBytes(bytes);
-        }
-        return buf;
+    public static ByteBuf serializeBytesVector(ByteBufAllocator allocator, List<? extends ByteBuf> vector) {
+        return serializeVector0(allocator, vector, e -> serializeBytes(allocator, e));
     }
 
     public static ByteBuf serializeVector(ByteBufAllocator allocator, List<? extends TlObject> vector) {
-        ByteBuf buf = allocator.buffer();
-        buf.writeIntLE(VECTOR_ID);
-        buf.writeIntLE(vector.size());
-        for (TlObject o : vector) {
-            ByteBuf obuf = TlSerializer.serialize(allocator, o);
-            buf.writeBytes(obuf);
-            obuf.release();
-        }
-        return buf;
+        return serializeVector0(allocator, vector, e -> TlSerializer.serialize(allocator, e));
     }
 
     public static ByteBuf serializeFlags(ByteBufAllocator allocator, @Nullable Object value) {
@@ -247,15 +158,7 @@ public final class TlSerialUtil {
             return serializeString(allocator, (String) value);
         } else if (value instanceof List) {
             List<?> value0 = (List<?>) value;
-            ByteBuf buf = allocator.buffer();
-            buf.writeIntLE(VECTOR_ID);
-            buf.writeIntLE(value0.size());
-            for (Object o : value0) {
-                ByteBuf obuf = serializeUnknown(allocator, o);
-                buf.writeBytes(obuf);
-                obuf.release();
-            }
-            return buf;
+            return serializeVector0(allocator, value0, e -> serializeUnknown(allocator, e));
         } else if (value instanceof TlObject) {
             return TlSerializer.serialize(allocator, (TlObject) value);
         } else if (value instanceof JsonNode) {
@@ -263,29 +166,6 @@ public final class TlSerialUtil {
         } else {
             throw new IllegalArgumentException("Incorrect TL serializable type: " + value + " (" + value.getClass() + ")");
         }
-    }
-
-    static List<Object> deserializeUnknownVector(ByteBuf buf) {
-        // vector id skipped.
-        int size = buf.readIntLE();
-        List<Object> list = new ArrayList<>(size);
-        boolean longVec = size * Long.BYTES == buf.readableBytes();
-        boolean intVec = size * Integer.BYTES == buf.readableBytes();
-
-        for (int i = 0; i < size; i++) {
-            Object val;
-
-            if (longVec) {
-                val = buf.readLongLE();
-            } else if (intVec) {
-                val = buf.readIntLE();
-            } else {
-                val = TlDeserializer.deserialize(buf);
-            }
-
-            list.add(val);
-        }
-        return list;
     }
 
     public static ByteBuf serializeJsonNode(ByteBufAllocator allocator, JsonNode node) {
@@ -335,6 +215,68 @@ public final class TlSerialUtil {
         }
     }
 
+    static <T> ByteBuf serializeVector0(ByteBufAllocator allocator, List<T> vector, Function<T, ByteBuf> serializer) {
+        ByteBuf[] bytes = new ByteBuf[vector.size()];
+        int size = 8;
+        for (int i = 0; i < bytes.length; i++) {
+            ByteBuf buf = serializer.apply(vector.get(i));
+            size = Math.addExact(size, buf.readableBytes());
+            bytes[i] = buf;
+        }
+
+        ByteBuf buf = allocator.buffer(size);
+        buf.writeIntLE(VECTOR_ID);
+        buf.writeIntLE(vector.size());
+        for (ByteBuf b : bytes) {
+            buf.writeBytes(b);
+            b.release();
+        }
+        return buf;
+    }
+
+    // deserialization
+
+    public static ByteBuf deserializeBytes(ByteBuf buf) {
+        int n = buf.readUnsignedByte();
+        int h = 1;
+        if (n >= 0xfe) {
+            n = buf.readUnsignedMediumLE();
+            h = 4;
+        }
+
+        ByteBuf data = buf.readBytes(n);
+        int offset = (n + h) % 4;
+        if (offset != 0) {
+            buf.skipBytes(4 - offset);
+        }
+
+        return data;
+    }
+
+    public static String deserializeString(ByteBuf buf) {
+        return deserializeBytes(buf).toString(StandardCharsets.UTF_8);
+    }
+
+    public static List<Long> deserializeLongVector(ByteBuf buf) {
+        return deserializeVector0(buf, false, ByteBuf::readLongLE);
+    }
+
+    public static List<Integer> deserializeIntVector(ByteBuf buf) {
+        return deserializeVector0(buf, false, ByteBuf::readIntLE);
+    }
+
+    public static List<String> deserializeStringVector(ByteBuf buf) {
+        return deserializeVector0(buf, false, TlSerialUtil::deserializeString);
+    }
+
+    public static List<ByteBuf> deserializeBytesVector(ByteBuf buf) {
+        return deserializeVector0(buf, false, TlSerialUtil::deserializeBytes);
+    }
+
+    public static <T> List<T> deserializeVector(ByteBuf buf) {
+        return deserializeVector0(buf, false, TlDeserializer::deserialize);
+    }
+
     public static JsonNode deserializeJsonNode(ByteBuf buf) {
         int identifier = buf.readIntLE();
         switch (identifier) {
@@ -343,8 +285,8 @@ public final class TlSerialUtil {
             case JSON_STRING_ID: return TextNode.valueOf(deserializeString(buf));
             case JSON_NUMBER_ID: return DoubleNode.valueOf(buf.readDoubleLE());
             case JSON_ARRAY_ID: {
-                int vectorId;
-                if ((vectorId = buf.readIntLE()) != VECTOR_ID) {
+                int vectorId = buf.readIntLE();
+                if (vectorId != VECTOR_ID) {
                     throw new IllegalStateException("Incorrect vector identifier: 0x" + Integer.toHexString(vectorId));
                 }
                 int size = buf.readIntLE();
@@ -355,13 +297,16 @@ public final class TlSerialUtil {
                 return node;
             }
             case JSON_OBJECT_ID: {
-                int vectorId;
-                if ((vectorId = buf.readIntLE()) != VECTOR_ID) {
+                int vectorId = buf.readIntLE();
+                if (vectorId != VECTOR_ID) {
                     throw new IllegalStateException("Incorrect vector identifier: 0x" + Integer.toHexString(vectorId));
                 }
                 int size = buf.readIntLE();
                 ObjectNode node0 = JsonNodeFactory.instance.objectNode();
                 for (int i = 0; i < size; i++) {
+                    if (buf.readIntLE() != JSON_OBJECT_VALUE_ID) {
+                        throw new IllegalStateException("Incorrect json pair identifier: 0x" + Integer.toHexString(vectorId));
+                    }
                     String name = deserializeString(buf);
                     node0.set(name, deserializeJsonNode(buf));
                 }
@@ -369,6 +314,42 @@ public final class TlSerialUtil {
             }
             default: throw new IllegalArgumentException("Incorrect json node identifier: 0x" + Integer.toHexString(identifier));
         }
+    }
+
+    static <T> List<T> deserializeVector0(ByteBuf buf, boolean bare, Function<? super ByteBuf, ? extends T> parser) {
+        int vectorId;
+        if (!bare && (vectorId = buf.readIntLE()) != VECTOR_ID) {
+            throw new IllegalStateException("Incorrect vector identifier: 0x" + Integer.toHexString(vectorId));
+        }
+        int size = buf.readIntLE();
+        List<T> list = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            list.add(parser.apply(buf));
+        }
+        return list;
+    }
+
+    static List<Object> deserializeUnknownVector(ByteBuf buf) {
+        // vector id skipped.
+        int size = buf.readIntLE();
+        List<Object> list = new ArrayList<>(size);
+        boolean longVec = size * Long.BYTES == buf.readableBytes();
+        boolean intVec = size * Integer.BYTES == buf.readableBytes();
+
+        for (int i = 0; i < size; i++) {
+            Object val;
+
+            if (longVec) {
+                val = buf.readLongLE();
+            } else if (intVec) {
+                val = buf.readIntLE();
+            } else {
+                val = TlDeserializer.deserialize(buf);
+            }
+
+            list.add(val);
+        }
+        return list;
     }
 
     /** Internal gzip output stream implementation, which has compression level {@code == Deflater.BEST_COMPRESSION} for best compression. */

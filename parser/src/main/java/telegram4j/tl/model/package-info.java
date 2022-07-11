@@ -2,7 +2,8 @@
         depluralize = true,
         jdkOnly = true,
         allParameters = true,
-        defaultAsDefault = true
+        defaultAsDefault = true,
+        allowedClasspathAnnotations = {Override.class}
 )
 @NonNullApi
 package telegram4j.tl.model;
