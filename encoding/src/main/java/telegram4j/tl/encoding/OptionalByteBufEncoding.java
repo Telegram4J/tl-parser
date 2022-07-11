@@ -8,7 +8,7 @@ import telegram4j.tl.api.TlEncodingUtil;
 import java.util.Optional;
 
 @Encoding
-class OptionalByteBufEncoding {
+public class OptionalByteBufEncoding {
 
     @Encoding.Impl
     private final ByteBuf value = null;

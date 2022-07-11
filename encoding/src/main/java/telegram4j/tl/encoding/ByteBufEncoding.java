@@ -6,7 +6,7 @@ import org.immutables.encode.Encoding;
 import telegram4j.tl.api.TlEncodingUtil;
 
 @Encoding
-class ByteBufEncoding {
+public class ByteBufEncoding {
 
     @Encoding.Impl
     private final ByteBuf value = null;
