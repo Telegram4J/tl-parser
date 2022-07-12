@@ -1,4 +1,4 @@
-package telegram4j.tl.model;
+package telegram4j.tl.json;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;

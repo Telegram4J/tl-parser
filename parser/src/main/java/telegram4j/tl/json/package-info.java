@@ -6,7 +6,7 @@
         allowedClasspathAnnotations = {Override.class}
 )
 @NonNullApi
-package telegram4j.tl.model;
+package telegram4j.tl.json;
 
 import org.immutables.value.Value;
 import reactor.util.annotation.NonNullApi;

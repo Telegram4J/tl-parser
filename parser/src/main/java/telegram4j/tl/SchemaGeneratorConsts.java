@@ -3,7 +3,7 @@ package telegram4j.tl;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeVariableName;
 import telegram4j.tl.api.TlObject;
-import telegram4j.tl.model.ImmutableTlParam;
+import telegram4j.tl.json.ImmutableTlParam;
 
 import javax.lang.model.element.Modifier;
 import java.util.List;
@@ -18,12 +18,10 @@ public final class SchemaGeneratorConsts {
     public static final Pattern FLAG_PATTERN = Pattern.compile("^flags\\.(\\d+)\\?(.+)$");
     public static final Pattern VECTOR_PATTERN = Pattern.compile("^[vV]ector<%?([\\w.<>]+)>$");
 
-    public static final Set<String> ignoredTypes = Set.of(
-            "bool", "true", "false", "null", "vector",
-            "jsonvalue", "jsonobjectvalue", "httpwait");
+    public static final Set<String> ignoredTypes = Set.of("True", "Null", "HttpWait");
 
     public static final Set<String> primitiveTypes = Set.of(
-            "bool", "true", "vector", "jsonvalue", "jsonobjectvalue");
+            "Bool", "Vector t", "JSONValue", "JSONObjectValue");
 
     public static final TypeVariableName genericType = TypeVariableName.get("T", TlObject.class);
     public static final TypeVariableName genericTypeRef = TypeVariableName.get("T");

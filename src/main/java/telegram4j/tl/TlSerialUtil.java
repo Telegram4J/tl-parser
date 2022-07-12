@@ -69,6 +69,13 @@ public final class TlSerialUtil {
         }
     }
 
+    public static int sumSizeExact(int base, ByteBuf... bufs) {
+        for (ByteBuf buf : bufs) {
+            base = Math.addExact(base, buf.readableBytes());
+        }
+        return base;
+    }
+
     public static ByteBuf readInt128(ByteBuf buf) {
         return buf.readBytes(Long.BYTES * 2);
     }

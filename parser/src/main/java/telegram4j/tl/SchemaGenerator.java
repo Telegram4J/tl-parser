@@ -13,10 +13,10 @@ import org.immutables.value.Value;
 import reactor.core.Exceptions;
 import reactor.util.annotation.Nullable;
 import telegram4j.tl.api.*;
-import telegram4j.tl.model.ImmutableTlSchema;
-import telegram4j.tl.model.TlEntityObject;
-import telegram4j.tl.model.TlParam;
-import telegram4j.tl.model.TlSchema;
+import telegram4j.tl.json.ImmutableTlSchema;
+import telegram4j.tl.json.TlEntityObject;
+import telegram4j.tl.json.TlParam;
+import telegram4j.tl.json.TlSchema;
 
 import javax.annotation.processing.*;
 import javax.lang.model.SourceVersion;
@@ -262,7 +262,7 @@ public class SchemaGenerator extends AbstractProcessor {
     private void generateMethods() {
         for (TlEntityObject method : schema.methods()) {
             String name = normalizeName(method.name());
-            if (ignoredTypes.contains(name.toLowerCase())) {
+            if (ignoredTypes.contains(method.type())) {
                 continue;
             }
 
@@ -384,18 +384,26 @@ public class SchemaGenerator extends AbstractProcessor {
                 CodeBlock.Builder serPrecomputeBlock = CodeBlock.builder();
                 CodeBlock.Builder std = CodeBlock.builder();
 
+                int size = 4;
+                StringJoiner releasableSized = new StringJoiner(", ");
                 for (TlParam param : method.params()) {
                     boolean releasable = isReleasable(param.type());
+
+                    String fixedParamName = param.formattedName().equals("payload")
+                            ? "payload$" : param.formattedName();
+
+                    int s = sizeOf(param.type());
+                    if (s != -1) {
+                        size = Math.addExact(size, s);
+                    } else {
+                        releasableSized.add(fixedParamName);
+                    }
 
                     // serialization
                     String ser = serializeMethod(param);
                     String met = byteBufMethod(param);
                     if (ser != null) {
                         if (releasable) {
-                            // exception for InputMediaInvoice
-                            String fixedParamName = param.formattedName().equals("payload")
-                                    ? "payloadState" : param.formattedName();
-
                             serPrecomputeBlock.addStatement("$T $L = " + ser, ByteBuf.class,
                                     fixedParamName, param.formattedName());
                             serFinallyBlock.addStatement("$L.release()", fixedParamName);
@@ -443,7 +451,11 @@ public class SchemaGenerator extends AbstractProcessor {
                     serializerBuilder.beginControlFlow("try");
                 }
 
-                serializerBuilder.addCode("return alloc.buffer()\n");
+                String sizeStr = releasableSized.length() == 0
+                        ? Integer.toString(size)
+                        : "sumSizeExact(" + size + ", " + releasableSized + ")";
+
+                serializerBuilder.addCode("return alloc.buffer($L)\n", sizeStr);
                 serializerBuilder.addCode("\t\t.writeIntLE(payload.identifier())");
                 serializerBuilder.addCode(std.add(";").build());
 
@@ -467,7 +479,7 @@ public class SchemaGenerator extends AbstractProcessor {
     private void generateConstructors() {
         for (TlEntityObject constructor : schema.constructors()) {
             String type = normalizeName(constructor.type());
-            if (ignoredTypes.contains(type.toLowerCase())) {
+            if (ignoredTypes.contains(constructor.type()) || primitiveTypes.contains(constructor.type())) {
                 continue;
             }
 
@@ -591,18 +603,25 @@ public class SchemaGenerator extends AbstractProcessor {
                 }
                 deserializerBuilder.addCode("return $T.builder()", typeName);
 
+                int size = 4;
+                StringJoiner releasableSized = new StringJoiner(", ");
                 for (TlParam param : attributes) {
                     boolean releasable = isReleasable(param.type());
+                    String fixedParamName = param.formattedName().equals("payload")
+                            ? "payload$" : param.formattedName();
+
+                    int s = sizeOf(param.type());
+                    if (s != -1) {
+                         size = Math.addExact(size, s);
+                    } else {
+                        releasableSized.add(fixedParamName);
+                    }
 
                     // serialization
                     String ser = serializeMethod(param);
                     String met = byteBufMethod(param);
                     if (ser != null) {
                         if (releasable) {
-                            // exception for InputMediaInvoice
-                            String fixedParamName = param.formattedName().equals("payload")
-                                    ? "payloadState" : param.formattedName();
-
                             serPrecomputeBlock.addStatement("$T $L = " + ser, ByteBuf.class,
                                     fixedParamName, param.formattedName());
                             serFinallyBlock.addStatement("$L.release()", fixedParamName);
@@ -659,7 +678,11 @@ public class SchemaGenerator extends AbstractProcessor {
                     serializerBuilder.beginControlFlow("try");
                 }
 
-                serializerBuilder.addCode("return alloc.buffer()\n");
+                String sizeStr = releasableSized.length() == 0
+                        ? Integer.toString(size)
+                        : "sumSizeExact(" + size + ", " + releasableSized + ")";
+
+                serializerBuilder.addCode("return alloc.buffer($L)\n", sizeStr);
                 serializerBuilder.addCode("\t\t.writeIntLE(payload.identifier())");
                 serializerBuilder.addCode(std.add(";").build());
 
@@ -693,6 +716,27 @@ public class SchemaGenerator extends AbstractProcessor {
                 return false;
             default:
                 return true;
+        }
+    }
+
+    private int sizeOf(String type) {
+        switch (type.toLowerCase()) {
+            case "int256":
+                return 32;
+            case "int128":
+                return 16;
+            case "long":
+            case "double":
+                return 8;
+            case "int":
+            case "bool":
+            case "#":
+                return 4;
+            default:
+                if (type.endsWith("true")) {
+                    return 0; // to skip param
+                }
+                return -1;
         }
     }
 
@@ -800,8 +844,7 @@ public class SchemaGenerator extends AbstractProcessor {
                 .addMethod(privateConstructor);
 
         for (TlEntityObject e : apiSchema.constructors()) {
-            String type = normalizeName(e.type()).toLowerCase();
-            if (primitiveTypes.contains(type)) {
+            if (primitiveTypes.contains(e.type())) {
                 String name = screamilize(e.name()) + "_ID";
 
                 spec.addField(FieldSpec.builder(int.class, name, Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
@@ -1022,12 +1065,19 @@ public class SchemaGenerator extends AbstractProcessor {
     }
 
     private TypeName wrapOptional(MethodSpec.Builder attribute, TypeName type, TlParam param) {
-        if (param.type().endsWith("bytes")) {
-            return ParameterizedTypeName.get(ClassName.get(Optional.class), type);
-        }
+        switch (param.type().toLowerCase()) {
+            case "bytes":
+            case "int128":
+            case "int256":
+                return ParameterizedTypeName.get(ClassName.get(Optional.class), type);
+            default:
+                if (param.type().contains("bytes")) {
+                    return ParameterizedTypeName.get(ClassName.get(Optional.class), type);
+                }
 
-        attribute.addAnnotation(Nullable.class);
-        return type.box();
+                attribute.addAnnotation(Nullable.class);
+                return type.box();
+        }
     }
 
     private String getPackageName(TlSchema schema, String type, boolean method) {
@@ -1052,7 +1102,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
     private Map<String, List<TlEntityObject>> collectTypeTree(TlSchema schema) {
         return schema.constructors().stream()
-                .filter(c -> !ignoredTypes.contains(normalizeName(c.type()).toLowerCase()))
+                .filter(c -> !ignoredTypes.contains(c.type()) && !primitiveTypes.contains(c.type()))
                 .collect(Collectors.groupingBy(c -> getPackageName(schema, c.type(), false)
                         + "." + normalizeName(c.type())));
     }
