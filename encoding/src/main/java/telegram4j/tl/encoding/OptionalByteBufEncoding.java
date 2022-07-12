@@ -3,6 +3,7 @@ package telegram4j.tl.encoding;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import org.immutables.encode.Encoding;
+import reactor.util.annotation.Nullable;
 import telegram4j.tl.api.TlEncodingUtil;
 
 import java.util.Optional;
@@ -44,8 +45,8 @@ public class OptionalByteBufEncoding {
         private Optional<ByteBuf> value = Optional.empty();
 
         @Encoding.Init
-        public void setByteBuf(ByteBuf value) {
-            this.value = Optional.of(TlEncodingUtil.copyAsUnpooled(value));
+        public void setByteBuf(@Nullable ByteBuf value) {
+            this.value = Optional.ofNullable(value).map(TlEncodingUtil::copyAsUnpooled);
         }
 
         @Encoding.Init

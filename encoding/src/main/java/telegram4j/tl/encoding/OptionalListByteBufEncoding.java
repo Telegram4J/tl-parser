@@ -3,6 +3,7 @@ package telegram4j.tl.encoding;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import org.immutables.encode.Encoding;
+import reactor.util.annotation.Nullable;
 import telegram4j.tl.api.TlEncodingUtil;
 
 import java.util.ArrayList;
@@ -97,17 +98,19 @@ public class OptionalListByteBufEncoding {
         }
 
         @Encoding.Init
-        public void setIterable(Iterable<? extends ByteBuf> value) {
-            this.value = Optional.of(StreamSupport.stream(value.spliterator(), false)
-                    .map(TlEncodingUtil::copyAsUnpooled)
-                    .collect(Collectors.toList()));
+        public void setIterable(@Nullable Iterable<? extends ByteBuf> value) {
+            this.value = Optional.ofNullable(value)
+                    .map(i -> StreamSupport.stream(i.spliterator(), false)
+                            .map(TlEncodingUtil::copyAsUnpooled)
+                            .collect(Collectors.toList()));
         }
 
         @Encoding.Init
-        public void setVarargs(ByteBuf... value) {
-            this.value = Optional.of(Arrays.stream(value)
-                    .map(TlEncodingUtil::copyAsUnpooled)
-                    .collect(Collectors.toList()));
+        public void setVarargs(@Nullable ByteBuf... value) {
+            this.value = Optional.ofNullable(value)
+                    .map(b -> Arrays.stream(value)
+                            .map(TlEncodingUtil::copyAsUnpooled)
+                            .collect(Collectors.toList()));
         }
 
         @Encoding.Build
