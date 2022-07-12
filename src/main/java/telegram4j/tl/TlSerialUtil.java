@@ -70,11 +70,11 @@ public final class TlSerialUtil {
     }
 
     public static ByteBuf readInt128(ByteBuf buf) {
-        return buf.readSlice(Long.BYTES * 2);
+        return buf.readBytes(Long.BYTES * 2);
     }
 
     public static ByteBuf readInt256(ByteBuf buf) {
-        return buf.readSlice(Long.BYTES * 4);
+        return buf.readBytes(Long.BYTES * 4);
     }
 
     // serialization
