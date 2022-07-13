@@ -20,23 +20,21 @@ public class OptionalListByteBufEncoding {
 
     @Encoding.Expose
     public Optional<List<ByteBuf>> get() {
-        return Optional.ofNullable(value);
+        return Optional.ofNullable(value).map(l -> l.stream()
+                .map(ByteBuf::duplicate)
+                .collect(Collectors.toList()));
     }
 
     @Override
     public String toString() {
-        return get()
-                .map(l -> l.stream()
-                        .map(ByteBufUtil::hexDump)
-                        .collect(Collectors.joining(", ", "[", "]")))
-                .toString();
+        return get().map(l -> l.stream().map(ByteBufUtil::hexDump).collect(Collectors.joining(", ", "[", "]"))).toString();
     }
 
     @Encoding.Of
     static List<ByteBuf> copy(Optional<? extends Iterable<ByteBuf>> value) {
         return value.map(i -> StreamSupport.stream(i.spliterator(), false)
                 .map(TlEncodingUtil::copyAsUnpooled)
-                .collect(Collectors.toUnmodifiableList()))
+                .collect(Collectors.toList()))
                 .orElse(null);
     }
 
@@ -44,7 +42,7 @@ public class OptionalListByteBufEncoding {
     public List<ByteBuf> withOptional(Optional<? extends Iterable<ByteBuf>> value) {
         return value.map(i -> StreamSupport.stream(i.spliterator(), false)
                         .map(TlEncodingUtil::copyAsUnpooled)
-                        .collect(Collectors.toUnmodifiableList()))
+                        .collect(Collectors.toList()))
                 .orElse(null);
     }
 
@@ -52,7 +50,7 @@ public class OptionalListByteBufEncoding {
     public List<ByteBuf> with(Iterable<? extends ByteBuf> value) {
         return StreamSupport.stream(value.spliterator(), false)
                 .map(TlEncodingUtil::copyAsUnpooled)
-                .collect(Collectors.toUnmodifiableList());
+                .collect(Collectors.toList());
     }
 
     @Encoding.Builder
@@ -115,7 +113,7 @@ public class OptionalListByteBufEncoding {
 
         @Encoding.Build
         List<ByteBuf> build() {
-            return value.orElse(null);
+            return value.map(TlEncodingUtil::unmodifiableList).orElse(null);
         }
     }
 }

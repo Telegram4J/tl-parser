@@ -23,18 +23,23 @@ public class ListByteBufEncoding {
         return value.stream().map(ByteBufUtil::hexDump).collect(Collectors.joining(", ", "[", "]"));
     }
 
+    @Encoding.Expose
+    public List<ByteBuf> get() {
+        return value.stream().map(ByteBuf::duplicate).collect(Collectors.toList());
+    }
+
     @Encoding.Of
     static List<ByteBuf> ofList(Iterable<? extends ByteBuf> value) {
         return StreamSupport.stream(value.spliterator(), false)
                 .map(TlEncodingUtil::copyAsUnpooled)
-                .collect(Collectors.toUnmodifiableList());
+                .collect(Collectors.toList());
     }
 
     @Encoding.Copy
     public List<ByteBuf> withList(Iterable<? extends ByteBuf> value) {
         return StreamSupport.stream(value.spliterator(), false)
                 .map(TlEncodingUtil::copyAsUnpooled)
-                .collect(Collectors.toUnmodifiableList());
+                .collect(Collectors.toList());
     }
 
     @Encoding.Builder
@@ -88,7 +93,7 @@ public class ListByteBufEncoding {
 
         @Encoding.Build
         List<ByteBuf> build() {
-            return value == null ? Collections.emptyList() : Collections.unmodifiableList(value);
+            return TlEncodingUtil.unmodifiableList(value);
         }
     }
 }

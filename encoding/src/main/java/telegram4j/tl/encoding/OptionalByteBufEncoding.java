@@ -16,7 +16,7 @@ public class OptionalByteBufEncoding {
 
     @Encoding.Expose
     public Optional<ByteBuf> get() {
-        return Optional.ofNullable(value);
+        return Optional.ofNullable(value).map(ByteBuf::duplicate);
     }
 
     @Override
@@ -42,22 +42,22 @@ public class OptionalByteBufEncoding {
     @Encoding.Builder
     static class Builder {
 
-        private Optional<ByteBuf> value = Optional.empty();
+        private ByteBuf value = null;
 
         @Encoding.Init
         public void setByteBuf(@Nullable ByteBuf value) {
-            this.value = Optional.ofNullable(value).map(TlEncodingUtil::copyAsUnpooled);
+            this.value = value != null ? TlEncodingUtil.copyAsUnpooled(value) : null;
         }
 
         @Encoding.Init
         @Encoding.Copy
         public void set(Optional<ByteBuf> value) {
-            this.value = value.map(TlEncodingUtil::copyAsUnpooled);
+            this.value = value.map(TlEncodingUtil::copyAsUnpooled).orElse(null);
         }
 
         @Encoding.Build
         ByteBuf build() {
-            return value.orElse(null);
+            return value;
         }
     }
 }

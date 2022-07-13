@@ -4,14 +4,22 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
+import io.netty.buffer.Unpooled;
+import io.netty.buffer.UnpooledByteBufAllocator;
 import org.junit.jupiter.api.Test;
+import telegram4j.tl.api.TlObject;
 import telegram4j.tl.mtproto.GzipPacked;
+import telegram4j.tl.mtproto.ResPQ;
+
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class SerializationTest {
 
-    static ByteBufAllocator alloc = ByteBufAllocator.DEFAULT;
+    static ByteBufAllocator alloc = UnpooledByteBufAllocator.DEFAULT;
 
     @Test
     void optionalFields() {
@@ -42,41 +50,60 @@ public class SerializationTest {
                 .callNotEmpty(true)
                 .build();
 
-        ByteBuf bytes = TlSerializer.serialize(alloc, expected);
-        BaseChat result = TlDeserializer.deserialize(bytes);
-        bytes.release();
+        BaseChat actual = serialize(expected);
 
-        assertEquals(result, expected);
+        assertEquals(expected, actual);
     }
 
     @Test
     void chatGziped() {
-        Chat chat = ChatEmpty.builder()
+        Chat expected = ChatEmpty.builder()
                 .id(1337)
                 .build();
 
         GzipPacked pack = GzipPacked.builder()
-                .packedData(TlSerialUtil.compressGzip(alloc, chat))
+                .packedData(TlSerialUtil.compressGzip(alloc, expected))
                 .build();
 
-        ByteBuf serialized = TlSerializer.serialize(alloc, pack);
-        GzipPacked packDeserialized = TlDeserializer.deserialize(serialized);
-        serialized.release();
+        GzipPacked packDeserialized = serialize(pack);
 
-        ByteBuf deserialized = alloc.buffer().writeBytes(packDeserialized.packedData());
-        Chat deserializedChat = TlSerialUtil.decompressGzip(deserialized);
-        deserialized.release();
+        Chat actual = TlSerialUtil.decompressGzip(packDeserialized.packedData());
 
-        assertEquals(chat, deserializedChat);
+        assertEquals(expected, actual);
     }
 
     @Test
     void jsonNode() {
-        TextNode n = TextNode.valueOf("test str");
-        ByteBuf buf = TlSerialUtil.serializeJsonNode(alloc, n);
-        JsonNode n0 = TlSerialUtil.deserializeJsonNode(buf);
+        TextNode expected = TextNode.valueOf("test str");
+        ByteBuf buf = TlSerialUtil.serializeJsonNode(alloc, expected);
+        JsonNode actual = TlSerialUtil.deserializeJsonNode(buf);
         buf.release();
 
-        assertEquals(n, n0);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    void byteBufAttribute() throws NoSuchAlgorithmException {
+        SecureRandom rand = SecureRandom.getInstanceStrong();
+
+        var expected = ResPQ.builder()
+                .nonce(Unpooled.wrappedBuffer(rand.generateSeed(16)))
+                .pq(Unpooled.wrappedBuffer(rand.generateSeed(32)))
+                .serverNonce(Unpooled.wrappedBuffer(rand.generateSeed(16)))
+                .serverPublicKeyFingerprints(List.of())
+                .build();
+
+        var actual = serialize(expected);
+
+        assertEquals(expected, actual);
+    }
+
+    static <T extends TlObject> T serialize(T obj) {
+        ByteBuf serialized = TlSerializer.serialize(alloc, obj);
+        try {
+            return TlDeserializer.deserialize(serialized);
+        } finally {
+            serialized.release();
+        }
     }
 }

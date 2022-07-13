@@ -5,6 +5,8 @@ import io.netty.buffer.ByteBufUtil;
 import org.immutables.encode.Encoding;
 import telegram4j.tl.api.TlEncodingUtil;
 
+import java.util.Objects;
+
 @Encoding
 public class ByteBufEncoding {
 
@@ -14,6 +16,11 @@ public class ByteBufEncoding {
     @Override
     public String toString() {
         return ByteBufUtil.hexDump(value);
+    }
+
+    @Encoding.Expose
+    public ByteBuf get() {
+        return value.duplicate();
     }
 
     @Encoding.Copy
@@ -39,7 +46,7 @@ public class ByteBufEncoding {
 
         @Encoding.Build
         ByteBuf build() {
-            return value;
+            return Objects.requireNonNull(value);
         }
     }
 }

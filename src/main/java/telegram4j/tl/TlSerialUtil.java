@@ -92,9 +92,9 @@ public final class TlSerialUtil {
 
     public static ByteBuf serializeBytes(ByteBufAllocator allocator, ByteBuf bytes) {
         int n = bytes.readableBytes();
-        int header = n >= 0xfe ? 4 : 1;
-        int offset = (header + n) % 4;
-        ByteBuf buf = allocator.buffer(header + n + 4 - offset);
+        int h = n >= 0xfe ? 4 : 1;
+        int offset = (h + n) % 4;
+        ByteBuf buf = allocator.buffer(h + n + 4 - offset);
 
         if (n >= 0xfe) {
             buf.writeByte(0xfe);
@@ -103,7 +103,7 @@ public final class TlSerialUtil {
             buf.writeByte(n);
         }
 
-        buf.writeBytes(bytes);
+        buf.writeBytes(bytes, bytes.readerIndex(), n);
         if (offset != 0) {
             buf.writeZero(4 - offset);
         }
