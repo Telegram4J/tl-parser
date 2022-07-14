@@ -234,8 +234,8 @@ public class SchemaGenerator extends AbstractProcessor {
             }
         }
 
-        serializeMethod.addCode("default: throw new IllegalArgumentException($S + Integer.toHexString(payload.identifier()));\n",
-                "Incorrect TlObject identifier: 0x");
+        serializeMethod.addCode("default: throw new IllegalArgumentException($S + Integer.toHexString(payload.identifier()) + $S + payload);\n",
+                "Incorrect TlObject identifier: 0x", ", payload: ");
         serializeMethod.endControlFlow();
         serializer.addMethod(serializeMethod.build());
 
@@ -261,11 +261,11 @@ public class SchemaGenerator extends AbstractProcessor {
 
     private void generateMethods() {
         for (TlEntityObject method : schema.methods()) {
-            String name = normalizeName(method.name());
             if (ignoredTypes.contains(method.type())) {
                 continue;
             }
 
+            String name = normalizeName(method.name());
             String packageName = getPackageName(schema, method.name(), true);
 
             boolean generic = method.params().stream()
@@ -275,7 +275,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     .addModifiers(Modifier.PUBLIC);
 
             if (generic) {
-                spec.addTypeVariable(TypeVariableName.get("T", schema.superType()));
+                spec.addTypeVariable(TypeVariableName.get("T", wildcardMethodType));
             }
 
             TypeName returnType = ParameterizedTypeName.get(
@@ -307,7 +307,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     .addCode("return $T.builder();", immutableTypeRaw);
 
             if (generic) {
-                builder.addTypeVariable(TypeVariableName.get("T", schema.superType()));
+                builder.addTypeVariable(TypeVariableName.get("T", wildcardMethodType));
             }
 
             spec.addMethod(builder.build());
@@ -340,13 +340,12 @@ public class SchemaGenerator extends AbstractProcessor {
                     .build());
 
             // serialization
-            String methodName0 = "serialize" + name;
-            String methodName = methodName0;
-            if (computedMethodSerializers.contains(methodName0)) {
+            String methodName = "serialize" + name;
+            if (computedMethodSerializers.contains(methodName)) {
                 String prx = schema.packagePrefix();
                 if (prx.isEmpty()) {
                     String mname = method.name();
-                    prx = camelize(mname.substring(0, mname.lastIndexOf('.')));
+                    prx = camelize(mname.substring(0, mname.indexOf('.')));
                 }
                 char up = prx.charAt(0);
                 methodName = "serialize" + Character.toUpperCase(up) + prx.substring(1) + name;
@@ -355,7 +354,7 @@ public class SchemaGenerator extends AbstractProcessor {
             computedMethodSerializers.add(methodName);
 
             ClassName typeRaw = ClassName.get(packageName, name);
-            TypeName type = generic ? ParameterizedTypeName.get(typeRaw, ClassName.get(schema.superType())) : typeRaw;
+            TypeName type = generic ? ParameterizedTypeName.get(typeRaw, wildcardMethodType) : typeRaw;
 
             if (method.params().isEmpty()) {
                 singletons.add(method);
@@ -364,7 +363,7 @@ public class SchemaGenerator extends AbstractProcessor {
                 serializeMethod.addCode("case 0x$L: return $L(alloc, ($T) payload);\n",
                         Integer.toHexString(method.id()), methodName, type);
 
-                TypeName payloadType = generic ? ParameterizedTypeName.get(typeRaw, genericTypeRef) : typeRaw;
+                TypeName payloadType = generic ? ParameterizedTypeName.get(typeRaw, wildcardMethodType) : typeRaw;
 
                 MethodSpec.Builder serializerBuilder = MethodSpec.methodBuilder(methodName)
                         .returns(ByteBuf.class)
@@ -372,10 +371,6 @@ public class SchemaGenerator extends AbstractProcessor {
                         .addParameters(Arrays.asList(
                                 ParameterSpec.builder(ByteBufAllocator.class, "alloc").build(),
                                 ParameterSpec.builder(payloadType, "payload").build()));
-
-                if (generic) {
-                    serializerBuilder.addTypeVariable(TypeVariableName.get("T", schema.superType()));
-                }
 
                 boolean hasReleasable = method.params().stream()
                         .anyMatch(p -> isReleasable(p.type()));
@@ -478,16 +473,16 @@ public class SchemaGenerator extends AbstractProcessor {
 
     private void generateConstructors() {
         for (TlEntityObject constructor : schema.constructors()) {
-            String type = normalizeName(constructor.type());
             if (ignoredTypes.contains(constructor.type()) || primitiveTypes.contains(constructor.type())) {
                 continue;
             }
 
-            String name = normalizeName(constructor.name());
+            String type = normalizeName(constructor.type());
             String packageName = getPackageName(schema, constructor.type(), false);
             String qualifiedTypeName = packageName + "." + type;
 
             boolean multiple = currTypeTree.getOrDefault(qualifiedTypeName, List.of()).size() > 1;
+            String name = normalizeName(constructor.name());
 
             // add Base* prefix to prevent matching with type name, e.g. SecureValueError
             if (type.equalsIgnoreCase(name) && multiple) {
@@ -612,7 +607,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
                     int s = sizeOf(param.type());
                     if (s != -1) {
-                         size = Math.addExact(size, s);
+                        size = Math.addExact(size, s);
                     } else {
                         releasableSized.add(fixedParamName);
                     }

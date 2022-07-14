@@ -1,7 +1,7 @@
 package telegram4j.tl;
 
-import com.squareup.javapoet.MethodSpec;
-import com.squareup.javapoet.TypeVariableName;
+import com.squareup.javapoet.*;
+import telegram4j.tl.api.TlMethod;
 import telegram4j.tl.api.TlObject;
 import telegram4j.tl.json.ImmutableTlParam;
 
@@ -23,6 +23,8 @@ public final class SchemaGeneratorConsts {
     public static final Set<String> primitiveTypes = Set.of(
             "Bool", "Vector t", "JSONValue", "JSONObjectValue");
 
+    public static final TypeName wildcardMethodType = ParameterizedTypeName.get(
+            ClassName.get(TlMethod.class), WildcardTypeName.subtypeOf(TypeName.OBJECT));
     public static final TypeVariableName genericType = TypeVariableName.get("T", TlObject.class);
     public static final TypeVariableName genericTypeRef = TypeVariableName.get("T");
 
