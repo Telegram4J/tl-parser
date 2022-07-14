@@ -76,12 +76,12 @@ public final class TlSerialUtil {
         return base;
     }
 
-    public static ByteBuf readInt128(ByteBuf buf) {
-        return buf.readBytes(Long.BYTES * 2);
+    static ByteBuf readInt128(ByteBuf buf) {
+        return buf.readSlice(Long.BYTES * 2);
     }
 
-    public static ByteBuf readInt256(ByteBuf buf) {
-        return buf.readBytes(Long.BYTES * 4);
+    static ByteBuf readInt256(ByteBuf buf) {
+        return buf.readSlice(Long.BYTES * 4);
     }
 
     // serialization
@@ -251,7 +251,7 @@ public final class TlSerialUtil {
             h = 4;
         }
 
-        ByteBuf data = buf.readBytes(n);
+        ByteBuf data = buf.readSlice(n);
         int offset = (n + h) % 4;
         if (offset != 0) {
             buf.skipBytes(4 - offset);
@@ -260,8 +260,22 @@ public final class TlSerialUtil {
         return data;
     }
 
+    // optimized variant
     public static String deserializeString(ByteBuf buf) {
-        return deserializeBytes(buf).toString(StandardCharsets.UTF_8);
+        int n = buf.readUnsignedByte();
+        int h = 1;
+        if (n >= 0xfe) {
+            n = buf.readUnsignedMediumLE();
+            h = 4;
+        }
+
+        ByteBuf data = buf.readSlice(n);
+        int offset = (n + h) % 4;
+        if (offset != 0) {
+            buf.skipBytes(4 - offset);
+        }
+
+        return data.toString(StandardCharsets.UTF_8);
     }
 
     public static List<Long> deserializeLongVector(ByteBuf buf) {
