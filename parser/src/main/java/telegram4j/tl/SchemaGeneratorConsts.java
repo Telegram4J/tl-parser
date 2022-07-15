@@ -26,7 +26,7 @@ public final class SchemaGeneratorConsts {
     public static final TypeVariableName genericTypeRef = TypeVariableName.get("T");
     public static final TypeVariableName genericResultTypeRef = TypeVariableName.get("R");
     public static final TypeName wildcardMethodType = ParameterizedTypeName.get(
-            ClassName.get(TlMethod.class), genericResultTypeRef);
+            ClassName.get(TlMethod.class), WildcardTypeName.subtypeOf(genericResultTypeRef));
     public static final TypeName wildcardUnboundedMethodType = ParameterizedTypeName.get(
             ClassName.get(TlMethod.class), WildcardTypeName.subtypeOf(TypeName.OBJECT));
     public static final TypeVariableName genericType = TypeVariableName.get("T", TlObject.class);
