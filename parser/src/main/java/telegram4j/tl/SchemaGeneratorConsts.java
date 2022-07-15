@@ -23,10 +23,13 @@ public final class SchemaGeneratorConsts {
     public static final Set<String> primitiveTypes = Set.of(
             "Bool", "Vector t", "JSONValue", "JSONObjectValue");
 
+    public static final TypeVariableName genericTypeRef = TypeVariableName.get("T");
+    public static final TypeVariableName genericResultTypeRef = TypeVariableName.get("R");
     public static final TypeName wildcardMethodType = ParameterizedTypeName.get(
+            ClassName.get(TlMethod.class), genericResultTypeRef);
+    public static final TypeName wildcardUnboundedMethodType = ParameterizedTypeName.get(
             ClassName.get(TlMethod.class), WildcardTypeName.subtypeOf(TypeName.OBJECT));
     public static final TypeVariableName genericType = TypeVariableName.get("T", TlObject.class);
-    public static final TypeVariableName genericTypeRef = TypeVariableName.get("T");
 
     public static final ImmutableTlParam flagParameter = ImmutableTlParam.of("flags", "#");
 

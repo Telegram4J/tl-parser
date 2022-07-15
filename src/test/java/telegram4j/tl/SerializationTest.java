@@ -14,6 +14,7 @@ import telegram4j.tl.mtproto.ResPQ;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.List;
+import java.util.zip.Deflater;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -62,7 +63,7 @@ public class SerializationTest {
                 .build();
 
         GzipPacked pack = GzipPacked.builder()
-                .packedData(TlSerialUtil.compressGzip(alloc, expected))
+                .packedData(TlSerialUtil.compressGzip(alloc, Deflater.BEST_COMPRESSION, expected))
                 .build();
 
         GzipPacked packDeserialized = serialize(pack);

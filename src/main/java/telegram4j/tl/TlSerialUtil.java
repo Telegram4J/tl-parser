@@ -11,9 +11,9 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.function.Function;
-import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
@@ -26,9 +26,9 @@ public final class TlSerialUtil {
     private TlSerialUtil() {
     }
 
-    public static ByteBuf compressGzip(ByteBufAllocator allocator, ByteBuf buf) {
+    public static ByteBuf compressGzip(ByteBufAllocator allocator, int level, ByteBuf buf) {
         ByteBufOutputStream bufOut = new ByteBufOutputStream(allocator.buffer(buf.readableBytes()));
-        try (DeflaterOutputStream out = new CompressibleGZIPOutputStream(bufOut)) {
+        try (DeflaterOutputStream out = new CompressibleGZIPOutputStream(bufOut, level)) {
             out.write(ByteBufUtil.getBytes(buf));
             out.finish();
             buf.release();
@@ -38,8 +38,8 @@ public final class TlSerialUtil {
         }
     }
 
-    public static ByteBuf compressGzip(ByteBufAllocator allocator, TlObject object) {
-        return compressGzip(allocator, TlSerializer.serialize(allocator, object));
+    public static ByteBuf compressGzip(ByteBufAllocator allocator, int level, TlObject object) {
+        return compressGzip(allocator, level, TlSerializer.serialize(allocator, object));
     }
 
     public static <T> T decompressGzip(ByteBuf packed) {
@@ -175,6 +175,20 @@ public final class TlSerialUtil {
         }
     }
 
+    public static ByteBuf serializeJsonObjectValue(ByteBufAllocator allocator, String name, JsonNode value) {
+        ByteBuf nameb = serializeString(allocator, name);
+        ByteBuf valueb = serializeJsonNode(allocator, value);
+        try {
+            return allocator.buffer(sumSizeExact(4, nameb, valueb))
+                    .writeIntLE(JSON_OBJECT_VALUE_ID)
+                    .writeBytes(nameb)
+                    .writeBytes(valueb);
+        } finally {
+            nameb.release();
+            valueb.release();
+        }
+    }
+
     public static ByteBuf serializeJsonNode(ByteBufAllocator allocator, JsonNode node) {
         switch (node.getNodeType()) {
             case NULL: return allocator.buffer(Integer.BYTES).writeIntLE(JSON_NULL_ID);
@@ -184,6 +198,7 @@ public final class TlSerialUtil {
                 buf.writeIntLE(JSON_STRING_ID);
                 buf.writeBytes(str);
                 str.release();
+
                 return buf;
             }
             case NUMBER: return allocator.buffer(12).writeIntLE(JSON_NUMBER_ID)
@@ -191,35 +206,45 @@ public final class TlSerialUtil {
             case BOOLEAN: return allocator.buffer(8).writeIntLE(JSON_BOOL_ID)
                     .writeIntLE(node.asBoolean() ? BOOL_TRUE_ID : BOOL_FALSE_ID);
             case ARRAY: {
-                ByteBuf buf = allocator.buffer();
+                ByteBuf vector = serializeVector0(allocator, node.size(), node.elements(), e -> serializeJsonNode(allocator, e));
+                ByteBuf buf = allocator.buffer(4 + vector.readableBytes());
                 buf.writeIntLE(JSON_ARRAY_ID);
-                buf.writeIntLE(VECTOR_ID);
-                buf.writeIntLE(node.size());
-                node.elements().forEachRemaining(n -> {
-                    ByteBuf value = serializeJsonNode(allocator, n);
-                    buf.writeBytes(value);
-                    value.release();
-                });
+                buf.writeBytes(vector);
+                vector.release();
+
                 return buf;
             }
             case OBJECT: {
-                ByteBuf buf = allocator.buffer();
+                ByteBuf vector = serializeVector0(allocator, node.size(), node.fields(), e ->
+                        serializeJsonObjectValue(allocator, e.getKey(), e.getValue()));
+                ByteBuf buf = allocator.buffer(4 + vector.readableBytes());
                 buf.writeIntLE(JSON_OBJECT_ID);
-                buf.writeIntLE(VECTOR_ID);
-                buf.writeIntLE(node.size());
-                node.fields().forEachRemaining(f -> {
-                    buf.writeIntLE(JSON_OBJECT_VALUE_ID);
-                    ByteBuf name = serializeString(allocator, f.getKey());
-                    buf.writeBytes(name);
-                    name.release();
-                    ByteBuf value = serializeJsonNode(allocator, f.getValue());
-                    buf.writeBytes(value);
-                    value.release();
-                });
+                buf.writeBytes(vector);
+                vector.release();
+
                 return buf;
             }
             default: throw new IllegalStateException("Incorrect json node type: " + node.getNodeType());
         }
+    }
+
+    static <T> ByteBuf serializeVector0(ByteBufAllocator allocator, int count, Iterator<T> it, Function<T, ByteBuf> serializer) {
+        ByteBuf[] bytes = new ByteBuf[count];
+        int size = 8;
+        for (int i = 0; i < count; i++) {
+            ByteBuf buf = serializer.apply(it.next());
+            size = Math.addExact(size, buf.readableBytes());
+            bytes[i] = buf;
+        }
+
+        ByteBuf buf = allocator.buffer(size);
+        buf.writeIntLE(VECTOR_ID);
+        buf.writeIntLE(count);
+        for (ByteBuf b : bytes) {
+            buf.writeBytes(b);
+            b.release();
+        }
+        return buf;
     }
 
     static <T> ByteBuf serializeVector0(ByteBufAllocator allocator, List<T> vector, Function<T, ByteBuf> serializer) {
@@ -373,12 +398,12 @@ public final class TlSerialUtil {
         return list;
     }
 
-    /** Internal gzip output stream implementation, which has compression level {@code == Deflater.BEST_COMPRESSION} for best compression. */
+    /** Internal gzip output stream implementation which allows to change compression level. */
     static class CompressibleGZIPOutputStream extends GZIPOutputStream {
 
-        public CompressibleGZIPOutputStream(OutputStream out) throws IOException {
+        public CompressibleGZIPOutputStream(OutputStream out, int level) throws IOException {
             super(out);
-            def.setLevel(Deflater.BEST_COMPRESSION);
+            def.setLevel(level);
         }
     }
 }

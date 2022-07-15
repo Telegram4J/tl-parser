@@ -98,7 +98,7 @@ public class SchemaGenerator extends AbstractProcessor {
             .addParameter(ByteBuf.class, "payload")
             .addStatement("int identifier = payload.readIntLE()")
             .beginControlFlow("switch (identifier)")
-            // This need because methods can return bool or vector objects
+            // *basic* types
             .addCode("case BOOL_TRUE_ID: return (T) Boolean.TRUE;\n")
             .addCode("case BOOL_FALSE_ID: return (T) Boolean.FALSE;\n")
             .addCode("case VECTOR_ID: return (T) deserializeUnknownVector(payload);\n");
@@ -275,7 +275,8 @@ public class SchemaGenerator extends AbstractProcessor {
                     .addModifiers(Modifier.PUBLIC);
 
             if (generic) {
-                spec.addTypeVariable(TypeVariableName.get("T", wildcardMethodType));
+                spec.addTypeVariable(genericResultTypeRef);
+                spec.addTypeVariable(genericTypeRef.withBounds(wildcardMethodType));
             }
 
             TypeName returnType = ParameterizedTypeName.get(
@@ -296,9 +297,8 @@ public class SchemaGenerator extends AbstractProcessor {
 
             ClassName immutableTypeRaw = ClassName.get(packageName, "Immutable" + name);
             ClassName immutableTypeBuilderRaw = ClassName.get(packageName, "Immutable" + name, "Builder");
-            TypeName immutableType = generic ? ParameterizedTypeName.get(immutableTypeRaw, genericTypeRef) : immutableTypeRaw;
             TypeName immutableBuilderType = generic
-                    ? ParameterizedTypeName.get(immutableTypeBuilderRaw, genericTypeRef)
+                    ? ParameterizedTypeName.get(immutableTypeBuilderRaw, genericResultTypeRef, genericTypeRef)
                     : immutableTypeBuilderRaw;
 
             MethodSpec.Builder builder = MethodSpec.methodBuilder("builder")
@@ -307,7 +307,8 @@ public class SchemaGenerator extends AbstractProcessor {
                     .addCode("return $T.builder();", immutableTypeRaw);
 
             if (generic) {
-                builder.addTypeVariable(TypeVariableName.get("T", wildcardMethodType));
+                builder.addTypeVariable(genericResultTypeRef);
+                builder.addTypeVariable(genericTypeRef.withBounds(wildcardMethodType));
             }
 
             spec.addMethod(builder.build());
@@ -320,7 +321,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
                 MethodSpec.Builder instance = MethodSpec.methodBuilder("instance")
                         .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                        .returns(immutableType)
+                        .returns(immutableTypeRaw)
                         .addCode("return $T.of();", immutableTypeRaw);
 
                 if (generic) {
@@ -354,16 +355,17 @@ public class SchemaGenerator extends AbstractProcessor {
             computedMethodSerializers.add(methodName);
 
             ClassName typeRaw = ClassName.get(packageName, name);
-            TypeName type = generic ? ParameterizedTypeName.get(typeRaw, wildcardMethodType) : typeRaw;
+            TypeName payloadType = generic
+                    ? ParameterizedTypeName.get(typeRaw, WildcardTypeName.subtypeOf(TypeName.OBJECT),
+                    wildcardUnboundedMethodType)
+                    : typeRaw;
 
             if (method.params().isEmpty()) {
                 singletons.add(method);
             } else {
 
                 serializeMethod.addCode("case 0x$L: return $L(alloc, ($T) payload);\n",
-                        Integer.toHexString(method.id()), methodName, type);
-
-                TypeName payloadType = generic ? ParameterizedTypeName.get(typeRaw, wildcardMethodType) : typeRaw;
+                        Integer.toHexString(method.id()), methodName, payloadType);
 
                 MethodSpec.Builder serializerBuilder = MethodSpec.methodBuilder(methodName)
                         .returns(ByteBuf.class)
@@ -889,8 +891,8 @@ public class SchemaGenerator extends AbstractProcessor {
 
     private TypeName parseType(String type, TlSchema schema) {
         switch (type.toLowerCase()) {
-            case "!x":
-            case "x": return genericType;
+            case "!x": return genericTypeRef;
+            case "x": return genericResultTypeRef;
             case "#":
             case "int": return TypeName.INT;
             case "true":
@@ -971,7 +973,6 @@ public class SchemaGenerator extends AbstractProcessor {
 
     private String deserializeMethod0(String type) {
         switch (type.toLowerCase()) {
-            case "true": return "true";
             case "#": return "flags";
             case "bool": return "payload.readIntLE() == BOOL_TRUE_ID";
             case "int": return "payload.readIntLE()";
