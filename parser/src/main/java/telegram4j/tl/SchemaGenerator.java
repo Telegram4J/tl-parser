@@ -73,7 +73,7 @@ public class SchemaGenerator extends AbstractProcessor {
     private final Set<String> computedDeserializers = new HashSet<>();
     private final Set<String> computedMethodSerializers = new HashSet<>();
 
-    private final List<TlEntityObject> singletons = new ArrayList<>(200);
+    private final List<String> emptyObjects = new ArrayList<>(200);
 
     private final TypeSpec.Builder serializer = TypeSpec.classBuilder("TlSerializer")
             .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
@@ -120,7 +120,7 @@ public class SchemaGenerator extends AbstractProcessor {
             InputStream mtproto = processingEnv.getFiler().getResource(
                     StandardLocation.ANNOTATION_PROCESSOR_PATH, "", MTPROTO_SCHEMA).openInputStream();
 
-            apiSchema = ImmutableTlSchema.copyOf(mapper.readValue(api, TlSchema.class));
+            apiSchema = mapper.readValue(api, TlSchema.class);
 
             mtprotoSchema = ImmutableTlSchema.copyOf(mapper.readValue(mtproto, TlSchema.class))
                     .withPackagePrefix(MTPROTO_PACKAGE_PREFIX)
@@ -212,22 +212,20 @@ public class SchemaGenerator extends AbstractProcessor {
             for (int i = 0; i < chunk.size(); i++) {
                 TlEntityObject obj = chunk.get(i);
 
-                String idStr = Integer.toHexString(obj.id());
                 if (i + 1 == chunk.size()) {
                     String type = normalizeName(obj.type());
-                    deserializeMethod.addCode("case 0x$L: return (T) $T.of(identifier);\n", idStr,
-                            ClassName.get(packageName, type));
+                    deserializeMethod.addCode("case 0x$L: return (T) $T.of(identifier);\n",
+                            obj.id(), ClassName.get(packageName, type));
                 } else {
-                    deserializeMethod.addCode("case 0x$L:\n", idStr);
+                    deserializeMethod.addCode("case 0x$L:\n", obj.id());
                 }
-                serializeMethod.addCode("case 0x$L:\n", idStr);
+                serializeMethod.addCode("case 0x$L:\n", obj.id());
             }
         }
 
-        for (int i = 0; i < singletons.size(); i++) {
-            TlEntityObject obj = singletons.get(i);
-            String id = Integer.toHexString(obj.id());
-            if (i + 1 == singletons.size()) {
+        for (int i = 0; i < emptyObjects.size(); i++) {
+            String id = emptyObjects.get(i);
+            if (i + 1 == emptyObjects.size()) {
                 serializeMethod.addCode("case 0x$L: return alloc.buffer(4).writeIntLE(payload.identifier());\n", id);
             } else {
                 serializeMethod.addCode("case 0x$L:\n", id);
@@ -241,7 +239,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
         writeTo(JavaFile.builder(getBasePackageName(), serializer.build())
                 .addStaticImport(ClassName.get(BASE_PACKAGE, "TlSerialUtil"), "*")
-                .addStaticImport(ClassName.get(getBasePackageName(), "TlPrimitives"), "*")
+                .addStaticImport(ClassName.get(BASE_PACKAGE, "TlPrimitives"), "*")
                 .indent(INDENT)
                 .skipJavaLangImports(true)
                 .build());
@@ -253,7 +251,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
         writeTo(JavaFile.builder(getBasePackageName(), deserializer.build())
                 .addStaticImport(ClassName.get(BASE_PACKAGE, "TlSerialUtil"), "*")
-                .addStaticImport(ClassName.get(getBasePackageName(), "TlPrimitives"), "*")
+                .addStaticImport(ClassName.get(BASE_PACKAGE, "TlPrimitives"), "*")
                 .indent(INDENT)
                 .skipJavaLangImports(true)
                 .build());
@@ -292,7 +290,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
             spec.addField(FieldSpec.builder(TypeName.INT, "ID",
                             Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
-                    .initializer("0x" + Integer.toHexString(method.id()))
+                    .initializer("0x" + method.id())
                     .build());
 
             ClassName immutableTypeRaw = ClassName.get(packageName, "Immutable" + name);
@@ -361,11 +359,11 @@ public class SchemaGenerator extends AbstractProcessor {
                     : typeRaw;
 
             if (method.params().isEmpty()) {
-                singletons.add(method);
+                emptyObjects.add(method.id());
             } else {
 
                 serializeMethod.addCode("case 0x$L: return $L(alloc, ($T) payload);\n",
-                        Integer.toHexString(method.id()), methodName, payloadType);
+                        method.id(), methodName, payloadType);
 
                 MethodSpec.Builder serializerBuilder = MethodSpec.methodBuilder(methodName)
                         .returns(ByteBuf.class)
@@ -510,7 +508,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
             spec.addField(FieldSpec.builder(TypeName.INT, "ID",
                             Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
-                    .initializer("0x" + Integer.toHexString(constructor.id()))
+                    .initializer("0x" + constructor.id())
                     .build());
 
             spec.addMethod(MethodSpec.methodBuilder("builder")
@@ -573,16 +571,15 @@ public class SchemaGenerator extends AbstractProcessor {
 
             TypeName typeName = ClassName.get(packageName, "Immutable" + name);
             if (attributes.isEmpty()) {
-                deserializeMethod.addCode("case 0x$L: return (T) $T.of();\n",
-                        Integer.toHexString(constructor.id()), typeName);
+                deserializeMethod.addCode("case 0x$L: return (T) $T.of();\n", constructor.id(), typeName);
 
-                singletons.add(constructor);
+                emptyObjects.add(constructor.id());
             } else {
                 serializeMethod.addCode("case 0x$L: return $L(alloc, ($T) payload);\n",
-                        Integer.toHexString(constructor.id()), serializeMethodName, payloadType);
+                        constructor.id(), serializeMethodName, payloadType);
 
                 deserializeMethod.addCode("case 0x$L: return (T) $L(payload);\n",
-                        Integer.toHexString(constructor.id()), deserializeMethodName);
+                        constructor.id(), deserializeMethodName);
 
                 MethodSpec.Builder deserializerBuilder = MethodSpec.methodBuilder(deserializeMethodName)
                         .returns(typeName)
@@ -779,10 +776,10 @@ public class SchemaGenerator extends AbstractProcessor {
                     String constName = screamilize(subtypeName.substring(shortenName.length()));
 
                     spec.addEnumConstant(constName, TypeSpec.anonymousClassBuilder(
-                            "0x$L", Integer.toHexString(constructor.id()))
+                            "0x$L", constructor.id())
                             .build());
 
-                    ofMethod.addCode("case 0x$L: return $L;\n", Integer.toHexString(constructor.id()), constName);
+                    ofMethod.addCode("case 0x$L: return $L;\n", constructor.id(), constName);
 
                     computed.put(packageName + "." + subtypeName, constructor);
                 }
@@ -845,12 +842,12 @@ public class SchemaGenerator extends AbstractProcessor {
                 String name = screamilize(e.name()) + "_ID";
 
                 spec.addField(FieldSpec.builder(int.class, name, Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
-                        .initializer("0x" + Integer.toHexString(e.id()))
+                        .initializer("0x" + e.id())
                         .build());
             }
         }
 
-        writeTo(JavaFile.builder(getBasePackageName(), spec.build())
+        writeTo(JavaFile.builder(BASE_PACKAGE, spec.build())
                 .indent(INDENT)
                 .skipJavaLangImports(true)
                 .build());

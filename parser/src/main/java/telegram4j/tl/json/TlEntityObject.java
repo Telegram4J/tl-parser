@@ -12,7 +12,7 @@ import java.util.List;
 @JsonDeserialize(as = ImmutableTlEntityObject.class)
 public interface TlEntityObject {
 
-    int id();
+    String id();
 
     @JsonAlias({"predicate", "method"})
     String name();
