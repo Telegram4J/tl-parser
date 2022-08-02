@@ -75,13 +75,6 @@ class TlTrees {
         @Value.Auxiliary
         @Value.Derived
         @JsonIgnore
-        public String formattedName() {
-            return SourceNames.formatFieldName(name());
-        }
-
-        @Value.Auxiliary
-        @Value.Derived
-        @JsonIgnore
         public Optional<Tuple3<Integer, String, String>> flagInfo() {
             if (type().indexOf('?') == -1) { // fast check
                 return Optional.empty();
@@ -92,10 +85,18 @@ class TlTrees {
                 throw new IllegalStateException("Malformed flag param: " + this);
             }
 
-            String flags = SourceNames.formatFieldName(flag.group(1));
+            String flags = SourceNames.formatFieldName(flag.group(1), null);
             int pos = Integer.parseInt(flag.group(2));
             String type = flag.group(3);
             return Optional.of(Tuples.of(pos, flags, type));
+        }
+
+        @Value.Auxiliary
+        @Value.Derived
+        @JsonIgnore
+        public String formattedName() {
+            return SourceNames.formatFieldName(name(),
+                    flagInfo().map(Tuple3::getT3).orElse(type()));
         }
 
         @Override
