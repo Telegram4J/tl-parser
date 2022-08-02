@@ -14,8 +14,8 @@ public final class SchemaGeneratorConsts {
     private SchemaGeneratorConsts() {
     }
 
-    // channelFull has second flags field
-    public static final Pattern FLAG_PATTERN = Pattern.compile("^\\w+\\.(\\d+)\\?(.+)$");
+    // channelFull has two flags fields
+    public static final Pattern FLAG_PATTERN = Pattern.compile("^(\\w+)\\.(\\d+)\\?(.+)$");
     public static final Pattern VECTOR_PATTERN = Pattern.compile("^[vV]ector<%?([\\w.<>]+)>$");
     // excluded from generation
     public static final Set<String> ignoredTypes = Set.of("True", "Null", "HttpWait");
@@ -30,9 +30,6 @@ public final class SchemaGeneratorConsts {
     public static final TypeName wildcardUnboundedMethodType = ParameterizedTypeName.get(
             ClassName.get(TlMethod.class), WildcardTypeName.subtypeOf(TypeName.OBJECT));
     public static final TypeVariableName genericType = TypeVariableName.get("T", TlObject.class);
-
-    // TODO: remove
-    public static final TlTrees.Parameter flagParameter = ImmutableTlTrees.Parameter.of("flags", "#");
 
     public static final MethodSpec privateConstructor = MethodSpec.constructorBuilder()
             .addModifiers(Modifier.PRIVATE)

@@ -5,9 +5,8 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import org.immutables.value.Value;
 import reactor.util.annotation.Nullable;
-import reactor.util.function.Tuple2;
+import reactor.util.function.Tuple3;
 import reactor.util.function.Tuples;
-import telegram4j.tl.parser.ImmutableTlTrees;
 import telegram4j.tl.api.TlObject;
 
 import java.util.List;
@@ -83,8 +82,8 @@ class TlTrees {
         @Value.Auxiliary
         @Value.Derived
         @JsonIgnore
-        public Optional<Tuple2<Integer, String>> flagInfo() {
-            if (!type().contains("?")) { // fast check
+        public Optional<Tuple3<Integer, String, String>> flagInfo() {
+            if (type().indexOf('?') == -1) { // fast check
                 return Optional.empty();
             }
 
@@ -93,9 +92,10 @@ class TlTrees {
                 throw new IllegalStateException("Malformed flag param: " + this);
             }
 
-            int pos = Integer.parseInt(flag.group(1));
-            String type = flag.group(2);
-            return Optional.of(Tuples.of(pos, type));
+            String flags = SourceNames.formatFieldName(flag.group(1));
+            int pos = Integer.parseInt(flag.group(2));
+            String type = flag.group(3);
+            return Optional.of(Tuples.of(pos, flags, type));
         }
 
         @Override
@@ -105,7 +105,7 @@ class TlTrees {
 
             var flagInfo = flagInfo().orElse(null);
             if (flagInfo != null) {
-                h += (h << 5) + flagInfo.getT2().hashCode();
+                h += (h << 5) + flagInfo.getT3().hashCode();
             } else {
                 h += (h << 5) + type().hashCode();
             }
@@ -119,7 +119,7 @@ class TlTrees {
             Parameter that = (Parameter) o;
             return name().equals(that.name()) &&
                     flagInfo().isPresent() == that.flagInfo().isPresent() &&
-                    flagInfo().map(Tuple2::getT2).orElse(type()).equals(that.flagInfo().map(Tuple2::getT2).orElse(that.type()));
+                    flagInfo().map(Tuple3::getT3).orElse(type()).equals(that.flagInfo().map(Tuple3::getT3).orElse(that.type()));
         }
     }
 }

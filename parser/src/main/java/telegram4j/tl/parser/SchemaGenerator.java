@@ -11,6 +11,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import org.immutables.value.Value;
 import reactor.core.Exceptions;
+import reactor.function.TupleUtils;
 import reactor.util.annotation.Nullable;
 import telegram4j.tl.api.*;
 import telegram4j.tl.parser.TlTrees.Parameter;
@@ -42,7 +43,6 @@ import static telegram4j.tl.parser.Strings.screamilize;
 @SupportedAnnotationTypes("telegram4j.tl.parser.GenerateSchema")
 public class SchemaGenerator extends AbstractProcessor {
 
-    // TODO(!): implement multi flags fields handling
     // TODO: add serialization for JsonVALUE in TlSerializer.serialize(...)
 
     private static final String METHOD_PACKAGE_PREFIX = "request";
@@ -266,8 +266,16 @@ public class SchemaGenerator extends AbstractProcessor {
             String name = normalizeName(method.name());
             String packageName = getPackageName(schema, method.name(), true);
 
-            boolean generic = method.parameters().stream()
-                    .anyMatch(p -> p.type().equals("!X"));
+            boolean singleton = true;
+            boolean hasReleasable = false;
+            boolean generic = false;
+            for (Parameter p : method.parameters()) {
+                if (isReleasable(p.type())) hasReleasable = true;
+                if (p.type().equals("!X")) generic = true;
+                if (!p.type().equals("#") && p.type().indexOf('?') == -1) {
+                    singleton = false;
+                }
+            }
 
             TypeSpec.Builder spec = TypeSpec.interfaceBuilder(name)
                     .addModifiers(Modifier.PUBLIC);
@@ -313,7 +321,6 @@ public class SchemaGenerator extends AbstractProcessor {
 
             AnnotationSpec.Builder value = AnnotationSpec.builder(Value.Immutable.class);
 
-            boolean singleton = method.parameters().stream().allMatch(p -> p.type().equals("#") || p.type().indexOf('?') != -1);
             if (singleton) {
                 value.addMember("singleton", "true");
 
@@ -322,8 +329,10 @@ public class SchemaGenerator extends AbstractProcessor {
                         .returns(immutableTypeRaw)
                         .addCode("return $T.of();", immutableTypeRaw);
 
+                // currently unused
                 if (generic) {
-                    instance.addTypeVariable(TypeVariableName.get("T", schema.superType()));
+                    instance.addTypeVariable(genericResultTypeRef);
+                    instance.addTypeVariable(genericTypeRef.withBounds(wildcardMethodType));
                 }
 
                 spec.addMethod(instance.build());
@@ -372,9 +381,6 @@ public class SchemaGenerator extends AbstractProcessor {
                                 ParameterSpec.builder(ByteBufAllocator.class, "alloc").build(),
                                 ParameterSpec.builder(payloadType, "payload").build()));
 
-                boolean hasReleasable = method.parameters().stream()
-                        .anyMatch(p -> isReleasable(p.type()));
-
                 CodeBlock.Builder serFinallyBlock = CodeBlock.builder();
                 CodeBlock.Builder serPrecomputeBlock = CodeBlock.builder();
                 CodeBlock.Builder std = CodeBlock.builder();
@@ -416,11 +422,12 @@ public class SchemaGenerator extends AbstractProcessor {
                     if (param.type().equals("#")) {
                         attribute.addModifiers(Modifier.DEFAULT);
                         String precompute = method.parameters().stream()
-                                .filter(p -> p.flagInfo().isPresent())
+                                .filter(p -> p.flagInfo().map(TupleUtils.function((pos, flags, t) ->
+                                        flags.equals(param.formattedName()))).orElse(false))
                                 .map(f -> {
                                     var flagInfo = f.flagInfo().orElseThrow();
                                     return String.format("(%s()%s ? 1 : 0) << 0x%x", f.formattedName(),
-                                            flagInfo.getT2().equals("true") ? "" : " != null", flagInfo.getT1());
+                                            flagInfo.getT3().equals("true") ? "" : " != null", flagInfo.getT1());
                                 })
                                 .collect(Collectors.joining(" | "));
 
@@ -517,10 +524,28 @@ public class SchemaGenerator extends AbstractProcessor {
                     .addCode("return Immutable$L.builder();", name)
                     .build());
 
-            var attributes = new LinkedHashSet<>(constructor.parameters());
-            collectAttributesRecursive(type, attributes);
+            var collect = new LinkedHashSet<>(constructor.parameters());
+            collectAttributesRecursive(type, collect);
 
-            boolean singleton = attributes.stream().allMatch(p -> p.type().startsWith("flags.") || p.type().equals("#"));
+            var attributes = new ArrayList<>(collect);
+            boolean singleton = true;
+            boolean hasReleasable = false;
+            int flagsCount = 0;
+            boolean firstIsFlags = false;
+            for (int i = 0; i < attributes.size(); i++) {
+                Parameter p = attributes.get(i);
+                if (isReleasable(p.type())) hasReleasable = true;
+                if (p.type().equals("#")) {
+                    firstIsFlags = i == 0;
+                    flagsCount++;
+                }
+                if (!p.type().equals("#") && p.type().indexOf('?') == -1) {
+                    singleton = false;
+                }
+            }
+
+            int flagsRemaining = flagsCount;
+
             AnnotationSpec.Builder value = AnnotationSpec.builder(Value.Immutable.class);
             if (singleton) {
                 value.addMember("singleton", "true");
@@ -586,23 +611,30 @@ public class SchemaGenerator extends AbstractProcessor {
                         .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
                         .addParameter(ParameterSpec.builder(ByteBuf.class, "payload").build());
 
-                boolean hasReleasable = attributes.stream()
-                        .anyMatch(p -> isReleasable(p.type()));
-
-                CodeBlock.Builder serFinallyBlock = CodeBlock.builder();
-                CodeBlock.Builder serPrecomputeBlock = CodeBlock.builder();
-                CodeBlock.Builder std = CodeBlock.builder();
-                if (attributes.contains(flagParameter)) {
-                    deserializerBuilder.addStatement("int flags = payload.readIntLE()");
+                CodeBlock.Builder serFinallyBlock = CodeBlock.builder(); // ByteBuf releasing
+                CodeBlock.Builder serPrecomputeBlock = CodeBlock.builder(); // ByteBuf precomputing
+                CodeBlock.Builder std = CodeBlock.builder(); // block with serialization
+                if (firstIsFlags) {
+                    deserializerBuilder.addStatement("int $L = payload.readIntLE()", attributes.get(0).formattedName());
+                    deserializerBuilder.addCode("return $T.builder()", typeName);
+                } else if (flagsCount > 0) {
+                    deserializerBuilder.addCode("var builder = $T.builder()", typeName);
+                } else {
+                    deserializerBuilder.addCode("return $T.builder()", typeName);
                 }
-                deserializerBuilder.addCode("return $T.builder()", typeName);
 
                 int size = 4;
                 StringJoiner releasableSized = new StringJoiner(", ");
                 for (Parameter param : attributes) {
-                    boolean releasable = isReleasable(param.type());
-                    String fixedParamName = param.formattedName().equals("payload")
-                            ? "payload$" : param.formattedName();
+                    String fixedParamName;
+                    switch (param.formattedName()) {
+                        case "payload":
+                        case "builder":
+                            fixedParamName = param.formattedName() + "$";
+                            break;
+                        default:
+                            fixedParamName = param.formattedName();
+                    }
 
                     int s = sizeOf(param.type());
                     if (s != -1) {
@@ -613,9 +645,9 @@ public class SchemaGenerator extends AbstractProcessor {
 
                     // serialization
                     String ser = serializeMethod(param);
-                    String met = byteBufMethod(param);
                     if (ser != null) {
-                        if (releasable) {
+                        String met = byteBufMethod(param);
+                        if (isReleasable(param.type())) {
                             serPrecomputeBlock.addStatement("$T $L = " + ser, ByteBuf.class,
                                     fixedParamName, param.formattedName());
                             serFinallyBlock.addStatement("$L.release()", fixedParamName);
@@ -625,7 +657,17 @@ public class SchemaGenerator extends AbstractProcessor {
                         }
                     }
 
-                    deserializerBuilder.addCode("\n\t\t.$L(" + deserializeMethod(param) + ")", param.formattedName());
+                    if (param.type().equals("#") && !firstIsFlags) {
+                        deserializerBuilder.addCode(";\n");
+                        deserializerBuilder.addStatement("int $L = payload.readIntLE()", param.formattedName());
+                        if (--flagsRemaining == 0) {
+                            deserializerBuilder.addCode("return builder.$1L($1L)", param.formattedName());
+                        } else {
+                            deserializerBuilder.addCode("builder.$1L($1L)", param.formattedName());
+                        }
+                    } else if (!param.type().equals("#") || firstIsFlags) {
+                        deserializerBuilder.addCode("\n\t\t.$L(" + deserializeMethod(param) + ")", param.formattedName());
+                    }
 
                     TypeName paramType = parseType(param.type(), schema);
 
@@ -635,19 +677,20 @@ public class SchemaGenerator extends AbstractProcessor {
                     if (param.type().equals("#")) {
                         attribute.addModifiers(Modifier.DEFAULT);
                         String precompute = constructor.parameters().stream()
-                                .filter(p -> p.flagInfo().isPresent())
+                                .filter(p -> p.flagInfo().map(TupleUtils.function((pos, flags, t) ->
+                                        flags.equals(param.formattedName()))).orElse(false))
                                 .map(f -> {
                                     var flagInfo = f.flagInfo().orElseThrow();
                                     return String.format("(%s()%s ? 1 : 0) << 0x%x", f.formattedName(),
-                                            flagInfo.getT2().equals("true") ? "" : " != null", flagInfo.getT1());
+                                            flagInfo.getT3().equals("true") ? "" : " != null", flagInfo.getT1());
                                 })
                                 .collect(Collectors.joining(" | "));
 
                         attribute.addCode("return " + precompute + ";");
-                    } else if (param.type().endsWith("true")) {
+                    } else if (param.type().endsWith("true")) { // adds default false value to boolean flags
                         attribute.addModifiers(Modifier.DEFAULT);
                         attribute.addCode("return false;");
-                    } else if (param.type().startsWith("flags.")) {
+                    } else if (param.type().indexOf('?') != -1) { // optional fields
                         paramType = wrapOptional(attribute, paramType, param);
                         attribute.addModifiers(Modifier.ABSTRACT);
                     } else {
@@ -813,10 +856,9 @@ public class SchemaGenerator extends AbstractProcessor {
 
                     boolean optionalInExt = currTypeTree.getOrDefault(qualifiedName, List.of()).stream()
                             .flatMap(c -> c.parameters().stream())
-                            .anyMatch(p -> p.type().startsWith("flags.") &&
-                                    p.name().equals(param.name()));
+                            .anyMatch(p -> p.type().indexOf('?') != -1 && p.name().equals(param.name()));
 
-                    if (!param.type().endsWith("true") && (param.type().startsWith("flags.") || optionalInExt)) {
+                    if (!param.type().endsWith("true") && (param.type().indexOf('?') != -1 || optionalInExt)) {
                         paramType = wrapOptional(attribute, paramType, param);
                     }
 
@@ -905,7 +947,7 @@ public class SchemaGenerator extends AbstractProcessor {
             default:
                 Matcher flag = FLAG_PATTERN.matcher(type);
                 if (flag.matches()) {
-                    String innerTypeRaw = flag.group(2);
+                    String innerTypeRaw = flag.group(3);
                     TypeName t = parseType(innerTypeRaw, schema);
                     return innerTypeRaw.equals("true") ? t : t.box();
                 }
@@ -954,23 +996,26 @@ public class SchemaGenerator extends AbstractProcessor {
         var flagInfo = param.flagInfo().orElse(null);
         if (flagInfo != null) {
             int position = flagInfo.getT1();
-            String typeRaw = flagInfo.getT2();
+            String flags = flagInfo.getT2();
+            String typeRaw = flagInfo.getT3();
 
             String pos = Integer.toHexString(1 << position);
             if (typeRaw.equals("true")) {
-                return "(flags & 0x" + pos + ") != 0";
+                return "(" + flags + " & 0x" + pos + ") != 0";
             }
 
-            String innerMethod = deserializeMethod0(typeRaw);
-            return "(flags & 0x" + pos + ") != 0 ? " + innerMethod + " : null";
+            String innerMethod = deserializeMethod0(null, typeRaw);
+            return "(" + flags + " & 0x" + pos + ") != 0 ? " + innerMethod + " : null";
         }
 
-        return deserializeMethod0(param.type());
+        return deserializeMethod0(param.formattedName(), param.type());
     }
 
-    private String deserializeMethod0(String type) {
+    private String deserializeMethod0(@Nullable String name, String type) {
         switch (type.toLowerCase()) {
-            case "#": return "flags";
+            case "#":
+                Objects.requireNonNull(name, "name");
+                return name;
             case "bool": return "payload.readIntLE() == BOOL_TRUE_ID";
             case "int": return "payload.readIntLE()";
             case "long": return "payload.readLongLE()";
@@ -1013,7 +1058,7 @@ public class SchemaGenerator extends AbstractProcessor {
             case "#":
             case "int": return "writeIntLE";
             case "long": return "writeLongLE";
-            case "double": return  "writeDoubleLE";
+            case "double": return "writeDoubleLE";
             default: return "writeBytes";
         }
     }
@@ -1058,19 +1103,12 @@ public class SchemaGenerator extends AbstractProcessor {
     }
 
     private TypeName wrapOptional(MethodSpec.Builder attribute, TypeName type, Parameter param) {
-        switch (param.type().toLowerCase()) {
-            case "bytes":
-            case "int128":
-            case "int256":
-                return ParameterizedTypeName.get(ClassName.get(Optional.class), type);
-            default:
-                if (param.type().contains("bytes")) {
-                    return ParameterizedTypeName.get(ClassName.get(Optional.class), type);
-                }
-
-                attribute.addAnnotation(Nullable.class);
-                return type.box();
+        if (param.type().contains("bytes")) {
+            return ParameterizedTypeName.get(ClassName.get(Optional.class), type);
         }
+
+        attribute.addAnnotation(Nullable.class);
+        return type.box();
     }
 
     private String getPackageName(Scheme schema, String type, boolean method) {

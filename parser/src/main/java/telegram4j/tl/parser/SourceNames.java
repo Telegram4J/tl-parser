@@ -21,7 +21,7 @@ public final class SourceNames {
 
         Matcher flag = FLAG_PATTERN.matcher(type);
         if (flag.matches()) {
-            type = flag.group(2);
+            type = flag.group(3);
         }
 
         int dotIdx = type.lastIndexOf('.');
@@ -42,6 +42,13 @@ public final class SourceNames {
         return camelize(type);
     }
 
+    // TODO: custom renaming for specific situations
+    // - long
+    // - default
+    // - static
+    // - public
+    // - final
+    // - private
     public static String formatFieldName(String name) {
         name = camelize(name);
 
