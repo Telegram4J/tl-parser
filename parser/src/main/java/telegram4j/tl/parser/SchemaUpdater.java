@@ -13,6 +13,7 @@ import reactor.function.TupleUtils;
 import reactor.netty.http.client.HttpClient;
 import reactor.util.function.Tuple2;
 import reactor.util.function.Tuples;
+import telegram4j.tl.parser.TlTrees.Type.Kind;
 
 import java.io.File;
 import java.io.IOException;
@@ -65,7 +66,7 @@ class SchemaUpdater {
                                 param = ImmutableTlTrees.Parameter.builder();
                             } else {
                                 type.type(p.asTextValue());
-                                if (p.kind() == TlTrees.Type.Kind.CONSTRUCTOR) {
+                                if (p.kind() == Kind.CONSTRUCTOR) {
                                     scheme.addConstructor(type.build());
                                 } else {
                                     scheme.addMethods(type.build());

@@ -108,12 +108,7 @@ public class SchemaGenerator extends AbstractProcessor {
         super.init(processingEnv);
 
         try {
-            ObjectMapper mapper = JsonMapper.builder()
-                    .addModules(new Jdk8Module())
-                    .visibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE)
-                    .visibility(PropertyAccessor.GETTER, JsonAutoDetect.Visibility.PUBLIC_ONLY)
-                    .visibility(PropertyAccessor.CREATOR, JsonAutoDetect.Visibility.ANY)
-                    .build();
+            ObjectMapper mapper = new ObjectMapper();
 
             InputStream api = processingEnv.getFiler().getResource(
                     StandardLocation.ANNOTATION_PROCESSOR_PATH, "", API_SCHEMA).openInputStream();
@@ -789,7 +784,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
         for (var e : superTypes.entrySet()) {
             String name = normalizeName(e.getKey());
-            var params = e.getValue();
+            var params = e.getValue(); // common parameters
             String packageName = parentPackageName(e.getKey());
             String qualifiedName = e.getKey();
 
@@ -1094,7 +1089,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     return "serialize" + specific + "Vector(alloc, payload.$L())";
                 } else if (paramTypeLower.endsWith("true")) {
                     return null;
-                } else if (paramTypeLower.contains("?")) {
+                } else if (paramTypeLower.indexOf('?') != -1) {
                     return "serializeFlags(alloc, payload.$L())";
                 } else {
                     return "serialize(alloc, payload.$L())";

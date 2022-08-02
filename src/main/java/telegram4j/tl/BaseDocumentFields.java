@@ -6,8 +6,6 @@ import java.util.List;
 
 public interface BaseDocumentFields extends TlObject {
 
-    int size();
-
     String mimeType();
 
     List<DocumentAttribute> attributes();

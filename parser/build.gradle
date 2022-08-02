@@ -17,7 +17,7 @@ dependencies {
 }
 
 task updateSchemas(dependsOn: classes, type: JavaExec){
-    mainClass = 'telegram4j.tl.SchemaUpdater'
+    mainClass = 'telegram4j.tl.parser.SchemaUpdater'
     classpath = sourceSets.main.runtimeClasspath
     standardInput = System.in
     workingDir = project.rootDir
