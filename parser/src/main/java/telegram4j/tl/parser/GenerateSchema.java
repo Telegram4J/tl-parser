@@ -1,4 +1,4 @@
-package telegram4j.tl;
+package telegram4j.tl.parser;
 
 import java.lang.annotation.*;
 

@@ -1,10 +1,10 @@
-package telegram4j.tl;
+package telegram4j.tl.parser;
 
 import javax.lang.model.SourceVersion;
 import java.util.regex.Matcher;
 
-import static telegram4j.tl.SchemaGeneratorConsts.*;
-import static telegram4j.tl.Strings.camelize;
+import static telegram4j.tl.parser.SchemaGeneratorConsts.*;
+import static telegram4j.tl.parser.Strings.camelize;
 
 public final class SourceNames {
 

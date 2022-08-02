@@ -1,4 +1,4 @@
-package telegram4j.tl;
+package telegram4j.tl.parser;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
@@ -13,10 +13,9 @@ import org.immutables.value.Value;
 import reactor.core.Exceptions;
 import reactor.util.annotation.Nullable;
 import telegram4j.tl.api.*;
-import telegram4j.tl.json.ImmutableTlSchema;
-import telegram4j.tl.json.TlEntityObject;
-import telegram4j.tl.json.TlParam;
-import telegram4j.tl.json.TlSchema;
+import telegram4j.tl.parser.TlTrees.Parameter;
+import telegram4j.tl.parser.TlTrees.Scheme;
+import telegram4j.tl.parser.TlTrees.Type;
 
 import javax.annotation.processing.*;
 import javax.lang.model.SourceVersion;
@@ -33,16 +32,17 @@ import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 
-import static telegram4j.tl.SchemaGeneratorConsts.*;
-import static telegram4j.tl.SourceNames.normalizeName;
-import static telegram4j.tl.SourceNames.parentPackageName;
-import static telegram4j.tl.Strings.camelize;
-import static telegram4j.tl.Strings.screamilize;
+import static telegram4j.tl.parser.SchemaGeneratorConsts.*;
+import static telegram4j.tl.parser.SourceNames.normalizeName;
+import static telegram4j.tl.parser.SourceNames.parentPackageName;
+import static telegram4j.tl.parser.Strings.camelize;
+import static telegram4j.tl.parser.Strings.screamilize;
 
 @SupportedSourceVersion(SourceVersion.RELEASE_11)
-@SupportedAnnotationTypes("telegram4j.tl.GenerateSchema")
+@SupportedAnnotationTypes("telegram4j.tl.parser.GenerateSchema")
 public class SchemaGenerator extends AbstractProcessor {
 
+    // TODO(!): implement multi flags fields handling
     // TODO: add serialization for JsonVALUE in TlSerializer.serialize(...)
 
     private static final String METHOD_PACKAGE_PREFIX = "request";
@@ -53,19 +53,19 @@ public class SchemaGenerator extends AbstractProcessor {
     private static final String MTPROTO_SCHEMA = "mtproto.json";
     private static final String INDENT = "\t";
 
-    private final Map<String, TlEntityObject> computed = new HashMap<>();
+    private final Map<String, Type> computed = new HashMap<>();
 
     private PackageElement currentElement;
-    private TlSchema apiSchema;
-    private TlSchema mtprotoSchema;
-    private List<TlSchema> schemas;
-    private Map<TlSchema, Map<String, List<TlEntityObject>>> typeTree;
-    private Map<String, List<TlEntityObject>> concTypeTree;
+    private Scheme apiSchema;
+    private Scheme mtprotoSchema;
+    private List<Scheme> schemas;
+    private Map<Scheme, Map<String, List<Type>>> typeTree;
+    private Map<String, List<Type>> concTypeTree;
 
     private int iteration;
     private int schemaIteration;
-    private TlSchema schema;
-    private Map<String, List<TlEntityObject>> currTypeTree;
+    private Scheme schema;
+    private Map<String, List<Type>> currTypeTree;
 
     // processing resources
 
@@ -107,22 +107,22 @@ public class SchemaGenerator extends AbstractProcessor {
     public synchronized void init(ProcessingEnvironment processingEnv) {
         super.init(processingEnv);
 
-        ObjectMapper mapper = JsonMapper.builder()
-                .addModules(new Jdk8Module())
-                .visibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE)
-                .visibility(PropertyAccessor.GETTER, JsonAutoDetect.Visibility.PUBLIC_ONLY)
-                .visibility(PropertyAccessor.CREATOR, JsonAutoDetect.Visibility.ANY)
-                .build();
-
         try {
+            ObjectMapper mapper = JsonMapper.builder()
+                    .addModules(new Jdk8Module())
+                    .visibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE)
+                    .visibility(PropertyAccessor.GETTER, JsonAutoDetect.Visibility.PUBLIC_ONLY)
+                    .visibility(PropertyAccessor.CREATOR, JsonAutoDetect.Visibility.ANY)
+                    .build();
+
             InputStream api = processingEnv.getFiler().getResource(
                     StandardLocation.ANNOTATION_PROCESSOR_PATH, "", API_SCHEMA).openInputStream();
             InputStream mtproto = processingEnv.getFiler().getResource(
                     StandardLocation.ANNOTATION_PROCESSOR_PATH, "", MTPROTO_SCHEMA).openInputStream();
 
-            apiSchema = mapper.readValue(api, TlSchema.class);
+            apiSchema = mapper.readValue(api, Scheme.class);
 
-            mtprotoSchema = ImmutableTlSchema.copyOf(mapper.readValue(mtproto, TlSchema.class))
+            mtprotoSchema = ImmutableTlTrees.Scheme.copyOf(mapper.readValue(mtproto, Scheme.class))
                     .withPackagePrefix(MTPROTO_PACKAGE_PREFIX)
                     .withSuperType(MTProtoObject.class);
 
@@ -200,7 +200,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
         for (var ent : concTypeTree.entrySet()) {
             boolean isEnum = ent.getValue().stream()
-                    .mapToInt(c -> c.params().size())
+                    .mapToInt(c -> c.parameters().size())
                     .sum() == 0;
 
             if (!isEnum) {
@@ -210,7 +210,7 @@ public class SchemaGenerator extends AbstractProcessor {
             String packageName = parentPackageName(ent.getKey());
             var chunk = ent.getValue();
             for (int i = 0; i < chunk.size(); i++) {
-                TlEntityObject obj = chunk.get(i);
+                Type obj = chunk.get(i);
 
                 if (i + 1 == chunk.size()) {
                     String type = normalizeName(obj.type());
@@ -258,7 +258,7 @@ public class SchemaGenerator extends AbstractProcessor {
     }
 
     private void generateMethods() {
-        for (TlEntityObject method : schema.methods()) {
+        for (Type method : schema.methods()) {
             if (ignoredTypes.contains(method.type())) {
                 continue;
             }
@@ -266,7 +266,7 @@ public class SchemaGenerator extends AbstractProcessor {
             String name = normalizeName(method.name());
             String packageName = getPackageName(schema, method.name(), true);
 
-            boolean generic = method.params().stream()
+            boolean generic = method.parameters().stream()
                     .anyMatch(p -> p.type().equals("!X"));
 
             TypeSpec.Builder spec = TypeSpec.interfaceBuilder(name)
@@ -313,7 +313,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
             AnnotationSpec.Builder value = AnnotationSpec.builder(Value.Immutable.class);
 
-            boolean singleton = method.params().stream().allMatch(p -> p.type().equals("#") || p.type().startsWith("flags."));
+            boolean singleton = method.parameters().stream().allMatch(p -> p.type().equals("#") || p.type().indexOf('?') != -1);
             if (singleton) {
                 value.addMember("singleton", "true");
 
@@ -358,7 +358,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     wildcardUnboundedMethodType)
                     : typeRaw;
 
-            if (method.params().isEmpty()) {
+            if (method.parameters().isEmpty()) {
                 emptyObjects.add(method.id());
             } else {
 
@@ -372,7 +372,7 @@ public class SchemaGenerator extends AbstractProcessor {
                                 ParameterSpec.builder(ByteBufAllocator.class, "alloc").build(),
                                 ParameterSpec.builder(payloadType, "payload").build()));
 
-                boolean hasReleasable = method.params().stream()
+                boolean hasReleasable = method.parameters().stream()
                         .anyMatch(p -> isReleasable(p.type()));
 
                 CodeBlock.Builder serFinallyBlock = CodeBlock.builder();
@@ -381,7 +381,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
                 int size = 4;
                 StringJoiner releasableSized = new StringJoiner(", ");
-                for (TlParam param : method.params()) {
+                for (Parameter param : method.parameters()) {
                     boolean releasable = isReleasable(param.type());
 
                     String fixedParamName = param.formattedName().equals("payload")
@@ -415,7 +415,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
                     if (param.type().equals("#")) {
                         attribute.addModifiers(Modifier.DEFAULT);
-                        String precompute = method.params().stream()
+                        String precompute = method.parameters().stream()
                                 .filter(p -> p.flagInfo().isPresent())
                                 .map(f -> {
                                     var flagInfo = f.flagInfo().orElseThrow();
@@ -428,7 +428,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     } else if (param.type().endsWith("true")) {
                         attribute.addModifiers(Modifier.DEFAULT);
                         attribute.addCode("return false;");
-                    } else if (param.type().startsWith("flags.")) {
+                    } else if (param.type().indexOf('?') != -1) {
                         paramType = wrapOptional(attribute, paramType, param);
                         attribute.addModifiers(Modifier.ABSTRACT);
                     } else {
@@ -472,7 +472,7 @@ public class SchemaGenerator extends AbstractProcessor {
     }
 
     private void generateConstructors() {
-        for (TlEntityObject constructor : schema.constructors()) {
+        for (Type constructor : schema.constructors()) {
             if (ignoredTypes.contains(constructor.type()) || primitiveTypes.contains(constructor.type())) {
                 continue;
             }
@@ -517,7 +517,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     .addCode("return Immutable$L.builder();", name)
                     .build());
 
-            var attributes = new LinkedHashSet<>(constructor.params());
+            var attributes = new LinkedHashSet<>(constructor.parameters());
             collectAttributesRecursive(type, attributes);
 
             boolean singleton = attributes.stream().allMatch(p -> p.type().startsWith("flags.") || p.type().equals("#"));
@@ -599,7 +599,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
                 int size = 4;
                 StringJoiner releasableSized = new StringJoiner(", ");
-                for (TlParam param : attributes) {
+                for (Parameter param : attributes) {
                     boolean releasable = isReleasable(param.type());
                     String fixedParamName = param.formattedName().equals("payload")
                             ? "payload$" : param.formattedName();
@@ -634,7 +634,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
                     if (param.type().equals("#")) {
                         attribute.addModifiers(Modifier.DEFAULT);
-                        String precompute = constructor.params().stream()
+                        String precompute = constructor.parameters().stream()
                                 .filter(p -> p.flagInfo().isPresent())
                                 .map(f -> {
                                     var flagInfo = f.flagInfo().orElseThrow();
@@ -739,19 +739,19 @@ public class SchemaGenerator extends AbstractProcessor {
                 .filter(e -> e.getValue().size() > 1)
                 .collect(Collectors.groupingBy(Map.Entry::getKey,
                         Collectors.flatMapping(e -> e.getValue().stream()
-                                        .flatMap(c -> c.params().stream())
+                                        .flatMap(c -> c.parameters().stream())
                                         .filter(p -> e.getValue().stream()
-                                                .allMatch(c -> c.params().contains(p))),
+                                                .allMatch(c -> c.parameters().contains(p))),
                                 Collectors.toCollection(LinkedHashSet::new))));
 
         for (var e : superTypes.entrySet()) {
             String name = normalizeName(e.getKey());
-            Set<TlParam> params = e.getValue();
+            var params = e.getValue();
             String packageName = parentPackageName(e.getKey());
             String qualifiedName = e.getKey();
 
             boolean canMakeEnum = currTypeTree.get(qualifiedName).stream()
-                    .mapToInt(c -> c.params().size()).sum() == 0 &&
+                    .mapToInt(c -> c.parameters().size()).sum() == 0 &&
                     !name.equals("Object");
 
             String shortenName = extractEnumName(qualifiedName);
@@ -771,7 +771,7 @@ public class SchemaGenerator extends AbstractProcessor {
                         .returns(ClassName.get(packageName, name))
                         .beginControlFlow("switch (identifier)");
 
-                for (TlEntityObject constructor : currTypeTree.get(qualifiedName)) {
+                for (Type constructor : currTypeTree.get(qualifiedName)) {
                     String subtypeName = normalizeName(constructor.name());
                     String constName = screamilize(subtypeName.substring(shortenName.length()));
 
@@ -805,14 +805,14 @@ public class SchemaGenerator extends AbstractProcessor {
                 spec.addMethod(ofMethod.build());
             } else {
 
-                for (TlParam param : params) {
+                for (Parameter param : params) {
                     TypeName paramType = parseType(param.type(), schema);
 
                     MethodSpec.Builder attribute = MethodSpec.methodBuilder(param.formattedName())
                             .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT);
 
                     boolean optionalInExt = currTypeTree.getOrDefault(qualifiedName, List.of()).stream()
-                            .flatMap(c -> c.params().stream())
+                            .flatMap(c -> c.parameters().stream())
                             .anyMatch(p -> p.type().startsWith("flags.") &&
                                     p.name().equals(param.name()));
 
@@ -837,7 +837,7 @@ public class SchemaGenerator extends AbstractProcessor {
                 .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
                 .addMethod(privateConstructor);
 
-        for (TlEntityObject e : apiSchema.constructors()) {
+        for (Type e : apiSchema.constructors()) {
             if (primitiveTypes.contains(e.type())) {
                 String name = screamilize(e.name()) + "_ID";
 
@@ -866,7 +866,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     .filter(s -> !s.equals(processingPackageName))
                     .collect(Collectors.toSet());
 
-            Function<TlSchema, Set<String>> methodPackagesCollector = schema -> schema.methods().stream()
+            Function<Scheme, Set<String>> methodPackagesCollector = schema -> schema.methods().stream()
                     .map(e -> getPackageName(schema, e.name(), true))
                     .collect(Collectors.toSet());
 
@@ -886,7 +886,7 @@ public class SchemaGenerator extends AbstractProcessor {
         }
     }
 
-    private TypeName parseType(String type, TlSchema schema) {
+    private TypeName parseType(String type, Scheme schema) {
         switch (type.toLowerCase()) {
             case "!x": return genericTypeRef;
             case "x": return genericResultTypeRef;
@@ -921,12 +921,12 @@ public class SchemaGenerator extends AbstractProcessor {
         }
     }
 
-    private void collectAttributesRecursive(String name, Set<TlParam> params) {
-        TlEntityObject constructor = computed.get(name);
+    private void collectAttributesRecursive(String name, Set<Parameter> params) {
+        Type constructor = computed.get(name);
         if (constructor == null || constructor.name().equals(name)) {
             return;
         }
-        params.addAll(constructor.params());
+        params.addAll(constructor.parameters());
         collectAttributesRecursive(constructor.name(), params);
     }
 
@@ -949,7 +949,7 @@ public class SchemaGenerator extends AbstractProcessor {
                 .orElseGet(() -> normalizeName(type));
     }
 
-    private String deserializeMethod(TlParam param) {
+    private String deserializeMethod(Parameter param) {
 
         var flagInfo = param.flagInfo().orElse(null);
         if (flagInfo != null) {
@@ -1006,7 +1006,7 @@ public class SchemaGenerator extends AbstractProcessor {
         }
     }
 
-    private String byteBufMethod(TlParam param) {
+    private String byteBufMethod(Parameter param) {
         String paramTypeLower = param.type().toLowerCase();
         switch (paramTypeLower) {
             case "bool":
@@ -1019,7 +1019,7 @@ public class SchemaGenerator extends AbstractProcessor {
     }
 
     @Nullable
-    private String serializeMethod(TlParam param) {
+    private String serializeMethod(Parameter param) {
         String paramTypeLower = param.type().toLowerCase();
         switch (paramTypeLower) {
             case "int":
@@ -1049,7 +1049,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     return "serialize" + specific + "Vector(alloc, payload.$L())";
                 } else if (paramTypeLower.endsWith("true")) {
                     return null;
-                } else if (paramTypeLower.startsWith("flags.")) {
+                } else if (paramTypeLower.contains("?")) {
                     return "serializeFlags(alloc, payload.$L())";
                 } else {
                     return "serialize(alloc, payload.$L())";
@@ -1057,7 +1057,7 @@ public class SchemaGenerator extends AbstractProcessor {
         }
     }
 
-    private TypeName wrapOptional(MethodSpec.Builder attribute, TypeName type, TlParam param) {
+    private TypeName wrapOptional(MethodSpec.Builder attribute, TypeName type, Parameter param) {
         switch (param.type().toLowerCase()) {
             case "bytes":
             case "int128":
@@ -1073,7 +1073,7 @@ public class SchemaGenerator extends AbstractProcessor {
         }
     }
 
-    private String getPackageName(TlSchema schema, String type, boolean method) {
+    private String getPackageName(Scheme schema, String type, boolean method) {
         StringJoiner pckg = new StringJoiner(".");
         pckg.add(getBasePackageName());
 
@@ -1093,7 +1093,7 @@ public class SchemaGenerator extends AbstractProcessor {
         return pckg.toString();
     }
 
-    private Map<String, List<TlEntityObject>> collectTypeTree(TlSchema schema) {
+    private Map<String, List<Type>> collectTypeTree(Scheme schema) {
         return schema.constructors().stream()
                 .filter(c -> !ignoredTypes.contains(c.type()) && !primitiveTypes.contains(c.type()))
                 .collect(Collectors.groupingBy(c -> getPackageName(schema, c.type(), false)
