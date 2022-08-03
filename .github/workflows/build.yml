@@ -29,6 +29,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     name: Publish artifacts
+    if: github.event_name != 'pull_request'
     needs: build
     steps:
       - uses: actions/checkout@v2
