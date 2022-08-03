@@ -1,10 +1,12 @@
-package telegram4j.tl;
+package telegram4j.tl.parser;
+
+import reactor.util.annotation.Nullable;
 
 import javax.lang.model.SourceVersion;
 import java.util.regex.Matcher;
 
-import static telegram4j.tl.SchemaGeneratorConsts.*;
-import static telegram4j.tl.Strings.camelize;
+import static telegram4j.tl.parser.SchemaGeneratorConsts.*;
+import static telegram4j.tl.parser.Strings.camelize;
 
 public final class SourceNames {
 
@@ -21,7 +23,7 @@ public final class SourceNames {
 
         Matcher flag = FLAG_PATTERN.matcher(type);
         if (flag.matches()) {
-            type = flag.group(2);
+            type = flag.group(3);
         }
 
         int dotIdx = type.lastIndexOf('.');
@@ -42,7 +44,7 @@ public final class SourceNames {
         return camelize(type);
     }
 
-    public static String formatFieldName(String name) {
+    public static String formatFieldName(String name, @Nullable String type) {
         name = camelize(name);
 
         char f = name.charAt(0);
@@ -50,10 +52,30 @@ public final class SourceNames {
             name = Character.toLowerCase(f) + name.substring(1);
         }
 
-        // This is a strange and in some places illogical problem
-        // solution of matching attribute names with java keywords
+        // TODO, replace
         if (!SourceVersion.isName(name)) {
-            name += "State";
+            switch (name) {
+                case "default":
+                case "static":
+                case "public":
+                case "final":
+                case "private":
+                    if (!"true".equals(type)) {
+                        throw new IllegalStateException("Non-flag parameter with java keyword name, type: " + type);
+                    }
+
+                    name = camelize("is_" + name);
+                    break;
+                case "long":
+                    if (!"double".equals(type)) {
+                        throw new IllegalStateException("Non-flag parameter with java keyword name, type: " + type);
+                    }
+
+                    // just use the full form of word
+                    name = "longitude";
+                    break;
+                default: throw new IllegalStateException("Unhandled keyword use: " + name + ", type: " + type);
+            }
         }
 
         return name;

@@ -1,9 +1,8 @@
-package telegram4j.tl;
+package telegram4j.tl.parser;
 
 import com.squareup.javapoet.*;
 import telegram4j.tl.api.TlMethod;
 import telegram4j.tl.api.TlObject;
-import telegram4j.tl.json.ImmutableTlParam;
 
 import javax.lang.model.element.Modifier;
 import java.util.List;
@@ -15,11 +14,12 @@ public final class SchemaGeneratorConsts {
     private SchemaGeneratorConsts() {
     }
 
-    public static final Pattern FLAG_PATTERN = Pattern.compile("^flags\\.(\\d+)\\?(.+)$");
+    // channelFull has two flags fields
+    public static final Pattern FLAG_PATTERN = Pattern.compile("^(\\w+)\\.(\\d+)\\?(.+)$");
     public static final Pattern VECTOR_PATTERN = Pattern.compile("^[vV]ector<%?([\\w.<>]+)>$");
-
+    // excluded from generation
     public static final Set<String> ignoredTypes = Set.of("True", "Null", "HttpWait");
-
+    // list of types whose ids will be in TlPrimitives
     public static final Set<String> primitiveTypes = Set.of(
             "Bool", "Vector t", "JSONValue", "JSONObjectValue");
 
@@ -30,8 +30,6 @@ public final class SchemaGeneratorConsts {
     public static final TypeName wildcardUnboundedMethodType = ParameterizedTypeName.get(
             ClassName.get(TlMethod.class), WildcardTypeName.subtypeOf(TypeName.OBJECT));
     public static final TypeVariableName genericType = TypeVariableName.get("T", TlObject.class);
-
-    public static final ImmutableTlParam flagParameter = ImmutableTlParam.of("flags", "#");
 
     public static final MethodSpec privateConstructor = MethodSpec.constructorBuilder()
             .addModifiers(Modifier.PRIVATE)

@@ -81,6 +81,10 @@ allprojects {
     configurations.all {
         resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
     }
+
+    test {
+        useJUnitPlatform()
+    }
 }
 
 subprojects {
@@ -180,10 +184,6 @@ configure(subprojects - project(":parser") + project){
             sign publishing.publications.mavenJava
         }
     }
-}
-
-test {
-    useJUnitPlatform()
 }
 
 sourceSets.main.java.srcDirs += "build/generated/sources/annotationProcessor/java/main"

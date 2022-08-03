@@ -12,11 +12,16 @@ dependencies {
     api "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:$jackson_version"
 
     compileOnly "javax.annotation:javax.annotation-api:$javax_annotation"
+
+    testImplementation "org.junit.jupiter:junit-jupiter-engine:$junit_version"
 }
 
 task updateSchemas(dependsOn: classes, type: JavaExec){
-    mainClass = 'telegram4j.tl.SchemaUpdater'
+    mainClass = 'telegram4j.tl.parser.SchemaUpdater'
     classpath = sourceSets.main.runtimeClasspath
     standardInput = System.in
     workingDir = project.rootDir
+    if (project.hasProperty("args")) {
+        args project.getProperties()["args"]
+    }
 }
