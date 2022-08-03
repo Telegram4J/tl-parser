@@ -148,20 +148,16 @@ public class TlParser implements Closeable {
                         break loop;
                     case ';':
                         // verification
-                        // TODO: exception message
-                        if (curr != Token.PARAMETERS_END && curr != Token.ID) {
-                            throw new TlParseException();
-                        }
+                        if (curr != Token.PARAMETERS_END && curr != Token.ID)
+                            throw invalidToken(start, Token.PARAMETERS_END + " or " + Token.ID, curr);
 
                         state |= COMPLETED;
                         t = Token.TYPE_NAME;
                         break loop;
                     case ':':
-                        if (curr != Token.ID) {
-                            // verification
-                            // TODO: exception message
-                            throw new TlParseException();
-                        }
+                        // verification
+                        if (curr != Token.ID)
+                            throw invalidToken(start, Token.ID, curr);
 
                         t = Token.PARAMETERS_BEGIN;
                         next = Token.NAME;
@@ -171,11 +167,14 @@ public class TlParser implements Closeable {
             } else {
                 switch (c) {
                     case ':':
+                        if (curr != Token.TYPE_NAME && curr != Token.ID)
+                            throw invalidToken(start, Token.TYPE_NAME + " or " + Token.ID, curr);
+
                         t = Token.NAME;
                         break loop;
                     case ' ':
                         if (curr != Token.NAME)
-                            throw new TlParseException();
+                            throw invalidToken(start, Token.NAME, curr);
 
                         t = Token.TYPE_NAME;
                         break loop;
@@ -273,17 +272,15 @@ public class TlParser implements Closeable {
                         t = Token.ID;
                         break loop;
                     case ';':
-                        if (curr != Token.PARAMETERS_END && curr != Token.ID) {
-                            throw new TlParseException();
-                        }
+                        if (curr != Token.PARAMETERS_END && curr != Token.ID)
+                            throw invalidToken(start, Token.PARAMETERS_END + " or " + Token.ID, curr);
 
                         t = Token.TYPE_NAME;
                         state |= COMPLETED;
                         break loop;
                     case ':':
-                        if (curr != Token.ID) {
-                            throw new TlParseException();
-                        }
+                        if (curr != Token.ID)
+                            throw invalidToken(start, Token.ID, curr);
 
                         t = Token.PARAMETERS_BEGIN;
                         next = Token.NAME;
@@ -293,11 +290,14 @@ public class TlParser implements Closeable {
             } else {
                 switch (c) {
                     case ':':
+                        if (curr != Token.TYPE_NAME && curr != Token.ID)
+                            throw invalidToken(start, Token.TYPE_NAME + " or " + Token.ID, curr);
+
                         t = Token.NAME;
                         break loop;
                     case ' ':
                         if (curr != Token.NAME)
-                            throw new TlParseException();
+                            throw invalidToken(start, Token.NAME, curr);
 
                         t = Token.TYPE_NAME;
                         break loop;
@@ -471,6 +471,10 @@ public class TlParser implements Closeable {
         return true;
     }
 
+    private TlParseException invalidToken(int start, Object expecting, Token actual) {
+        return createException(start, "Unrecognized token " + actual + ", was expecting " + expecting);
+    }
+
     private TlParseException createException(int start, String text) {
         inputProcessed += start;
         inputColumn += start - inputColumnStart;
@@ -520,7 +524,7 @@ public class TlParser implements Closeable {
     }
 
     public enum Token {
-        DECLARATION,
+        DECLARATION, // can be ignored
         ID,
         NAME,
         TYPE_NAME,

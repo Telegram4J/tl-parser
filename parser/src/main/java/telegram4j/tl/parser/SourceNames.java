@@ -47,6 +47,11 @@ public final class SourceNames {
     public static String formatFieldName(String name, @Nullable String type) {
         name = camelize(name);
 
+        char f = name.charAt(0);
+        if (Character.isUpperCase(f)) {
+            name = Character.toLowerCase(f) + name.substring(1);
+        }
+
         // TODO, replace
         if (!SourceVersion.isName(name)) {
             switch (name) {
