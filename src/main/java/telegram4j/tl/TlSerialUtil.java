@@ -84,6 +84,14 @@ public final class TlSerialUtil {
         return buf.readSlice(Long.BYTES * 4);
     }
 
+    static int sizeOf0(List<Integer> list) {
+        return 8 + list.size() * 4;
+    }
+
+    static int sizeOf1(List<Long> list) {
+        return 8 + list.size() * 8;
+    }
+
     // serialization
 
     public static ByteBuf serializeString(ByteBufAllocator allocator, String value) {
@@ -264,6 +272,23 @@ public final class TlSerialUtil {
             b.release();
         }
         return buf;
+    }
+
+    // some zero-copy variants of the vector serializers
+    static void serializeLongVector0(ByteBuf buf, List<Long> vector) {
+        buf.writeIntLE(VECTOR_ID);
+        buf.writeIntLE(vector.size());
+        for (long l : vector) {
+            buf.writeLongLE(l);
+        }
+    }
+
+    static void serializeIntVector0(ByteBuf buf, List<Integer> vector) {
+        buf.writeIntLE(VECTOR_ID);
+        buf.writeIntLE(vector.size());
+        for (int i : vector) {
+            buf.writeIntLE(i);
+        }
     }
 
     // deserialization
