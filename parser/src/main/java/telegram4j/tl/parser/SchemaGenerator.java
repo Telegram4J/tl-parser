@@ -770,7 +770,8 @@ public class SchemaGenerator extends AbstractProcessor {
             case "Vector<long>":
                 return false;
             default:
-                return true;
+                // it's ignored in serialization type
+                return !type.endsWith("true");
         }
     }
 
