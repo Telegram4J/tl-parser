@@ -99,6 +99,20 @@ public class SerializationTest {
         assertEquals(expected, actual);
     }
 
+    @Test
+    void sizeOf() {
+        Channel expected = Channel.builder()
+                // ident. - 4
+                // flags - 4
+                .id(1) // 8
+                .title("title") // 8
+                .photo(ChatPhotoEmpty.instance()) // 4
+                .date(1) // 4
+                .build();
+
+        assertEquals(TlSerializer.sizeOf(expected), 32);
+    }
+
     static <T extends TlObject> T serialize(T obj) {
         ByteBuf serialized = TlSerializer.serialize(alloc, obj);
         try {

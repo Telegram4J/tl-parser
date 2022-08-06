@@ -10,10 +10,9 @@ import telegram4j.tl.api.TlObject;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.function.Function;
+import java.util.*;
+import java.util.function.*;
+import java.util.stream.StreamSupport;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
@@ -84,15 +83,104 @@ public final class TlSerialUtil {
         return buf.readSlice(Long.BYTES * 4);
     }
 
-    static int sizeOf0(List<Integer> list) {
+    // sizeOf methods
+
+    static int sizeOf0(String str) {
+        int n = ByteBufUtil.utf8Bytes(str);
+        int h = n >= 0xfe ? 4 : 1;
+        int offset = (h + n) % 4;
+        return h + n + 4 - offset;
+    }
+
+    static int sizeOf0(ByteBuf buf) {
+        int n = buf.readableBytes();
+        int h = n >= 0xfe ? 4 : 1;
+        int offset = (h + n) % 4;
+        return h + n + 4 - offset;
+    }
+
+    static int sizeOfIntVector(List<Integer> list) {
         return 8 + list.size() * 4;
     }
 
-    static int sizeOf1(List<Long> list) {
+    static int sizeOfLongVector(List<Long> list) {
         return 8 + list.size() * 8;
     }
 
-    // serialization
+    static int sizeOfStringVector(List<String> list) {
+        return sizeOfVector0(list, TlSerialUtil::sizeOf0);
+    }
+
+    static int sizeOfBytesVector(List<ByteBuf> list) {
+        return sizeOfVector0(list, TlSerialUtil::sizeOf0);
+    }
+
+    static int sizeOfVector(List<? extends TlObject> list) {
+        return sizeOfVector0(list, TlSerializer::sizeOf);
+    }
+
+    static int sizeOfUnknownVector(List<?> list) {
+        return sizeOfVector0(list, TlSerialUtil::sizeOfUnknown);
+    }
+
+    static <T> int sizeOfVector0(int count, Iterator<T> it, ToIntFunction<T> func) {
+        return StreamSupport.stream(Spliterators.spliterator(it, count, 0), false)
+                .mapToInt(func)
+                .reduce(0, Integer::sum);
+    }
+
+    static <T> int sizeOfVector0(List<T> list, ToIntFunction<T> func) {
+        return 8 + list.stream().mapToInt(func).reduce(0, Integer::sum);
+    }
+
+    static int sizeOfFlags(Optional<?> o) {
+        return o.map(TlSerialUtil::sizeOfUnknown).orElse(0);
+    }
+
+    static int sizeOfFlags(@Nullable Object o) {
+        if (o == null) {
+            return 0;
+        }
+        return sizeOfUnknown(o);
+    }
+
+    static int sizeOfUnknown(Object value) {
+        if (value instanceof Integer || value instanceof Boolean) {
+            return 4;
+        } else if (value instanceof Long || value instanceof Double) {
+            return 8;
+        } else if (value instanceof ByteBuf) {
+            return sizeOf0((ByteBuf) value);
+        } else if (value instanceof String) {
+            return sizeOf0((String) value);
+        } else if (value instanceof List) {
+            return sizeOfUnknownVector((List<?>) value);
+        } else if (value instanceof TlObject) {
+            return TlSerializer.sizeOf((TlObject) value);
+        } else if (value instanceof JsonNode) {
+            return sizeOfJsonNode((JsonNode) value);
+        } else {
+            throw new IllegalArgumentException("Incorrect TL serializable type: " + value + " (" + value.getClass() + ")");
+        }
+    }
+
+    static int sizeOfJsonObjectValue(String name, JsonNode node) {
+        return 4 + sizeOf0(name) + sizeOfJsonNode(node);
+    }
+
+    static int sizeOfJsonNode(JsonNode node) {
+        switch (node.getNodeType()) {
+            case NULL: return 4;
+            case STRING: return 4 + sizeOf0(node.asText());
+            case NUMBER: return 12;
+            case BOOLEAN: return 8;
+            case ARRAY: return 4 + sizeOfVector0(node.size(), node.elements(), TlSerialUtil::sizeOfJsonNode);
+            case OBJECT: return 4 + sizeOfVector0(node.size(), node.fields(), e -> sizeOfJsonObjectValue(e.getKey(), e.getValue()));
+            default: throw new IllegalStateException("Incorrect json node type: " + node.getNodeType());
+        }
+    }
+
+    // serialization (returns new buffers)
 
     public static ByteBuf serializeString(ByteBufAllocator allocator, String value) {
         return serializeBytes(allocator, Unpooled.wrappedBuffer(value.getBytes(StandardCharsets.UTF_8)));
@@ -151,6 +239,10 @@ public final class TlSerialUtil {
         return serializeVector0(allocator, vector, e -> TlSerializer.serialize(allocator, e));
     }
 
+    public static ByteBuf serializeFlags(ByteBufAllocator allocator, Optional<?> value) {
+        return value.map(o -> serializeUnknown(allocator, o)).orElse(Unpooled.EMPTY_BUFFER);
+    }
+
     public static ByteBuf serializeFlags(ByteBufAllocator allocator, @Nullable Object value) {
         if (value == null) {
             return Unpooled.EMPTY_BUFFER;
@@ -172,8 +264,7 @@ public final class TlSerialUtil {
         } else if (value instanceof String) {
             return serializeString(allocator, (String) value);
         } else if (value instanceof List) {
-            List<?> value0 = (List<?>) value;
-            return serializeVector0(allocator, value0, e -> serializeUnknown(allocator, e));
+            return serializeVector0(allocator, (List<?>) value, e -> serializeUnknown(allocator, e));
         } else if (value instanceof TlObject) {
             return TlSerializer.serialize(allocator, (TlObject) value);
         } else if (value instanceof JsonNode) {
@@ -274,20 +365,144 @@ public final class TlSerialUtil {
         return buf;
     }
 
-    // some zero-copy variants of the vector serializers
-    static void serializeLongVector0(ByteBuf buf, List<Long> vector) {
-        buf.writeIntLE(VECTOR_ID);
-        buf.writeIntLE(vector.size());
-        for (long l : vector) {
-            buf.writeLongLE(l);
+    // some zero-copy variants of serializers
+
+    static void serializeJsonObjectValue0(ByteBuf buf, String name, JsonNode value) {
+        buf.writeIntLE(JSON_OBJECT_VALUE_ID);
+        serializeString0(buf, name);
+        serializeJsonNode0(buf, value);
+    }
+
+    static void serializeJsonNode0(ByteBuf buf, JsonNode node) {
+        switch (node.getNodeType()) {
+            case NULL:
+                buf.writeIntLE(JSON_NULL_ID);
+                break;
+            case STRING:
+                buf.writeIntLE(JSON_STRING_ID);
+                serializeString0(buf, node.asText());
+                break;
+            case NUMBER:
+                buf.writeIntLE(JSON_NUMBER_ID);
+                buf.writeDoubleLE(node.asDouble());
+                break;
+            case BOOLEAN:
+                buf.writeIntLE(JSON_BOOL_ID);
+                buf.writeDoubleLE(node.asBoolean() ? BOOL_TRUE_ID : BOOL_FALSE_ID);
+                break;
+            case ARRAY:
+                buf.writeIntLE(JSON_ARRAY_ID);
+                serializeVector0(buf, node.size(), node.elements(), TlSerialUtil::serializeJsonNode0);
+                break;
+            case OBJECT:
+                buf.writeIntLE(JSON_OBJECT_ID);
+                serializeVector0(buf, node.size(), node.fields(), (b, e) ->
+                        serializeJsonObjectValue0(b, e.getKey(), e.getValue()));
+                break;
+            default: throw new IllegalStateException("Incorrect json node type: " + node.getNodeType());
         }
     }
 
-    static void serializeIntVector0(ByteBuf buf, List<Integer> vector) {
+    static void serializeUnknown0(ByteBuf buf, Object value) {
+        if (value instanceof Integer) {
+            buf.writeIntLE((int) value);
+        } else if (value instanceof Long) {
+            buf.writeLongLE((long) value);
+        } else if (value instanceof Boolean) {
+            buf.writeIntLE((boolean) value ? BOOL_TRUE_ID : BOOL_FALSE_ID);
+        } else if (value instanceof Double) {
+            buf.writeDoubleLE((long) value);
+        } else if (value instanceof ByteBuf) {
+            serializeBytes0(buf, (ByteBuf) value);
+        } else if (value instanceof String) {
+            serializeString0(buf, (String) value);
+        } else if (value instanceof List) {
+            serializeVector0(buf, (List<?>) value, TlSerialUtil::serializeUnknown0);
+        } else if (value instanceof TlObject) {
+            TlSerializer.serialize0(buf, (TlObject) value);
+        } else if (value instanceof JsonNode) {
+            serializeJsonNode0(buf, (JsonNode) value);
+        } else {
+            throw new IllegalArgumentException("Incorrect TL serializable type: " + value + " (" + value.getClass() + ")");
+        }
+    }
+
+    static void serializeFlags0(ByteBuf buf, Optional<?> value) {
+        value.ifPresent(e -> serializeUnknown0(buf, e));
+    }
+
+    static void serializeFlags0(ByteBuf buf, @Nullable Object value) {
+        if (value != null) {
+            serializeUnknown0(buf, value);
+        }
+    }
+
+    static void serializeStringVector0(ByteBuf buf, List<String> list) {
+        serializeVector0(buf, list, TlSerialUtil::serializeString0);
+    }
+
+    static void serializeBytesVector0(ByteBuf buf, List<ByteBuf> list) {
+        serializeVector0(buf, list, TlSerialUtil::serializeBytes0);
+    }
+
+    static void serializeLongVector0(ByteBuf buf, List<Long> list) {
+        serializeVector0(buf, list, ByteBuf::writeLongLE);
+    }
+
+    static void serializeIntVector0(ByteBuf buf, List<Integer> list) {
+        serializeVector0(buf, list, ByteBuf::writeIntLE);
+    }
+
+    static void serializeVector0(ByteBuf buf, List<? extends TlObject> list) {
+        serializeVector0(buf, list, TlSerializer::serialize0);
+    }
+
+    static <T> void serializeVector0(ByteBuf buf, int count, Iterator<T> it, BiConsumer<ByteBuf, T> func) {
         buf.writeIntLE(VECTOR_ID);
-        buf.writeIntLE(vector.size());
-        for (int i : vector) {
-            buf.writeIntLE(i);
+        buf.writeIntLE(count);
+        while (it.hasNext()) {
+            func.accept(buf, it.next());
+        }
+    }
+
+    static <T> void serializeVector0(ByteBuf buf, List<T> list, BiConsumer<ByteBuf, T> func) {
+        serializeVector0(buf, list.size(), list.iterator(), func);
+    }
+
+    static void serializeString0(ByteBuf buf, String str) {
+        byte[] bytes = str.getBytes(StandardCharsets.UTF_8);
+        int n = bytes.length;
+        int h = n >= 0xfe ? 4 : 1;
+        int offset = (h + n) % 4;
+
+        if (n >= 0xfe) {
+            buf.writeByte(0xfe);
+            buf.writeMediumLE(n);
+        } else {
+            buf.writeByte(n);
+        }
+
+        buf.writeBytes(bytes);
+        if (offset != 0) {
+            buf.writeZero(4 - offset);
+        }
+    }
+
+    static void serializeBytes0(ByteBuf buf, ByteBuf bytes) {
+        int n = bytes.readableBytes();
+        int h = n >= 0xfe ? 4 : 1;
+        int offset = (h + n) % 4;
+
+        if (n >= 0xfe) {
+            buf.writeByte(0xfe);
+            buf.writeMediumLE(n);
+        } else {
+            buf.writeByte(n);
+        }
+
+        buf.writeBytes(bytes);
+        if (offset != 0) {
+            buf.writeZero(4 - offset);
         }
     }
 

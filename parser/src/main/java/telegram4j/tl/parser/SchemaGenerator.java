@@ -67,8 +67,8 @@ public class SchemaGenerator extends AbstractProcessor {
     // processing resources
 
     private final Set<String> computedSerializers = new HashSet<>();
+    private final Set<String> computedSizeOfs = new HashSet<>();
     private final Set<String> computedDeserializers = new HashSet<>();
-    private final Set<String> computedMethodSerializers = new HashSet<>();
 
     private final List<String> emptyObjects = new ArrayList<>(200);
 
@@ -76,12 +76,17 @@ public class SchemaGenerator extends AbstractProcessor {
             .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
             .addMethod(privateConstructor);
 
-    private final MethodSpec.Builder serializeMethod = MethodSpec.methodBuilder("serialize")
-            .returns(ByteBuf.class)
-            .addTypeVariable(genericType)
+    private final MethodSpec.Builder sizeOfMethod = MethodSpec.methodBuilder("sizeOf")
+            .returns(int.class)
             .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-            .addParameter(ByteBufAllocator.class, "alloc")
-            .addParameter(genericType, "payload")
+            .addParameter(TlObject.class, "payload")
+            .beginControlFlow("switch (payload.identifier())");
+
+    private final MethodSpec.Builder serializeMethod = MethodSpec.methodBuilder("serialize0")
+            .returns(ByteBuf.class)
+            .addModifiers(Modifier.STATIC)
+            .addParameter(ByteBuf.class, "buf")
+            .addParameter(TlObject.class, "payload")
             .beginControlFlow("switch (payload.identifier())");
 
     private final TypeSpec.Builder deserializer = TypeSpec.classBuilder("TlDeserializer")
@@ -211,6 +216,7 @@ public class SchemaGenerator extends AbstractProcessor {
                 } else {
                     deserializeMethod.addCode("case 0x$L:\n", obj.id());
                 }
+                sizeOfMethod.addCode("case 0x$L:\n", obj.id());
                 serializeMethod.addCode("case 0x$L:\n", obj.id());
             }
         }
@@ -218,16 +224,35 @@ public class SchemaGenerator extends AbstractProcessor {
         for (int i = 0; i < emptyObjects.size(); i++) {
             String id = emptyObjects.get(i);
             if (i + 1 == emptyObjects.size()) {
-                serializeMethod.addCode("case 0x$L: return alloc.buffer(4).writeIntLE(payload.identifier());\n", id);
+                serializeMethod.addCode("case 0x$L: return buf.writeIntLE(payload.identifier());\n", id);
+                sizeOfMethod.addCode("case 0x$L: return 4;\n", id);
             } else {
+                sizeOfMethod.addCode("case 0x$L:\n", id);
                 serializeMethod.addCode("case 0x$L:\n", id);
             }
         }
 
+        var publicSerializeMethod = MethodSpec.methodBuilder("serialize")
+                .returns(ByteBuf.class)
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .addParameter(ByteBufAllocator.class, "alloc")
+                .addParameter(TlObject.class, "payload")
+                .addStatement("int size = sizeOf(payload)")
+                .addStatement("$T buf = alloc.buffer(size)", ByteBuf.class)
+                .addStatement("return serialize0(buf, payload)")
+                .build();
+
+        // oh
+        sizeOfMethod.addCode("default: throw new IllegalArgumentException($S + Integer.toHexString(payload.identifier()) + $S + payload);\n",
+                "Incorrect TlObject identifier: 0x", ", payload: ");
+        sizeOfMethod.endControlFlow();
         serializeMethod.addCode("default: throw new IllegalArgumentException($S + Integer.toHexString(payload.identifier()) + $S + payload);\n",
                 "Incorrect TlObject identifier: 0x", ", payload: ");
         serializeMethod.endControlFlow();
+
+        serializer.addMethod(publicSerializeMethod);
         serializer.addMethod(serializeMethod.build());
+        serializer.addMethod(sizeOfMethod.build());
 
         writeTo(JavaFile.builder(getBasePackageName(), serializer.build())
                 .addStaticImport(ClassName.get(BASE_PACKAGE, "TlSerialUtil"), "*")
@@ -259,13 +284,11 @@ public class SchemaGenerator extends AbstractProcessor {
             String packageName = getPackageName(schema, method.name(), true);
 
             boolean singleton = true;
-            boolean hasReleasable = false;
             boolean generic = false;
             boolean hasZeroCopySer = false;
             for (Parameter p : method.parameters()) {
-                if (isReleasable(p.type())) hasReleasable = true;
                 if (p.type().equals("!X")) generic = true;
-                if (p.type().equals("Vector<int>") || p.type().equals("Vector<long>")) hasZeroCopySer = true;
+                if (!hasZeroCopySer && sizeOfMethod(p.type()) != null) hasZeroCopySer = true;
                 if (!p.type().equals("#") && p.type().indexOf('?') == -1) {
                     singleton = false;
                 }
@@ -324,10 +347,10 @@ public class SchemaGenerator extends AbstractProcessor {
                         .addCode("return $T.of();", immutableTypeRaw);
 
                 // currently unused
-                if (generic) {
-                    instance.addTypeVariable(genericResultTypeRef);
-                    instance.addTypeVariable(genericTypeRef.withBounds(wildcardMethodType));
-                }
+                // if (generic) {
+                //     instance.addTypeVariable(genericResultTypeRef);
+                //     instance.addTypeVariable(genericTypeRef.withBounds(wildcardMethodType));
+                // }
 
                 spec.addMethod(instance.build());
             }
@@ -341,39 +364,36 @@ public class SchemaGenerator extends AbstractProcessor {
                     .addCode("return ID;")
                     .build());
 
-            // serialization
-            String methodName = uniqueMethodName("serialize", name, () ->
-                    camelize(parentPackageName(method.name())), computedMethodSerializers);
-
-            ClassName typeRaw = ClassName.get(packageName, name);
-            TypeName payloadType = generic
-                    ? ParameterizedTypeName.get(typeRaw, WildcardTypeName.subtypeOf(TypeName.OBJECT),
-                    wildcardUnboundedMethodType)
-                    : typeRaw;
-
             if (method.parameters().isEmpty()) {
                 emptyObjects.add(method.id());
             } else {
+                ClassName typeRaw = ClassName.get(packageName, name);
+                TypeName payloadType = generic
+                        ? ParameterizedTypeName.get(typeRaw, WildcardTypeName.subtypeOf(TypeName.OBJECT),
+                        wildcardUnboundedMethodType)
+                        : typeRaw;
 
-                serializeMethod.addCode("case 0x$L: return $L(alloc, ($T) payload);\n",
-                        method.id(), methodName, payloadType);
+                String serializeMethodName = uniqueMethodName("serialize", name, () ->
+                        camelize(parentPackageName(method.name())), computedSerializers);
 
-                MethodSpec.Builder serializerBuilder = MethodSpec.methodBuilder(methodName)
+                serializeMethod.addCode("case 0x$L: return $L(buf, ($T) payload);\n",
+                        method.id(), serializeMethodName, payloadType);
+
+                MethodSpec.Builder serializerBuilder = MethodSpec.methodBuilder(serializeMethodName)
                         .returns(ByteBuf.class)
                         .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
                         .addParameters(Arrays.asList(
-                                ParameterSpec.builder(ByteBufAllocator.class, "alloc").build(),
+                                ParameterSpec.builder(ByteBuf.class, "buf").build(),
                                 ParameterSpec.builder(payloadType, "payload").build()));
 
-                CodeBlock.Builder serFinallyBlock = CodeBlock.builder();
+                CodeBlock.Builder sizeOfBlock = CodeBlock.builder();
                 CodeBlock.Builder serPrecomputeBlock = CodeBlock.builder(); // variables
                 CodeBlock.Builder std = CodeBlock.builder();
 
                 boolean fluentStyle = !hasZeroCopySer;
 
                 int size = 4;
-                StringJoiner releasableSized = new StringJoiner(", ");
-                StringJoiner presize = new StringJoiner(" + ");
+                StringJoiner sizes = new StringJoiner(" + ");
                 for (Parameter param : method.parameters()) {
                     String fixedParamName = fixVariableName(param.formattedName());
                     String sizeMethod = sizeOfMethod(param.type());
@@ -383,34 +403,23 @@ public class SchemaGenerator extends AbstractProcessor {
                         size = Math.addExact(size, s);
                     } else if (sizeMethod != null) {
                         String sizeVar = param.formattedName() + "Size";
-                        serPrecomputeBlock.addStatement("int $L = $L(payload.$L())", sizeVar,
-                                sizeMethod, param.formattedName());
-                        presize.add(sizeVar);
-                    } else {
-                        releasableSized.add(fixedParamName);
+
+                        sizeOfBlock.addStatement("int $L = " + sizeMethod, sizeVar, param.formattedName());
+                        sizes.add(sizeVar);
                     }
 
                     // serialization
                     String ser = serializeMethod(param);
                     if (ser != null) {
-                        String met = byteBufMethod(param);
                         if (sizeMethod != null) {
-                            std.addStatement(ser, param.formattedName());
-                        } else if (isReleasable(param.type())) {
-                            serPrecomputeBlock.addStatement("$T $L = " + ser, ByteBuf.class,
-                                    fixedParamName, param.formattedName());
-                            serFinallyBlock.addStatement("$L.release()", fixedParamName);
-
-                            if (fluentStyle) {
-                                std.add("\n\t\t.$L($L)", met, fixedParamName);
-                            } else {
-                                std.addStatement("buffer.$L($L)", met, param.formattedName());
-                            }
+                            String var = param.type().equals("string") ? fixedParamName : param.formattedName();
+                            std.addStatement(ser, var);
                         } else {
+                            String met = byteBufMethod(param);
                             if (fluentStyle) {
                                 std.add("\n\t\t." + met + "(" + ser + ")", param.formattedName());
                             } else {
-                                std.addStatement("buffer." + met + "(" + ser + ")", param.formattedName());
+                                std.addStatement("buf." + met + "(" + ser + ")", param.formattedName());
                             }
                         }
                     }
@@ -450,34 +459,35 @@ public class SchemaGenerator extends AbstractProcessor {
 
                 serializerBuilder.addCode(serPrecomputeBlock.build());
 
-                if (hasReleasable) {
-                    serializerBuilder.beginControlFlow("try");
-                }
-
-                String presizeStr = presize.length() == 0 ? "" : " + " + presize;
-                String sizeStr = releasableSized.length() == 0
-                        ? size + presizeStr
-                        : "sumSizeExact(" + size + presizeStr + ", " + releasableSized + ")";
-
                 if (fluentStyle) {
-                    serializerBuilder.addCode("return alloc.buffer($L)\n", sizeStr);
-                    serializerBuilder.addCode("\t\t.writeIntLE(payload.identifier())");
+                    serializerBuilder.addCode("return buf.writeIntLE(payload.identifier())");
                     serializerBuilder.addCode(std.add(";").build());
                 } else {
-                    serializerBuilder.addStatement("ByteBuf buffer = alloc.buffer($L)", sizeStr);
-                    serializerBuilder.addStatement("buffer.writeIntLE(payload.identifier())");
+                    serializerBuilder.addStatement("buf.writeIntLE(payload.identifier())");
                     serializerBuilder.addCode(std.build());
-                    serializerBuilder.addStatement("return buffer");
-                }
-
-                if (hasReleasable) {
-                    if (fluentStyle) serializerBuilder.addCode("\n");
-                    serializerBuilder.nextControlFlow("finally");
-                    serializerBuilder.addCode(serFinallyBlock.build());
-                    serializerBuilder.endControlFlow();
+                    serializerBuilder.addStatement("return buf");
                 }
 
                 serializer.addMethod(serializerBuilder.build());
+
+                if (sizes.length() != 0) {
+                    sizeOfBlock.addStatement("return " + size + " + " + sizes);
+
+                    String sizeOfMethodName = uniqueMethodName("sizeOf", name, () ->
+                            camelize(parentPackageName(method.name())), computedSizeOfs);
+
+                    sizeOfMethod.addCode("case 0x$L: return $L(($T) payload);\n",
+                            method.id(), sizeOfMethodName, payloadType);
+
+                    serializer.addMethod(MethodSpec.methodBuilder(sizeOfMethodName)
+                            .returns(int.class)
+                            .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
+                            .addParameter(ParameterSpec.builder(payloadType, "payload").build())
+                            .addCode(sizeOfBlock.build())
+                            .build());
+                } else {
+                    sizeOfMethod.addCode("case 0x$L: return $L;\n", method.id(), size);
+                }
             }
 
             writeTo(JavaFile.builder(packageName, spec.build())
@@ -539,18 +549,16 @@ public class SchemaGenerator extends AbstractProcessor {
             var attributes = new ArrayList<>(collect);
             // todo: replace to bit-flags?
             boolean singleton = true;
-            boolean hasReleasable = false;
             int flagsCount = 0;
             boolean firstIsFlags = false;
-            boolean hasZeroCopySer = false;
+            boolean hasObjectFields = false;
             for (int i = 0; i < attributes.size(); i++) {
                 Parameter p = attributes.get(i);
-                if (isReleasable(p.type())) hasReleasable = true;
                 if (p.type().equals("#")) {
                     firstIsFlags = i == 0;
                     flagsCount++;
                 }
-                if (p.type().equals("Vector<int>") || p.type().equals("Vector<long>")) hasZeroCopySer = true;
+                if (!hasObjectFields && sizeOfMethod(p.type()) != null) hasObjectFields = true;
                 if (!p.type().equals("#") && p.type().indexOf('?') == -1) {
                     singleton = false;
                 }
@@ -577,24 +585,21 @@ public class SchemaGenerator extends AbstractProcessor {
                     .addCode("return ID;")
                     .build());
 
-            // serialization
-            // Check serialization method name collision
-            String serializeMethodName = uniqueMethodName("serialize", name, () ->
-                    camelize(parentPackageName(constructor.name())), computedSerializers);
-
-            TypeName payloadType = ClassName.get(packageName, name);
-
-            // deserialization
-            String deserializeMethodName = uniqueMethodName("deserialize", name, () ->
-                    camelize(parentPackageName(constructor.name())), computedDeserializers);
-
             TypeName typeName = ClassName.get(packageName, "Immutable" + name);
             if (attributes.isEmpty()) {
                 deserializeMethod.addCode("case 0x$L: return (T) $T.of();\n", constructor.id(), typeName);
 
                 emptyObjects.add(constructor.id());
             } else {
-                serializeMethod.addCode("case 0x$L: return $L(alloc, ($T) payload);\n",
+                String serializeMethodName = uniqueMethodName("serialize", name, () ->
+                        camelize(parentPackageName(constructor.name())), computedSerializers);
+
+                String deserializeMethodName = uniqueMethodName("deserialize", name, () ->
+                        camelize(parentPackageName(constructor.name())), computedDeserializers);
+
+                TypeName payloadType = ClassName.get(packageName, name);
+
+                serializeMethod.addCode("case 0x$L: return $L(buf, ($T) payload);\n",
                         constructor.id(), serializeMethodName, payloadType);
 
                 deserializeMethod.addCode("case 0x$L: return (T) $L(payload);\n",
@@ -605,9 +610,10 @@ public class SchemaGenerator extends AbstractProcessor {
                         .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
                         .addParameter(ParameterSpec.builder(ByteBuf.class, "payload").build());
 
-                CodeBlock.Builder serFinallyBlock = CodeBlock.builder(); // ByteBuf releasing
+                CodeBlock.Builder sizeOfBlock = CodeBlock.builder();
                 CodeBlock.Builder serPrecomputeBlock = CodeBlock.builder(); // ByteBuf precomputing
                 CodeBlock.Builder std = CodeBlock.builder(); // block with serialization
+
                 if (firstIsFlags) {
                     deserializerBuilder.addStatement("int $L = payload.readIntLE()", attributes.get(0).formattedName());
                     deserializerBuilder.addCode("return $T.builder()", typeName);
@@ -617,11 +623,10 @@ public class SchemaGenerator extends AbstractProcessor {
                     deserializerBuilder.addCode("return $T.builder()", typeName);
                 }
 
-                boolean fluentStyle = !hasZeroCopySer;
+                boolean fluentStyle = !hasObjectFields;
 
                 int size = 4;
-                StringJoiner releasableSized = new StringJoiner(", ");
-                StringJoiner presize = new StringJoiner(" + ");
+                StringJoiner sizes = new StringJoiner(" + ");
                 for (Parameter param : attributes) {
                     String fixedParamName = fixVariableName(param.formattedName());
                     String sizeMethod = sizeOfMethod(param.type());
@@ -631,34 +636,23 @@ public class SchemaGenerator extends AbstractProcessor {
                         size = Math.addExact(size, s);
                     } else if (sizeMethod != null) {
                         String sizeVar = param.formattedName() + "Size";
-                        serPrecomputeBlock.addStatement("int $L = $L(payload.$L())", sizeVar,
-                                sizeMethod, param.formattedName());
-                        presize.add(sizeVar);
-                    } else {
-                        releasableSized.add(fixedParamName);
+
+                        sizeOfBlock.addStatement("int $L = " + sizeMethod, sizeVar, param.formattedName());
+                        sizes.add(sizeVar);
                     }
 
                     // serialization
                     String ser = serializeMethod(param);
                     if (ser != null) {
-                        String met = byteBufMethod(param);
                         if (sizeMethod != null) {
-                            std.addStatement(ser, param.formattedName());
-                        } else if (isReleasable(param.type())) {
-                            serPrecomputeBlock.addStatement("$T $L = " + ser, ByteBuf.class,
-                                    fixedParamName, param.formattedName());
-                            serFinallyBlock.addStatement("$L.release()", fixedParamName);
-
-                            if (fluentStyle) {
-                                std.add("\n\t\t.$L($L)", met, fixedParamName);
-                            } else {
-                                std.addStatement("buffer.$L($L)", met, param.formattedName());
-                            }
+                            String var = param.type().equals("string") ? fixedParamName : param.formattedName();
+                            std.addStatement(ser, var);
                         } else {
+                            String met = byteBufMethod(param);
                             if (fluentStyle) {
                                 std.add("\n\t\t." + met + "(" + ser + ")", param.formattedName());
                             } else {
-                                std.addStatement("buffer." + met + "(" + ser + ")", param.formattedName());
+                                std.addStatement("buf." + met + "(" + ser + ")", param.formattedName());
                             }
                         }
                     }
@@ -713,38 +707,39 @@ public class SchemaGenerator extends AbstractProcessor {
                         .returns(ByteBuf.class)
                         .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
                         .addParameters(Arrays.asList(
-                                ParameterSpec.builder(ByteBufAllocator.class, "alloc").build(),
+                                ParameterSpec.builder(ByteBuf.class, "buf").build(),
                                 ParameterSpec.builder(payloadType, "payload").build()))
                         .addCode(serPrecomputeBlock.build());
 
-                if (hasReleasable) {
-                    serializerBuilder.beginControlFlow("try");
-                }
-
-                String presizeStr = presize.length() == 0 ? "" : " + " + presize;
-                String sizeStr = releasableSized.length() == 0
-                        ? size + presizeStr
-                        : "sumSizeExact(" + size + presizeStr + ", " + releasableSized + ")";
-
                 if (fluentStyle) {
-                    serializerBuilder.addCode("return alloc.buffer($L)\n", sizeStr);
-                    serializerBuilder.addCode("\t\t.writeIntLE(payload.identifier())");
+                    serializerBuilder.addCode("return buf.writeIntLE(payload.identifier())");
                     serializerBuilder.addCode(std.add(";").build());
                 } else {
-                    serializerBuilder.addStatement("ByteBuf buffer = alloc.buffer($L)", sizeStr);
-                    serializerBuilder.addStatement("buffer.writeIntLE(payload.identifier())");
+                    serializerBuilder.addStatement("buf.writeIntLE(payload.identifier())");
                     serializerBuilder.addCode(std.build());
-                    serializerBuilder.addStatement("return buffer");
-                }
-
-                if (hasReleasable) {
-                    if (fluentStyle) serializerBuilder.addCode("\n");
-                    serializerBuilder.nextControlFlow("finally");
-                    serializerBuilder.addCode(serFinallyBlock.build());
-                    serializerBuilder.endControlFlow();
+                    serializerBuilder.addStatement("return buf");
                 }
 
                 serializer.addMethod(serializerBuilder.build());
+
+                if (sizes.length() != 0) {
+                    sizeOfBlock.addStatement("return " + size + " + " + sizes);
+
+                    String sizeOfMethodName = uniqueMethodName("sizeOf", name, () ->
+                            camelize(parentPackageName(constructor.name())), computedSizeOfs);
+
+                    sizeOfMethod.addCode("case 0x$L: return $L(($T) payload);\n",
+                            constructor.id(), sizeOfMethodName, payloadType);
+
+                    serializer.addMethod(MethodSpec.methodBuilder(sizeOfMethodName)
+                            .returns(int.class)
+                            .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
+                            .addParameter(ParameterSpec.builder(payloadType, "payload").build())
+                            .addCode(sizeOfBlock.build())
+                            .build());
+                } else {
+                    sizeOfMethod.addCode("case 0x$L: return $L;\n", constructor.id(), size);
+                }
             }
 
             writeTo(JavaFile.builder(packageName, spec.build())
@@ -753,25 +748,6 @@ public class SchemaGenerator extends AbstractProcessor {
                     .build());
 
             computed.put(packageName + "." + name, constructor);
-        }
-    }
-
-    private boolean isReleasable(String type) {
-        switch (type) {
-            case "#":
-            case "int":
-            case "true":
-            case "Bool":
-            case "long":
-            case "double":
-            case "int128":
-            case "int256":
-            case "Vector<int>":
-            case "Vector<long>":
-                return false;
-            default:
-                // it's ignored in serialization type
-                return !type.endsWith("true");
         }
     }
 
@@ -1071,54 +1047,52 @@ public class SchemaGenerator extends AbstractProcessor {
     }
 
     private String byteBufMethod(Parameter param) {
-        String paramTypeLower = param.type().toLowerCase();
-        switch (paramTypeLower) {
-            case "bool":
+        switch (param.type()) {
+            case "Bool":
             case "#":
             case "int": return "writeIntLE";
             case "long": return "writeLongLE";
             case "double": return "writeDoubleLE";
-            default: return "writeBytes";
+            case "int128":
+            case "int256": return "writeBytes";
+            default: throw new IllegalStateException("Unexpected value: " + param.type());
         }
     }
 
     @Nullable
     private String serializeMethod(Parameter param) {
-        String paramTypeLower = param.type().toLowerCase();
-        switch (paramTypeLower) {
+        switch (param.type()) {
             case "int":
             case "#":
             case "long":
             case "int128":
             case "int256":
             case "double": return "payload.$L()";
-            case "bool": return "payload.$L() ? BOOL_TRUE_ID : BOOL_FALSE_ID";
-            case "string": return "serializeString(alloc, payload.$L())";
-            case "bytes": return "serializeBytes(alloc, payload.$L())";
-            case "jsonvalue": return "serializeJsonNode(alloc, payload.$L())";
-            case "object": return "serializeUnknown(alloc, payload.$L())";
+            case "Bool": return "payload.$L() ? BOOL_TRUE_ID : BOOL_FALSE_ID";
+            case "string": return "serializeString0(buf, payload.$L())";
+            case "bytes": return "serializeBytes0(buf, payload.$L())";
+            case "JSONValue": return "serializeJsonNode0(buf, payload.$L())";
+            case "Object": return "serializeUnknown0(buf, payload.$L())";
             default:
-                Matcher vector = VECTOR_PATTERN.matcher(paramTypeLower);
+                Matcher vector = VECTOR_PATTERN.matcher(param.type());
                 if (vector.matches()) {
                     String innerType = vector.group(1);
+                    String specific = "";
                     switch (innerType.toLowerCase()) {
                         case "int":
                         case "long":
-                            String specific = Character.toUpperCase(innerType.charAt(0)) + innerType.substring(1);
-                            return "serialize" + specific + "Vector0(buffer, payload.$L())";
                         case "bytes":
                         case "string":
-                            String specific1 = Character.toUpperCase(innerType.charAt(0)) + innerType.substring(1);
-                            return "serialize" + specific1 + "Vector(alloc, payload.$L())";
-                        default:
-                            return "serializeVector(alloc, payload.$L())";
+                            specific = Character.toUpperCase(innerType.charAt(0)) + innerType.substring(1);
+                            break;
                     }
-                } else if (paramTypeLower.endsWith("true")) {
+                    return "serialize" + specific + "Vector0(buf, payload.$L())";
+                } else if (param.type().endsWith("true")) {
                     return null;
-                } else if (paramTypeLower.indexOf('?') != -1) {
-                    return "serializeFlags(alloc, payload.$L())";
+                } else if (param.type().indexOf('?') != -1) {
+                    return "serializeFlags0(buf, payload.$L())";
                 } else {
-                    return "serialize(alloc, payload.$L())";
+                    return "serialize0(buf, payload.$L())";
                 }
         }
     }
@@ -1126,9 +1100,40 @@ public class SchemaGenerator extends AbstractProcessor {
     @Nullable
     private String sizeOfMethod(String type) {
         switch (type) {
-            case "Vector<long>": return "sizeOf1";
-            case "Vector<int>": return "sizeOf0";
-            default: return null;
+            case "int":
+            case "#":
+            case "long":
+            case "int128":
+            case "int256":
+            case "Bool":
+            case "double":
+                return null;
+            case "string":
+            case "bytes":
+                return "sizeOf0(payload.$L())";
+            case "JSONValue": return "sizeOfJsonNode(payload.$L())";
+            case "Object": return "sizeOfUnknown(payload.$L())";
+            default:
+                Matcher vector = VECTOR_PATTERN.matcher(type);
+                if (vector.matches()) {
+                    String innerType = vector.group(1);
+                    String specific = "";
+                    switch (innerType.toLowerCase()) {
+                        case "int":
+                        case "long":
+                        case "bytes":
+                        case "string":
+                            specific = Character.toUpperCase(innerType.charAt(0)) + innerType.substring(1);
+                            break;
+                    }
+                    return "sizeOf" + specific + "Vector(payload.$L())";
+                } else if (type.endsWith("true")) {
+                    return null;
+                } else if (type.indexOf('?') != -1) {
+                    return "sizeOfFlags(payload.$L())";
+                } else {
+                    return "sizeOf(payload.$L())";
+                }
         }
     }
 
@@ -1155,7 +1160,7 @@ public class SchemaGenerator extends AbstractProcessor {
             // used variables:
             case "builder":
             case "payload":
-            case "buffer":
+            case "buf":
                 return formattedName + "$";
             default: return formattedName;
         }
