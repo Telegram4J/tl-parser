@@ -22,8 +22,9 @@ public final class SchemaGeneratorConsts {
     public static final Set<String> primitiveTypes = Set.of(
             "Bool", "Vector t", "JSONValue", "JSONObjectValue");
 
-    public static final String methodPackagePrefix = "request";
+    public static final String METHOD_PACKAGE_PREFIX = "request";
     public static final String TEMPLATE_PACKAGE_INFO = "package-info.template";
+    public static final String SUPERTYPES_DATA = "supertypes.json";
     public static final String BASE_PACKAGE = "telegram4j.tl";
     public static final String INDENT = "\t";
 

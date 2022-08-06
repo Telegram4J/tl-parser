@@ -1,0 +1,66 @@
+{
+  "PtsUpdate": [
+    "UpdateDeleteMessages",
+    "UpdateDeleteChannelMessages",
+    "UpdateNewChannelMessage",
+    "UpdateNewMessage",
+    "UpdatePinnedMessages",
+    "UpdatePinnedChannelMessages",
+    "UpdateReadHistoryOutbox",
+    "UpdateWebPage",
+    "UpdateReadMessagesContents",
+    "UpdateChannelWebPage",
+    "UpdateFolderPeers"
+  ],
+  "BaseDocumentFields": [
+    "BaseDocument",
+    "BaseWebDocument",
+    "WebDocumentNoProxy"
+  ],
+  "QtsUpdate": [
+    "UpdateNewEncryptedMessage",
+    "UpdateMessagePollVote",
+    "UpdateChatParticipant",
+    "UpdateChannelParticipant",
+    "UpdateBotStopped"
+  ],
+  "UpdateDeleteMessagesFields": [
+    "UpdateDeleteScheduledMessages",
+    "UpdateDeleteMessages",
+    "UpdateDeleteChannelMessages"
+  ],
+  "BaseMessageFields": [
+    "MessageService",
+    "BaseMessage"
+  ],
+  "request.messages.BaseSendMessageRequest": [
+    "SendMedia",
+    "SendMessage"
+  ],
+  "UpdateNewMessageFields": [
+    "UpdateNewMessage",
+    "UpdateNewChannelMessage",
+    "UpdateNewScheduledMessage"
+  ],
+  "UpdatePinnedMessagesFields": [
+    "UpdatePinnedMessages",
+    "UpdatePinnedChannelMessages"
+  ],
+  "ChatPhotoFields": [
+    "BaseChatPhoto",
+    "BaseUserProfilePhoto"
+  ],
+  "UpdateEditMessageFields": [
+    "UpdateEditMessage",
+    "UpdateEditChannelMessage"
+  ],
+  "api.RpcMethod": [
+    "MsgDetailedInfo",
+    "MsgResendReq",
+    "MsgsAck",
+    "MsgsAllInfo",
+    "MsgsStateInfo",
+    "MsgsStateReq"
+  ],
+  "api.EmptyObject": "$.*Empty"
+}

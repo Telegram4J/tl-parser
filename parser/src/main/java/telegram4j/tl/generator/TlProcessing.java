@@ -11,7 +11,7 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 
-import static telegram4j.tl.generator.SchemaGeneratorConsts.methodPackagePrefix;
+import static telegram4j.tl.generator.SchemaGeneratorConsts.METHOD_PACKAGE_PREFIX;
 import static telegram4j.tl.generator.SourceNames.normalizeName;
 
 public class TlProcessing {
@@ -23,7 +23,7 @@ public class TlProcessing {
         pckg.add(config.basePackageName);
 
         if (method) {
-            pckg.add(methodPackagePrefix);
+            pckg.add(METHOD_PACKAGE_PREFIX);
         }
 
         if (config.packagePrefix != null) {

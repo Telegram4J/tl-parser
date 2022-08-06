@@ -4,8 +4,6 @@ import reactor.util.annotation.Nullable;
 
 public interface BaseMessageFields extends Message {
 
-    int flags();
-
     boolean out();
 
     boolean mentioned();
@@ -17,8 +15,6 @@ public interface BaseMessageFields extends Message {
     boolean post();
 
     boolean legacy();
-
-    int id();
 
     @Nullable
     Peer fromId();

@@ -1,5 +1,7 @@
 package telegram4j.tl.generator;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squareup.javapoet.*;
@@ -10,8 +12,6 @@ import reactor.core.Exceptions;
 import reactor.util.annotation.Nullable;
 import reactor.util.function.Tuple2;
 import reactor.util.function.Tuples;
-import telegram4j.tl.api.EmptyObject;
-import telegram4j.tl.api.RpcMethod;
 import telegram4j.tl.api.TlMethod;
 import telegram4j.tl.api.TlObject;
 import telegram4j.tl.generator.TlProcessing.Configuration;
@@ -34,7 +34,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.Writer;
 import java.util.*;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static telegram4j.tl.generator.SchemaGeneratorConsts.*;
@@ -54,6 +56,7 @@ public class SchemaGenerator extends AbstractProcessor {
     private PackageElement currentElement;
     private List<Tuple2<TlTrees.Scheme, Configuration>> schemas;
     private Map<TlTrees.Scheme, Map<String, List<Type>>> typeTree;
+    private List<Tuple2<Predicate<String>, ClassName>> superTypes;
 
     private int iteration;
     private int schemaIteration;
@@ -152,6 +155,48 @@ public class SchemaGenerator extends AbstractProcessor {
                 } catch (Throwable t) {
                     throw Exceptions.propagate(t);
                 }
+            }
+
+            try {
+                mapper.enable(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY);
+
+                InputStream is = processingEnv.getFiler().getResource(
+                        StandardLocation.ANNOTATION_PROCESSOR_PATH, "",
+                        SUPERTYPES_DATA).openInputStream();
+
+                var map = mapper.readValue(is, new TypeReference<Map<String, List<String>>>() {});
+                superTypes = new ArrayList<>(map.size());
+                for (var e : map.entrySet()) {
+                    ClassName type = ClassName.bestGuess(BASE_PACKAGE + '.' + e.getKey());
+
+                    Set<String> set = null;
+                    Predicate<String> prev = null;
+                    for (String s : e.getValue()) {
+                        if (s.startsWith("$")) {
+                            var patternFilter = Pattern.compile(s.substring(1)).asMatchPredicate();
+                            if (prev == null)
+                                prev = patternFilter;
+                            prev = prev.or(patternFilter);
+                        } else {
+                            if (set == null)
+                                set = new HashSet<>();
+                            set.add(s);
+                        }
+                    }
+
+                    Predicate<String> filter = null;
+                    if (set != null)
+                        filter = set::contains;
+                    if (filter == null && prev != null)
+                        filter = prev;
+                    else if (prev != null)
+                        filter = filter.or(prev);
+
+                    if (filter != null)
+                        superTypes.add(Tuples.of(filter, type));
+                }
+            } catch (Throwable t) {
+                throw Exceptions.propagate(t);
             }
 
             preparePackages();
@@ -284,7 +329,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     mapType(method.type).box());
 
             String name = method.name.normalized();
-            spec.addSuperinterfaces(awareSuperType(name));
+            spec.addSuperinterfaces(addSuperTypes(name));
 
             spec.addSuperinterface(returnType);
             if (config.superType != null) {
@@ -470,7 +515,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
             TypeSpec.Builder spec = TypeSpec.interfaceBuilder(name)
                     .addModifiers(Modifier.PUBLIC)
-                    .addSuperinterfaces(awareSuperType(name));
+                    .addSuperinterfaces(addSuperTypes(name));
 
             if (multiple) {
                 spec.addSuperinterface(ClassName.get(packageName, type));
@@ -1137,84 +1182,10 @@ public class SchemaGenerator extends AbstractProcessor {
                 .collect(Collectors.groupingBy(c -> c.type.packageName + "." + c.type.normalized()));
     }
 
-    private List<ClassName> awareSuperType(String type) {
-        List<ClassName> types = new ArrayList<>();
-
-        switch (type) {
-            case "UpdateDeleteMessages":
-            case "UpdateDeleteChannelMessages":
-                types.add(ClassName.get(BASE_PACKAGE, "PtsUpdate"));
-            case "UpdateDeleteScheduledMessages":
-                types.add(ClassName.get(BASE_PACKAGE, "UpdateDeleteMessagesFields"));
-                break;
-
-            case "BaseMessage":
-            case "MessageService":
-                types.add(ClassName.get(BASE_PACKAGE, "BaseMessageFields"));
-                break;
-
-            case "SendMessage":
-            case "SendMedia":
-                types.add(ClassName.get(BASE_PACKAGE + ".request.messages", "BaseSendMessageRequest"));
-                break;
-
-            case "BaseChatPhoto":
-            case "BaseUserProfilePhoto":
-                types.add(ClassName.get(BASE_PACKAGE, "ChatPhotoFields"));
-                break;
-
-            case "UpdateEditMessage":
-            case "UpdateEditChannelMessage":
-                types.add(ClassName.get(BASE_PACKAGE, "UpdateEditMessageFields"));
-                break;
-
-            case "UpdateNewMessage":
-            case "UpdateNewChannelMessage":
-                types.add(ClassName.get(BASE_PACKAGE, "PtsUpdate"));
-            case "UpdateNewScheduledMessage":
-                types.add(ClassName.get(BASE_PACKAGE, "UpdateNewMessageFields"));
-                break;
-
-            case "UpdatePinnedMessages":
-            case "UpdatePinnedChannelMessages":
-                types.add(ClassName.get(BASE_PACKAGE, "UpdatePinnedMessagesFields"));
-            case "UpdateReadHistoryOutbox":
-            case "UpdateWebPage":
-            case "UpdateReadMessagesContents":
-            case "UpdateChannelWebPage":
-            case "UpdateFolderPeers":
-                types.add(ClassName.get(BASE_PACKAGE, "PtsUpdate"));
-                break;
-
-            case "UpdateNewEncryptedMessage":
-            case "UpdateMessagePollVote":
-            case "UpdateChatParticipant":
-            case "UpdateChannelParticipant":
-            case "UpdateBotStopped":
-                types.add(ClassName.get(BASE_PACKAGE, "QtsUpdate"));
-                break;
-
-            case "BaseDocument":
-            case "BaseWebDocument":
-            case "WebDocumentNoProxy":
-                types.add(ClassName.get(BASE_PACKAGE, "BaseDocumentFields"));
-                break;
-
-            case "MsgDetailedInfo":
-            case "MsgResendReq":
-            case "MsgsAck":
-            case "MsgsAllInfo":
-            case "MsgsStateInfo":
-            case "MsgsStateReq":
-                types.add(ClassName.get(RpcMethod.class));
-                break;
-
-            default:
-                if (type.endsWith("Empty")) {
-                    types.add(ClassName.get(EmptyObject.class));
-                }
-        }
-
-        return types;
+    private List<ClassName> addSuperTypes(String name) { // normalized constr/method name
+        return superTypes.stream()
+                .filter(t -> t.getT1().test(name))
+                .map(Tuple2::getT2)
+                .collect(Collectors.toList());
     }
 }
