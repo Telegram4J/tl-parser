@@ -1,8 +1,7 @@
-package telegram4j.tl.parser;
+package telegram4j.tl.generator;
 
 import com.squareup.javapoet.*;
 import telegram4j.tl.api.TlMethod;
-import telegram4j.tl.api.TlObject;
 
 import javax.lang.model.element.Modifier;
 import java.util.List;
@@ -23,13 +22,17 @@ public final class SchemaGeneratorConsts {
     public static final Set<String> primitiveTypes = Set.of(
             "Bool", "Vector t", "JSONValue", "JSONObjectValue");
 
+    public static final String methodPackagePrefix = "request";
+    public static final String TEMPLATE_PACKAGE_INFO = "package-info.template";
+    public static final String BASE_PACKAGE = "telegram4j.tl";
+    public static final String INDENT = "\t";
+
     public static final TypeVariableName genericTypeRef = TypeVariableName.get("T");
     public static final TypeVariableName genericResultTypeRef = TypeVariableName.get("R");
     public static final TypeName wildcardMethodType = ParameterizedTypeName.get(
             ClassName.get(TlMethod.class), WildcardTypeName.subtypeOf(genericResultTypeRef));
     public static final TypeName wildcardUnboundedMethodType = ParameterizedTypeName.get(
             ClassName.get(TlMethod.class), WildcardTypeName.subtypeOf(TypeName.OBJECT));
-    public static final TypeVariableName genericType = TypeVariableName.get("T", TlObject.class);
 
     public static final MethodSpec privateConstructor = MethodSpec.constructorBuilder()
             .addModifiers(Modifier.PRIVATE)

@@ -1,12 +1,11 @@
-package telegram4j.tl.parser;
+package telegram4j.tl.generator;
 
 import reactor.util.annotation.Nullable;
 
 import javax.lang.model.SourceVersion;
-import java.util.regex.Matcher;
 
-import static telegram4j.tl.parser.SchemaGeneratorConsts.*;
-import static telegram4j.tl.parser.Strings.camelize;
+import static telegram4j.tl.generator.SchemaGeneratorConsts.namingExceptions;
+import static telegram4j.tl.generator.Strings.camelize;
 
 public final class SourceNames {
 
@@ -15,16 +14,6 @@ public final class SourceNames {
 
     public static String normalizeName(String type) {
         type = applyNamingExceptions(type);
-
-        Matcher vector = VECTOR_PATTERN.matcher(type);
-        if (vector.matches()) {
-            type = vector.group(1);
-        }
-
-        Matcher flag = FLAG_PATTERN.matcher(type);
-        if (flag.matches()) {
-            type = flag.group(3);
-        }
 
         int dotIdx = type.lastIndexOf('.');
         if (dotIdx != -1) {

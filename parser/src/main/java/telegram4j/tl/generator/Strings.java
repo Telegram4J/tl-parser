@@ -1,4 +1,4 @@
-package telegram4j.tl.parser;
+package telegram4j.tl.generator;
 
 final class Strings {
 
