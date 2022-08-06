@@ -285,10 +285,10 @@ public class SchemaGenerator extends AbstractProcessor {
 
             boolean singleton = true;
             boolean generic = false;
-            boolean hasZeroCopySer = false;
+            boolean hasObjectFields = false;
             for (Parameter p : method.parameters()) {
                 if (p.type().equals("!X")) generic = true;
-                if (!hasZeroCopySer && sizeOfMethod(p.type()) != null) hasZeroCopySer = true;
+                if (!hasObjectFields && sizeOfMethod(p.type()) != null) hasObjectFields = true;
                 if (!p.type().equals("#") && p.type().indexOf('?') == -1) {
                     singleton = false;
                 }
@@ -390,12 +390,11 @@ public class SchemaGenerator extends AbstractProcessor {
                 CodeBlock.Builder serPrecomputeBlock = CodeBlock.builder(); // variables
                 CodeBlock.Builder std = CodeBlock.builder();
 
-                boolean fluentStyle = !hasZeroCopySer;
+                boolean fluentStyle = !hasObjectFields;
 
                 int size = 4;
                 StringJoiner sizes = new StringJoiner(" + ");
                 for (Parameter param : method.parameters()) {
-                    String fixedParamName = fixVariableName(param.formattedName());
                     String sizeMethod = sizeOfMethod(param.type());
 
                     int s = sizeOf(param.type());
@@ -412,8 +411,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     String ser = serializeMethod(param);
                     if (ser != null) {
                         if (sizeMethod != null) {
-                            String var = param.type().equals("string") ? fixedParamName : param.formattedName();
-                            std.addStatement(ser, var);
+                            std.addStatement(ser, param.formattedName());
                         } else {
                             String met = byteBufMethod(param);
                             if (fluentStyle) {
@@ -628,7 +626,6 @@ public class SchemaGenerator extends AbstractProcessor {
                 int size = 4;
                 StringJoiner sizes = new StringJoiner(" + ");
                 for (Parameter param : attributes) {
-                    String fixedParamName = fixVariableName(param.formattedName());
                     String sizeMethod = sizeOfMethod(param.type());
 
                     int s = sizeOf(param.type());
@@ -645,8 +642,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     String ser = serializeMethod(param);
                     if (ser != null) {
                         if (sizeMethod != null) {
-                            String var = param.type().equals("string") ? fixedParamName : param.formattedName();
-                            std.addStatement(ser, var);
+                            std.addStatement(ser, param.formattedName());
                         } else {
                             String met = byteBufMethod(param);
                             if (fluentStyle) {
@@ -1152,18 +1148,6 @@ public class SchemaGenerator extends AbstractProcessor {
         }
 
         return name;
-    }
-
-    // it's okay if this just add '$' to the end of the name, it's just the name of the generated variable :)
-    private String fixVariableName(String formattedName) {
-        switch (formattedName) {
-            // used variables:
-            case "builder":
-            case "payload":
-            case "buf":
-                return formattedName + "$";
-            default: return formattedName;
-        }
     }
 
     private TypeName wrapOptional(MethodSpec.Builder attribute, TypeName type, Parameter param) {
