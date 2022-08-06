@@ -57,7 +57,6 @@ public class SchemaGenerator extends AbstractProcessor {
     private Scheme mtprotoSchema;
     private List<Scheme> schemas;
     private Map<Scheme, Map<String, List<Type>>> typeTree;
-    private Map<String, List<Type>> concTypeTree;
 
     private int iteration;
     private int schemaIteration;
@@ -70,7 +69,7 @@ public class SchemaGenerator extends AbstractProcessor {
     private final Set<String> computedSizeOfs = new HashSet<>();
     private final Set<String> computedDeserializers = new HashSet<>();
 
-    private final List<String> emptyObjects = new ArrayList<>(200);
+    private final List<String> emptyObjectsIds = new ArrayList<>(200); // and also enums
 
     private final TypeSpec.Builder serializer = TypeSpec.classBuilder("TlSerializer")
             .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
@@ -150,11 +149,6 @@ public class SchemaGenerator extends AbstractProcessor {
             var api = collectTypeTree(apiSchema);
             var mtproto = collectTypeTree(mtprotoSchema);
             typeTree = Map.of(apiSchema, api, mtprotoSchema, mtproto);
-            concTypeTree = typeTree.values().stream()
-                    .reduce(new HashMap<>(), (l, r) -> {
-                        l.putAll(r);
-                        return l;
-                    });
 
             preparePackages();
         }
@@ -195,35 +189,9 @@ public class SchemaGenerator extends AbstractProcessor {
 
     private void finalizeSerialization() {
 
-        for (var ent : concTypeTree.entrySet()) {
-            boolean isEnum = ent.getValue().stream()
-                    .mapToInt(c -> c.parameters().size())
-                    .sum() == 0;
-
-            if (!isEnum) {
-                continue;
-            }
-
-            String packageName = parentPackageName(ent.getKey());
-            var chunk = ent.getValue();
-            for (int i = 0; i < chunk.size(); i++) {
-                Type obj = chunk.get(i);
-
-                if (i + 1 == chunk.size()) {
-                    String type = normalizeName(obj.type());
-                    deserializeMethod.addCode("case 0x$L: return (T) $T.of(identifier);\n",
-                            obj.id(), ClassName.get(packageName, type));
-                } else {
-                    deserializeMethod.addCode("case 0x$L:\n", obj.id());
-                }
-                sizeOfMethod.addCode("case 0x$L:\n", obj.id());
-                serializeMethod.addCode("case 0x$L:\n", obj.id());
-            }
-        }
-
-        for (int i = 0; i < emptyObjects.size(); i++) {
-            String id = emptyObjects.get(i);
-            if (i + 1 == emptyObjects.size()) {
+        for (int i = 0; i < emptyObjectsIds.size(); i++) {
+            String id = emptyObjectsIds.get(i);
+            if (i + 1 == emptyObjectsIds.size()) {
                 serializeMethod.addCode("case 0x$L: return buf.writeIntLE(payload.identifier());\n", id);
                 sizeOfMethod.addCode("case 0x$L: return 4;\n", id);
             } else {
@@ -365,7 +333,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     .build());
 
             if (method.parameters().isEmpty()) {
-                emptyObjects.add(method.id());
+                emptyObjectsIds.add(method.id());
             } else {
                 ClassName typeRaw = ClassName.get(packageName, name);
                 TypeName payloadType = generic
@@ -587,7 +555,7 @@ public class SchemaGenerator extends AbstractProcessor {
             if (attributes.isEmpty()) {
                 deserializeMethod.addCode("case 0x$L: return (T) $T.of();\n", constructor.id(), typeName);
 
-                emptyObjects.add(constructor.id());
+                emptyObjectsIds.add(constructor.id());
             } else {
                 String serializeMethodName = uniqueMethodName("serialize", name, () ->
                         camelize(parentPackageName(constructor.name())), computedSerializers);
@@ -798,22 +766,34 @@ public class SchemaGenerator extends AbstractProcessor {
             spec.addSuperinterface(schema.superType());
 
             if (canMakeEnum) {
+                ClassName className = ClassName.get(packageName, name);
 
                 MethodSpec.Builder ofMethod = MethodSpec.methodBuilder("of")
                         .addParameter(int.class, "identifier")
                         .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                        .returns(ClassName.get(packageName, name))
+                        .returns(className)
                         .beginControlFlow("switch (identifier)");
 
-                for (Type constructor : currTypeTree.get(qualifiedName)) {
+                var types = currTypeTree.get(qualifiedName);
+                for (int i = 0; i < types.size(); i++) {
+                    Type constructor = types.get(i);
+
+                    if (i + 1 == types.size()) {
+                        deserializeMethod.addCode("case 0x$L: return (T) $T.of(identifier);\n", constructor.id(), className);
+                    } else {
+                        deserializeMethod.addCode("case 0x$L:\n", constructor.id());
+                    }
+
                     String subtypeName = normalizeName(constructor.name());
                     String constName = screamilize(subtypeName.substring(shortenName.length()));
 
                     spec.addEnumConstant(constName, TypeSpec.anonymousClassBuilder(
-                            "0x$L", constructor.id())
+                                    "0x$L", constructor.id())
                             .build());
 
                     ofMethod.addCode("case 0x$L: return $L;\n", constructor.id(), constName);
+
+                    emptyObjectsIds.add(constructor.id());
 
                     computed.put(packageName + "." + subtypeName, constructor);
                 }
@@ -894,7 +874,8 @@ public class SchemaGenerator extends AbstractProcessor {
                             "", TEMPLATE_PACKAGE_INFO).getCharContent(true)
                     .toString();
 
-            var packages = concTypeTree.keySet().stream()
+            var packages = typeTree.values().stream()
+                    .flatMap(e -> e.keySet().stream())
                     .map(SourceNames::parentPackageName)
                     .filter(s -> !s.equals(processingPackageName))
                     .collect(Collectors.toSet());
@@ -976,7 +957,7 @@ public class SchemaGenerator extends AbstractProcessor {
     }
 
     private String extractEnumName(String type) {
-        return concTypeTree.getOrDefault(type, List.of()).stream()
+        return currTypeTree.getOrDefault(type, List.of()).stream()
                 .map(c -> normalizeName(c.name()))
                 .reduce(Strings::findCommonPart)
                 .orElseGet(() -> normalizeName(type));
