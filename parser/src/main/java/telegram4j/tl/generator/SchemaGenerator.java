@@ -204,7 +204,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
         switch (iteration) {
             case 0: {
-                generatePrimitives();
+                generateInfo();
 
                 var t = schemas.get(schemaIteration);
                 schema = t.getT1();
@@ -281,7 +281,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
         writeTo(JavaFile.builder(getBasePackageName(), serializer.build())
                 .addStaticImport(ClassName.get(BASE_PACKAGE, "TlSerialUtil"), "*")
-                .addStaticImport(ClassName.get(BASE_PACKAGE, "TlPrimitives"), "*")
+                .addStaticImport(ClassName.get(BASE_PACKAGE, "TlInfo"), "*")
                 .indent(INDENT)
                 .skipJavaLangImports(true)
                 .build());
@@ -293,7 +293,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
         writeTo(JavaFile.builder(getBasePackageName(), deserializer.build())
                 .addStaticImport(ClassName.get(BASE_PACKAGE, "TlSerialUtil"), "*")
-                .addStaticImport(ClassName.get(BASE_PACKAGE, "TlPrimitives"), "*")
+                .addStaticImport(ClassName.get(BASE_PACKAGE, "TlInfo"), "*")
                 .indent(INDENT)
                 .skipJavaLangImports(true)
                 .build());
@@ -878,23 +878,26 @@ public class SchemaGenerator extends AbstractProcessor {
                         p.name.equals(param.name));
     }
 
-    private void generatePrimitives() {
+    private void generateInfo() {
 
-        TypeSpec.Builder spec = TypeSpec.classBuilder("TlPrimitives")
+        var tlInfo = TypeSpec.classBuilder("TlInfo")
                 .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
-                .addMethod(privateConstructor);
+                .addMethod(privateConstructor)
+                .addField(FieldSpec.builder(int.class, "LAYER", Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
+                        .initializer(Integer.toString(LAYER))
+                        .build());
 
         for (var c : apiScheme.constructors()) {
             if (primitiveTypes.contains(c.type())) {
                 String name = screamilize(c.name()) + "_ID";
 
-                spec.addField(FieldSpec.builder(int.class, name, Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
+                tlInfo.addField(FieldSpec.builder(int.class, name, Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
                         .initializer("0x" + c.id())
                         .build());
             }
         }
 
-        writeTo(JavaFile.builder(BASE_PACKAGE, spec.build())
+        writeTo(JavaFile.builder(BASE_PACKAGE, tlInfo.build())
                 .indent(INDENT)
                 .skipJavaLangImports(true)
                 .build());
@@ -1009,7 +1012,7 @@ public class SchemaGenerator extends AbstractProcessor {
     private String deserializeMethod0(TypeNameBase type) {
         switch (type.rawType) {
             case "#": throw new IllegalStateException();
-            case "Bool": return "payload.readIntLE() == BOOL_TRUE_ID";
+            case "Bool": return "deserializeBoolean(payload)";
             case "int": return "payload.readIntLE()";
             case "long": return "payload.readLongLE()";
             case "double": return "payload.readDoubleLE()";

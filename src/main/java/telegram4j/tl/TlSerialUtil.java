@@ -17,7 +17,7 @@ import java.util.zip.DeflaterOutputStream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
-import static telegram4j.tl.TlPrimitives.*;
+import static telegram4j.tl.TlInfo.*;
 
 /** Intrinsics serialization methods used in the scheme parser. */
 public final class TlSerialUtil {
@@ -541,6 +541,15 @@ public final class TlSerialUtil {
         }
 
         return data.toString(StandardCharsets.UTF_8);
+    }
+
+    public static boolean deserializeBoolean(ByteBuf buf) {
+        int id = buf.readIntLE();
+        switch (id) {
+            case BOOL_TRUE_ID: return true;
+            case BOOL_FALSE_ID: return false;
+            default: throw new IllegalStateException("Incorrect boolean id: 0x" + Integer.toHexString(id));
+        }
     }
 
     public static List<Long> deserializeLongVector(ByteBuf buf) {
