@@ -59,9 +59,7 @@ allprojects {
     }
 
     tasks.withType(Javadoc) {
-        if (JavaVersion.current().isJava9Compatible()) {
-            options.addBooleanOption('html5', true)
-        }
+        options.addBooleanOption('html5', true)
 
         options {
             encoding = "UTF-8"

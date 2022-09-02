@@ -14,16 +14,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     name: Build for JDK ${{ matrix.java }}
-    strategy:
-      matrix:
-        java: [ 11 ]
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK ${{ matrix.java }}
         uses: actions/setup-java@v2
         with:
-          distribution: 'adopt'
-          java-version: ${{ matrix.java }}
+          java-version: 11
       - name: Build sources with Gradle
         run: ./gradlew build
   release:
@@ -36,7 +32,6 @@ jobs:
       - name: Set up JDK 11
         uses: actions/setup-java@v2
         with:
-          distribution: 'adopt'
           java-version: 11
       - name: Publish sources with Gradle
-        run: ./gradlew -PsonatypeUsername=${{ secrets.sonatypeUsername }} -PsonatypePassword=${{ secrets.sonatypePassword }} -PsigningKey="${{ secrets.signingKey }}" -PsigningPassword=${{ secrets.signingPassword }} publish
+        run: ./gradlew --stacktrace -PsonatypeUsername=${{ secrets.sonatypeUsername }} -PsonatypePassword=${{ secrets.sonatypePassword }} -PsigningKey="${{ secrets.signingKey }}" -PsigningPassword=${{ secrets.signingPassword }} publish
