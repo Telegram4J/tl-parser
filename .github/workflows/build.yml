@@ -20,6 +20,7 @@ jobs:
         uses: actions/setup-java@v2
         with:
           java-version: 11
+          distribution: 'temurin'
       - name: Build sources with Gradle
         run: ./gradlew build
   release:
@@ -33,5 +34,6 @@ jobs:
         uses: actions/setup-java@v2
         with:
           java-version: 11
+          distribution: 'temurin'
       - name: Publish sources with Gradle
         run: ./gradlew --stacktrace -PsonatypeUsername=${{ secrets.sonatypeUsername }} -PsonatypePassword=${{ secrets.sonatypePassword }} -PsigningKey="${{ secrets.signingKey }}" -PsigningPassword=${{ secrets.signingPassword }} publish
