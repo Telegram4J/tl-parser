@@ -37,7 +37,7 @@ allprojects {
         apply plugin: 'signing'
     }
 
-    group = 'io.github.telegram4j'
+    group = 'com.telegram4j'
     description = 'Telegram API schema parser'
 
     targetCompatibility = JavaVersion.VERSION_11
