@@ -19,7 +19,6 @@ dependencies {
     compileOnly project(":encoding")
 
     api "com.fasterxml.jackson.core:jackson-databind:$jackson_version"
-    api "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:$jackson_version"
     compileOnly "javax.annotation:javax.annotation-api:$javax_annotation"
     compileOnly "org.immutables:value:$immutables_version"
     annotationProcessor "org.immutables:value:$immutables_version"
@@ -186,4 +185,7 @@ configure(subprojects - project(":parser") + project){
     }
 }
 
-sourceSets.main.java.srcDirs += "build/generated/sources/annotationProcessor/java/main"
+sourcesJar {
+    dependsOn compileJava
+    from "$buildDir/generated/sources/annotationProcessor/java/main"
+}
