@@ -4,10 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.squareup.javapoet.*;
-import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
-import org.immutables.value.Value;
 import reactor.core.Exceptions;
 import reactor.util.annotation.Nullable;
 import reactor.util.function.Tuple2;
@@ -18,12 +15,10 @@ import telegram4j.tl.generator.TlProcessing.Configuration;
 import telegram4j.tl.generator.TlProcessing.Parameter;
 import telegram4j.tl.generator.TlProcessing.Type;
 import telegram4j.tl.generator.TlProcessing.TypeNameBase;
+import telegram4j.tl.generator.renderer.*;
 import telegram4j.tl.parser.TlTrees;
 
-import javax.annotation.processing.AbstractProcessor;
-import javax.annotation.processing.RoundEnvironment;
-import javax.annotation.processing.SupportedAnnotationTypes;
-import javax.annotation.processing.SupportedSourceVersion;
+import javax.annotation.processing.*;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.PackageElement;
@@ -40,6 +35,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static telegram4j.tl.generator.SchemaGeneratorConsts.*;
+import static telegram4j.tl.generator.SchemaGeneratorConsts.Style.*;
 import static telegram4j.tl.generator.SourceNames.normalizeName;
 import static telegram4j.tl.generator.SourceNames.parentPackageName;
 import static telegram4j.tl.generator.Strings.camelize;
@@ -51,12 +47,16 @@ public class SchemaGenerator extends AbstractProcessor {
 
     // TODO: add serialization for JsonVALUE in TlSerializer.serialize(...)
 
-    private final Map<String, Type> computed = new HashMap<>();
+    private final Set<String> computed = new HashSet<>();
+    private final Map<Integer, Set<String>> sizeOfGroups = new HashMap<>();
+
+    private ImmutableGenerator immutableGenerator;
+    private FileService fileService;
 
     private PackageElement currentElement;
     private List<Tuple2<TlTrees.Scheme, Configuration>> schemas;
     private Map<TlTrees.Scheme, Map<String, List<Type>>> typeTree;
-    private List<Tuple2<Predicate<String>, ClassName>> superTypes;
+    private List<Tuple2<Predicate<String>, ClassRef>> superTypes;
 
     private int iteration;
     private int schemaIteration;
@@ -73,38 +73,47 @@ public class SchemaGenerator extends AbstractProcessor {
 
     private final List<String> emptyObjectsIds = new ArrayList<>(200); // and also enums
 
-    private final TypeSpec.Builder serializer = TypeSpec.classBuilder("TlSerializer")
+    private final TopLevelRenderer serializer = ClassRenderer.create(ClassRef.of(BASE_PACKAGE, "TlSerializer"), ClassRenderer.Kind.CLASS)
+            .addStaticImport(BASE_PACKAGE + ".TlSerialUtil.*")
+            .addStaticImport(BASE_PACKAGE + ".TlInfo.*")
             .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
-            .addMethod(privateConstructor);
+            .addConstructor(Modifier.PRIVATE).complete();
 
-    private final MethodSpec.Builder sizeOfMethod = MethodSpec.methodBuilder("sizeOf")
-            .returns(int.class)
+    private final MethodRenderer<TopLevelRenderer> sizeOfMethod = serializer.addMethod(int.class, "sizeOf")
             .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
             .addParameter(TlObject.class, "payload")
-            .beginControlFlow("switch (payload.identifier())");
+            .beginControlFlow("switch (payload.identifier()) {");
 
-    private final MethodSpec.Builder serializeMethod = MethodSpec.methodBuilder("serialize0")
-            .returns(ByteBuf.class)
+    private final MethodRenderer<TopLevelRenderer> serializeMethod = serializer.addMethod(BYTE_BUF, "serialize0")
             .addModifiers(Modifier.STATIC)
-            .addParameter(ByteBuf.class, "buf")
+            .addParameter(BYTE_BUF, "buf")
             .addParameter(TlObject.class, "payload")
-            .beginControlFlow("switch (payload.identifier())");
+            .beginControlFlow("switch (payload.identifier()) {");
 
-    private final TypeSpec.Builder deserializer = TypeSpec.classBuilder("TlDeserializer")
+    private final TopLevelRenderer deserializer = ClassRenderer.create(ClassRef.of(BASE_PACKAGE, "TlDeserializer"), ClassRenderer.Kind.CLASS)
+            .addStaticImport(BASE_PACKAGE + ".TlSerialUtil.*")
+            .addStaticImport(BASE_PACKAGE + ".TlInfo.*")
             .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
-            .addMethod(privateConstructor);
+            .addConstructor(Modifier.PRIVATE).complete();
 
-    private final MethodSpec.Builder deserializeMethod = MethodSpec.methodBuilder("deserialize")
-            .returns(genericTypeRef)
-            .addTypeVariable(genericTypeRef)
+    private final MethodRenderer<TopLevelRenderer> deserializeMethod = deserializer.addMethod(genericTypeRef, "deserialize")
             .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-            .addParameter(ByteBuf.class, "payload")
+            .addTypeVariables(genericTypeRef)
+            .addParameter(BYTE_BUF, "payload")
             .addStatement("int identifier = payload.readIntLE()")
-            .beginControlFlow("switch (identifier)")
+            .beginControlFlow("switch (identifier) {")
             // *basic* types
-            .addCode("case BOOL_TRUE_ID: return (T) Boolean.TRUE;\n")
-            .addCode("case BOOL_FALSE_ID: return (T) Boolean.FALSE;\n")
-            .addCode("case VECTOR_ID: return (T) deserializeUnknownVector(payload);\n");
+            .addStatement("case BOOL_TRUE_ID: return (T) Boolean.TRUE")
+            .addStatement("case BOOL_FALSE_ID: return (T) Boolean.FALSE")
+            .addStatement("case VECTOR_ID: return (T) deserializeUnknownVector(payload)");
+
+    @Override
+    public synchronized void init(ProcessingEnvironment processingEnv) {
+        super.init(processingEnv);
+
+        fileService = new FileService(processingEnv.getFiler());
+        immutableGenerator = new ImmutableGenerator(fileService, processingEnv.getElementUtils());
+    }
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
@@ -167,16 +176,20 @@ public class SchemaGenerator extends AbstractProcessor {
                 var map = mapper.readValue(is, new TypeReference<Map<String, List<String>>>() {});
                 superTypes = new ArrayList<>(map.size());
                 for (var e : map.entrySet()) {
-                    ClassName type = ClassName.bestGuess(BASE_PACKAGE + '.' + e.getKey());
+                    String qual = BASE_PACKAGE + '.' + e.getKey();
+                    String pck = parentPackageName(qual);
+                    ClassRef type = ClassRef.of(pck, qual.substring(pck.length() + 1));
 
                     Set<String> set = null;
                     Predicate<String> prev = null;
                     for (String s : e.getValue()) {
                         if (s.startsWith("$")) {
                             var patternFilter = Pattern.compile(s.substring(1)).asMatchPredicate();
-                            if (prev == null)
+                            if (prev == null) {
                                 prev = patternFilter;
-                            prev = prev.or(patternFilter);
+                            } else {
+                                prev = prev.or(patternFilter);
+                            }
                         } else {
                             if (set == null)
                                 set = new HashSet<>();
@@ -236,7 +249,7 @@ public class SchemaGenerator extends AbstractProcessor {
                 }
                 break;
             case 4:
-                finalizeSerialization();
+                generateSerialization();
                 iteration++; // end
                 break;
         }
@@ -244,59 +257,59 @@ public class SchemaGenerator extends AbstractProcessor {
         return true;
     }
 
-    private void finalizeSerialization() {
+    private void generateSerialization() {
 
         for (int i = 0; i < emptyObjectsIds.size(); i++) {
             String id = emptyObjectsIds.get(i);
             if (i + 1 == emptyObjectsIds.size()) {
-                serializeMethod.addCode("case 0x$L: return buf.writeIntLE(payload.identifier());\n", id);
-                sizeOfMethod.addCode("case 0x$L: return 4;\n", id);
+                serializeMethod.addStatement("case 0x$L: return buf.writeIntLE(payload.identifier())", id);
+                sizeOfMethod.addStatement("case 0x$L: return 4", id);
             } else {
-                sizeOfMethod.addCode("case 0x$L:\n", id);
-                serializeMethod.addCode("case 0x$L:\n", id);
+                sizeOfMethod.addCode("case 0x$L:", id).ln();
+                serializeMethod.addCode("case 0x$L:", id).ln();
             }
         }
 
-        var publicSerializeMethod = MethodSpec.methodBuilder("serialize")
-                .returns(ByteBuf.class)
+        for (var e : sizeOfGroups.entrySet()) {
+            for (var it = e.getValue().iterator(); it.hasNext(); ) {
+                String s = it.next();
+                if (!it.hasNext()) {
+                    sizeOfMethod.addStatement("case 0x$L: return $L", s, e.getKey());
+                } else {
+                    sizeOfMethod.addCode("case 0x$L:", s).ln();
+                }
+            }
+        }
+
+        // oh
+        sizeOfMethod.addStatement("default: throw new IllegalArgumentException($S + Integer.toHexString(payload.identifier()) + $S + payload)",
+                "Incorrect TlObject identifier: 0x", ", payload: ");
+        sizeOfMethod.endControlFlow();
+        serializeMethod.addStatement("default: throw new IllegalArgumentException($S + Integer.toHexString(payload.identifier()) + $S + payload)",
+                "Incorrect TlObject identifier: 0x", ", payload: ");
+        serializeMethod.endControlFlow();
+
+        sizeOfMethod.complete();
+
+        serializer.addMethod(BYTE_BUF, "serialize")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                 .addParameter(ByteBufAllocator.class, "alloc")
                 .addParameter(TlObject.class, "payload")
                 .addStatement("int size = sizeOf(payload)")
-                .addStatement("$T buf = alloc.buffer(size)", ByteBuf.class)
+                .addStatement("$T buf = alloc.buffer(size)", BYTE_BUF)
                 .addStatement("return serialize0(buf, payload)")
-                .build();
+                .complete();
 
-        // oh
-        sizeOfMethod.addCode("default: throw new IllegalArgumentException($S + Integer.toHexString(payload.identifier()) + $S + payload);\n",
-                "Incorrect TlObject identifier: 0x", ", payload: ");
-        sizeOfMethod.endControlFlow();
-        serializeMethod.addCode("default: throw new IllegalArgumentException($S + Integer.toHexString(payload.identifier()) + $S + payload);\n",
-                "Incorrect TlObject identifier: 0x", ", payload: ");
-        serializeMethod.endControlFlow();
+        serializeMethod.complete();
 
-        serializer.addMethod(publicSerializeMethod);
-        serializer.addMethod(serializeMethod.build());
-        serializer.addMethod(sizeOfMethod.build());
+        fileService.writeTo(serializer);
 
-        writeTo(JavaFile.builder(getBasePackageName(), serializer.build())
-                .addStaticImport(ClassName.get(BASE_PACKAGE, "TlSerialUtil"), "*")
-                .addStaticImport(ClassName.get(BASE_PACKAGE, "TlInfo"), "*")
-                .indent(INDENT)
-                .skipJavaLangImports(true)
-                .build());
-
-        deserializeMethod.addCode("default: throw new IllegalArgumentException($S + Integer.toHexString(identifier));\n",
+        deserializeMethod.addStatement("default: throw new IllegalArgumentException($S + Integer.toHexString(identifier))",
                 "Incorrect TlObject identifier: 0x");
         deserializeMethod.endControlFlow();
-        deserializer.addMethod(deserializeMethod.build());
+        deserializeMethod.complete();
 
-        writeTo(JavaFile.builder(getBasePackageName(), deserializer.build())
-                .addStaticImport(ClassName.get(BASE_PACKAGE, "TlSerialUtil"), "*")
-                .addStaticImport(ClassName.get(BASE_PACKAGE, "TlInfo"), "*")
-                .indent(INDENT)
-                .skipJavaLangImports(true)
-                .build());
+        fileService.writeTo(deserializer);
     }
 
     private void generateMethods() {
@@ -307,161 +320,128 @@ public class SchemaGenerator extends AbstractProcessor {
 
             Type method = Type.parse(config, rawMethod);
 
-            boolean singleton = true;
-            boolean generic = false;
-            boolean hasObjectFields = false;
-            for (Parameter p : method.parameters) {
-                if (!generic && p.type.rawType.equals("!X")) generic = true;
-                if (!hasObjectFields && sizeOfMethod(p) != null) hasObjectFields = true;
-                if (!p.type.rawType.equals("#") && !p.type.isFlag()) singleton = false;
-            }
-
-            TypeSpec.Builder spec = TypeSpec.interfaceBuilder(method.name.normalized())
+            TopLevelRenderer renderer = ClassRenderer.create(
+                    ClassRef.of(method.name.packageName, method.name.normalized()),
+                            ClassRenderer.Kind.INTERFACE)
                     .addModifiers(Modifier.PUBLIC);
 
+            boolean generic = method.type.rawType.equals("X");
             if (generic) {
-                spec.addTypeVariable(genericResultTypeRef);
-                spec.addTypeVariable(genericTypeRef.withBounds(wildcardMethodType));
+                renderer.addTypeVariables(genericResultTypeRef, genericTypeRef.withBounds(wildcardMethodType));
             }
 
-            TypeName returnType = ParameterizedTypeName.get(
-                    ClassName.get(TlMethod.class),
-                    mapType(method.type).box());
+            TypeRef returnType = ParameterizedTypeRef.of(TlMethod.class, mapType(method.type).safeBox());
 
             String name = method.name.normalized();
-            spec.addSuperinterfaces(addSuperTypes(name));
-
-            spec.addSuperinterface(returnType);
+            var interfaces = additionalSuperTypes(name);
+            renderer.addInterfaces(interfaces);
             if (config.superType != null) {
-                spec.addSuperinterface(config.superType);
+                renderer.addInterface(config.superType);
             }
 
-            spec.addField(FieldSpec.builder(TypeName.INT, "ID",
-                            Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
-                    .initializer("0x" + method.id)
-                    .build());
+            renderer.addInterface(returnType);
 
-            ClassName immutableTypeRaw = ClassName.get(method.name.packageName, "Immutable" + name);
-            ClassName immutableTypeBuilderRaw = ClassName.get(method.name.packageName, "Immutable" + name, "Builder");
-            TypeName immutableBuilderType = generic
-                    ? ParameterizedTypeName.get(immutableTypeBuilderRaw, genericResultTypeRef, genericTypeRef)
+            renderer.addField(int.class, "ID", Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
+                    .initializer("0x" + method.id)
+                    .complete();
+
+            boolean singleton = true;
+            for (Parameter p : method.parameters) {
+                if (!p.type.rawType.equals("#") && !p.type.isFlag()) singleton = false;
+                if (p.type.isFlag()) {
+                    generateBitPosAndMask(p, renderer);
+                }
+            }
+
+            ClassRef immutableTypeRaw = ClassRef.of(method.name.packageName, "Immutable" + name);
+            ClassRef immutableTypeBuilderRaw = immutableTypeRaw.nested("Builder");
+            TypeRef immutableBuilderType = generic
+                    ? ParameterizedTypeRef.of(immutableTypeBuilderRaw, genericResultTypeRef, genericTypeRef)
                     : immutableTypeBuilderRaw;
 
-            MethodSpec.Builder builder = MethodSpec.methodBuilder("builder")
-                    .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                    .returns(immutableBuilderType)
-                    .addCode("return $T.builder();", immutableTypeRaw);
+            if (!method.parameters.isEmpty()) {
+                var builder = renderer.addMethod(immutableBuilderType, "builder")
+                        .addModifiers(Modifier.PUBLIC, Modifier.STATIC);
 
-            if (generic) {
-                builder.addTypeVariable(genericResultTypeRef);
-                builder.addTypeVariable(genericTypeRef.withBounds(wildcardMethodType));
+                if (generic) {
+                    builder.addTypeVariables(genericResultTypeRef, genericTypeRef.withBounds(wildcardMethodType));
+                }
+
+                builder.addStatement("return $T.builder()", immutableTypeRaw).complete();
             }
 
-            spec.addMethod(builder.build());
-
-            AnnotationSpec.Builder value = AnnotationSpec.builder(Value.Immutable.class);
-
-            if (singleton) {
-                value.addMember("singleton", "true");
-
-                MethodSpec.Builder instance = MethodSpec.methodBuilder("instance")
-                        .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                        .returns(immutableTypeRaw)
-                        .addCode("return $T.of();", immutableTypeRaw);
-
-                // currently unused
-                // if (generic) {
-                //     instance.addTypeVariable(genericResultTypeRef);
-                //     instance.addTypeVariable(genericTypeRef.withBounds(wildcardMethodType));
-                // }
-
-                spec.addMethod(instance.build());
-            }
-
-            spec.addAnnotation(value.build());
-
-            spec.addMethod(MethodSpec.methodBuilder("identifier")
-                    .addAnnotation(Override.class)
-                    .returns(TypeName.INT)
-                    .addModifiers(Modifier.PUBLIC, Modifier.DEFAULT)
-                    .addCode("return ID;")
-                    .build());
+            renderer.addMethod(int.class, "identifier")
+                    .addAnnotations(Override.class)
+                    .addModifiers(Modifier.DEFAULT)
+                    .addStatement("return ID")
+                    .complete();
 
             if (method.parameters.isEmpty()) {
                 emptyObjectsIds.add(method.id);
             } else {
-                ClassName typeRaw = ClassName.get(method.name.packageName, name);
-                TypeName payloadType = generic
-                        ? ParameterizedTypeName.get(typeRaw, WildcardTypeName.subtypeOf(TypeName.OBJECT),
-                        wildcardUnboundedMethodType)
+                ClassRef typeRaw = ClassRef.of(method.name.packageName, name);
+                TypeRef payloadType = generic
+                        ? ParameterizedTypeRef.of(typeRaw,
+                        WildcardTypeRef.none(), ParameterizedTypeRef.of(TlMethod.class, WildcardTypeRef.none()))
                         : typeRaw;
 
                 String serializeMethodName = uniqueMethodName("serialize", name, () ->
                         camelize(parentPackageName(method.name.rawType)), computedSerializers);
 
-                serializeMethod.addCode("case 0x$L: return $L(buf, ($T) payload);\n",
+                serializeMethod.addStatement("case 0x$L: return $L(buf, ($T) payload)",
                         method.id, serializeMethodName, payloadType);
 
-                MethodSpec.Builder serializerBuilder = MethodSpec.methodBuilder(serializeMethodName)
-                        .returns(ByteBuf.class)
+                var methodSerializer = serializer.addMethod(BYTE_BUF, serializeMethodName)
                         .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
-                        .addParameters(Arrays.asList(
-                                ParameterSpec.builder(ByteBuf.class, "buf").build(),
-                                ParameterSpec.builder(payloadType, "payload").build()));
+                        .addParameter(BYTE_BUF, "buf")
+                        .addParameter(payloadType, "payload")
+                        .addStatement("buf.writeIntLE(payload.identifier())");
 
-                CodeBlock.Builder sizeOfBlock = CodeBlock.builder();
-                CodeBlock.Builder serPrecomputeBlock = CodeBlock.builder(); // variables
-                CodeBlock.Builder std = CodeBlock.builder();
-
-                boolean fluentStyle = !hasObjectFields;
+                var sizeOfBlock = serializer.createCode().incIndent(2);
 
                 int size = 4;
                 StringJoiner sizes = new StringJoiner(" + ");
-                for (Parameter param : method.parameters) {
+                for (int i = 0, n = method.parameters.size(); i < n; i++) {
+                    Parameter param = method.parameters.get(i);
+
+                    generateAttribute(method, param, renderer);
+
+                    if (param.type.isBitFlag()) {
+                        continue;
+                    }
+
                     String sizeMethod = sizeOfMethod(param);
 
-                    int s = sizeOf(param.type);
+                    int s = sizeOfPrimitive(param.type);
                     if (s != -1) {
                         size = Math.addExact(size, s);
                     } else if (sizeMethod != null) {
-                        String sizeVar = param.formattedName() + "Size";
+                        String sizeVar = sizeVariable.apply(param.formattedName());
 
                         sizeOfBlock.addStatement("int $L = " + sizeMethod, sizeVar, param.formattedName());
-                        sizes.add(sizeVar);
+                        sizes.add(sizeVar + "$W");
                     }
 
                     String ser = serializeMethod(param);
-                    if (ser != null) {
-                        if (sizeMethod != null) {
-                            std.addStatement(ser, param.formattedName());
+                    if (sizeMethod != null) {
+                        methodSerializer.addStatement(ser, param.formattedName());
+                    } else {
+                        if (param.type.rawType.equals("int128") ||
+                                param.type.rawType.equals("int256")) {
+                            methodSerializer.addStatement("$1T $2L = payload.$2L()", BYTE_BUF, param.formattedName());
+                            methodSerializer.addStatement("buf.writeBytes($1L, $1L.readerIndex(), $1L.readableBytes())", param.formattedName());
                         } else {
                             String met = byteBufMethod(param);
-                            if (fluentStyle) {
-                                std.add("\n\t\t." + met + "(" + ser + ")", param.formattedName());
-                            } else {
-                                std.addStatement("buf." + met + "(" + ser + ")", param.formattedName());
-                            }
+                            methodSerializer.addStatement("buf." + met + "(" + ser + ")", param.formattedName());
                         }
                     }
-
-                    spec.addMethod(createAttribute(method, param));
                 }
 
-                serializerBuilder.addCode(serPrecomputeBlock.build());
-
-                if (fluentStyle) {
-                    serializerBuilder.addCode("return buf.writeIntLE(payload.identifier())");
-                    serializerBuilder.addCode(std.add(";").build());
-                } else {
-                    serializerBuilder.addStatement("buf.writeIntLE(payload.identifier())");
-                    serializerBuilder.addCode(std.build());
-                    serializerBuilder.addStatement("return buf");
-                }
-
-                serializer.addMethod(serializerBuilder.build());
+                methodSerializer.addStatement("return buf");
+                methodSerializer.complete();
 
                 if (sizes.length() != 0) {
-                    sizeOfBlock.addStatement("return " + size + " + " + sizes);
+                    sizeOfBlock.addStatementFormatted("return " + size + " + " + sizes);
 
                     String sizeOfMethodName = uniqueMethodName("sizeOf", name, () ->
                             camelize(parentPackageName(method.name.rawType)), computedSizeOfs);
@@ -469,21 +449,26 @@ public class SchemaGenerator extends AbstractProcessor {
                     sizeOfMethod.addCode("case 0x$L: return $L(($T) payload);\n",
                             method.id, sizeOfMethodName, payloadType);
 
-                    serializer.addMethod(MethodSpec.methodBuilder(sizeOfMethodName)
-                            .returns(int.class)
+                    serializer.addMethod(int.class, sizeOfMethodName)
                             .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
-                            .addParameter(ParameterSpec.builder(payloadType, "payload").build())
-                            .addCode(sizeOfBlock.build())
-                            .build());
+                            .addParameter(payloadType, "payload")
+                            .addCode(sizeOfBlock.complete())
+                            .complete();
                 } else {
-                    sizeOfMethod.addCode("case 0x$L: return $L;\n", method.id, size);
+                    var group = sizeOfGroups.computeIfAbsent(size, i -> new HashSet<>());
+                    group.add(method.id);
                 }
             }
 
-            writeTo(JavaFile.builder(method.name.packageName, spec.build())
-                    .indent(INDENT)
-                    .skipJavaLangImports(true)
-                    .build());
+            fileService.writeTo(renderer);
+
+            TypeRef superType = config.superType != null
+                    ? config.superType : ParameterizedTypeRef.of(TlMethod.class, WildcardTypeRef.none());
+
+            var typeRefs = generic ? List.of(genericResultTypeRef,
+                    genericTypeRef.withBounds(wildcardMethodType)) : List.<TypeVariableRef>of();
+            immutableGenerator.process(prepareType(method, renderer.name, singleton, typeRefs,
+                    interfaces, superType));
         }
     }
 
@@ -499,7 +484,13 @@ public class SchemaGenerator extends AbstractProcessor {
             String type = constructor.type.normalized();
             String packageName = constructor.type.packageName;
 
-            boolean multiple = currTypeTree.getOrDefault(packageName + "." + type, List.of()).size() > 1;
+            ClassRef typeName = ClassRef.of(packageName, type);
+            // Ignore constructor if its type is enum
+            if (computed.contains(typeName.qualifiedName())) {
+                continue;
+            }
+
+            boolean multiple = currTypeTree.getOrDefault(typeName.qualifiedName(), List.of()).size() > 1;
 
             // add Base* prefix to prevent matching with type name, e.g. SecureValueError
             if (type.equals(name) && multiple) {
@@ -508,77 +499,47 @@ public class SchemaGenerator extends AbstractProcessor {
                 name = type;
             }
 
-            // Check if type has already been done
-            if (computed.containsKey(packageName + "." + name)) {
-                continue;
-            }
-
-            TypeSpec.Builder spec = TypeSpec.interfaceBuilder(name)
+            var interfaces = additionalSuperTypes(name);
+            var renderer = ClassRenderer.create(ClassRef.of(packageName, name), ClassRenderer.Kind.INTERFACE)
                     .addModifiers(Modifier.PUBLIC)
-                    .addSuperinterfaces(addSuperTypes(name));
+                    .addInterfaces(interfaces);
 
-            if (multiple) {
-                spec.addSuperinterface(ClassName.get(packageName, type));
-            } else if (config.superType != null) {
-                spec.addSuperinterface(config.superType);
-            } else {
-                spec.addSuperinterface(TlObject.class);
-            }
+            TypeRef superType = multiple ? typeName : config.superType != null ? config.superType : ClassRef.of(TlObject.class);
 
-            spec.addField(FieldSpec.builder(TypeName.INT, "ID",
-                            Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
+            renderer.addInterface(superType);
+
+            renderer.addField(int.class, "ID", Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
                     .initializer("0x" + constructor.id)
-                    .build());
+                    .complete();
 
-            spec.addMethod(MethodSpec.methodBuilder("builder")
-                    .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                    .returns(ClassName.get(packageName, "Immutable" + name, "Builder"))
-                    .addCode("return Immutable$L.builder();", name)
-                    .build());
+            ClassRef immutableType = renderer.name.peer(immutable.apply(name));
 
-            var collect = new LinkedHashSet<>(constructor.parameters);
-            collectAttributesRecursive(type, collect);
-
-            var attributes = new ArrayList<>(collect);
-            // todo: replace to bit-flags?
             boolean singleton = true;
             int flagsCount = 0;
-            boolean firstIsFlags = false;
-            boolean hasObjectFields = false;
-            for (int i = 0; i < attributes.size(); i++) {
-                Parameter p = attributes.get(i);
-                if (p.type.rawType.equals("#")) {
-                    firstIsFlags = i == 0;
-                    flagsCount++;
-                }
-                if (!hasObjectFields && sizeOfMethod(p) != null) hasObjectFields = true;
+            for (Parameter p : constructor.parameters) {
+                if (p.type.rawType.equals("#")) flagsCount++;
                 if (!p.type.rawType.equals("#") && !p.type.isFlag()) singleton = false;
+                if (p.type.isFlag()) {
+                    generateBitPosAndMask(p, renderer);
+                }
             }
 
             int flagsRemaining = flagsCount;
 
-            AnnotationSpec.Builder value = AnnotationSpec.builder(Value.Immutable.class);
-            if (singleton) {
-                value.addMember("singleton", "true");
-
-                spec.addMethod(MethodSpec.methodBuilder("instance")
-                        .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                        .returns(ClassName.get(packageName, "Immutable" + name))
-                        .addCode("return Immutable$L.of();", name)
-                        .build());
+            if (!constructor.parameters.isEmpty()) {
+                renderer.addMethod(immutableType.nested("Builder"), "builder", Modifier.PUBLIC, Modifier.STATIC)
+                        .addStatement("return Immutable$L.builder()", name)
+                        .complete();
             }
-            spec.addAnnotation(value.build());
 
-            spec.addMethod(MethodSpec.methodBuilder("identifier")
-                    .addAnnotation(Override.class)
-                    .returns(TypeName.INT)
-                    .addModifiers(Modifier.PUBLIC, Modifier.DEFAULT)
-                    .addCode("return ID;")
-                    .build());
+            renderer.addMethod(int.class, "identifier")
+                    .addAnnotations(Override.class)
+                    .addModifiers(Modifier.DEFAULT)
+                    .addStatement("return ID")
+                    .complete();
 
-            TypeName typeName = ClassName.get(packageName, "Immutable" + name);
-            if (attributes.isEmpty()) {
-                deserializeMethod.addCode("case 0x$L: return (T) $T.of();\n", constructor.id, typeName);
+            if (constructor.parameters.isEmpty()) {
+                deserializeMethod.addStatement("case 0x$L: return (T) $T.of()", constructor.id, immutableType);
 
                 emptyObjectsIds.add(constructor.id);
             } else {
@@ -588,179 +549,213 @@ public class SchemaGenerator extends AbstractProcessor {
                 String deserializeMethodName = uniqueMethodName("deserialize", name, () ->
                         camelize(parentPackageName(constructor.name.rawType)), computedDeserializers);
 
-                TypeName payloadType = ClassName.get(packageName, name);
+                serializeMethod.addStatement("case 0x$L: return $L(buf, ($T) payload)",
+                        constructor.id, serializeMethodName, renderer.name);
 
-                serializeMethod.addCode("case 0x$L: return $L(buf, ($T) payload);\n",
-                        constructor.id, serializeMethodName, payloadType);
-
-                deserializeMethod.addCode("case 0x$L: return (T) $L(payload);\n",
+                deserializeMethod.addStatement("case 0x$L: return (T) $L(payload)",
                         constructor.id, deserializeMethodName);
 
-                MethodSpec.Builder deserializerBuilder = MethodSpec.methodBuilder(deserializeMethodName)
-                        .returns(typeName)
-                        .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
-                        .addParameter(ParameterSpec.builder(ByteBuf.class, "payload").build());
+                var typeDeserializer = deserializer.addMethod(immutableType, deserializeMethodName,
+                                Modifier.PRIVATE, Modifier.STATIC)
+                        .addParameter(BYTE_BUF, "payload");
 
-                CodeBlock.Builder sizeOfBlock = CodeBlock.builder();
-                CodeBlock.Builder serPrecomputeBlock = CodeBlock.builder(); // ByteBuf precomputing
-                CodeBlock.Builder std = CodeBlock.builder(); // block with serialization
-
-                if (firstIsFlags) {
-                    deserializerBuilder.addStatement("int $L = payload.readIntLE()", attributes.get(0).formattedName());
-                    deserializerBuilder.addCode("return $T.builder()", typeName);
-                } else if (flagsCount > 0) {
-                    deserializerBuilder.addCode("var builder = $T.builder()", typeName);
-                } else {
-                    deserializerBuilder.addCode("return $T.builder()", typeName);
+                boolean firstIsFlag = constructor.parameters.get(0).type.rawType.equals("#");
+                if (firstIsFlag) {
+                    typeDeserializer.addStatement("int $L = payload.readIntLE()", constructor.parameters.get(0).formattedName());
                 }
 
-                boolean fluentStyle = !hasObjectFields;
+                boolean needSeparation = flagsCount > 1 || flagsCount == 1 && !firstIsFlag;
+                if (needSeparation) {
+                    typeDeserializer.addCode("var builder = $T.builder()", immutableType).incIndent().ln();
+                } else {
+                    typeDeserializer.addCode("return $T.builder()", immutableType).incIndent().ln();
+                }
+
+                var typeSerializer = serializer.addMethod(BYTE_BUF, serializeMethodName,
+                                Modifier.PRIVATE, Modifier.STATIC)
+                        .addParameter(BYTE_BUF, "buf")
+                        .addParameter(renderer.name, "payload")
+                        .addStatement("buf.writeIntLE(payload.identifier())");
+
+                var sizeOfBlock = serializer.createCode().incIndent(2);
 
                 int size = 4;
                 StringJoiner sizes = new StringJoiner(" + ");
-                for (Parameter param : attributes) {
+                for (int i = 0, n = constructor.parameters.size(); i < n; i++) {
+                    Parameter param = constructor.parameters.get(i);
+
+                    generateAttribute(constructor, param, renderer);
+
+                    if (param.type.isBitFlag()) {
+                        continue;
+                    }
+
                     String sizeMethod = sizeOfMethod(param);
 
-                    int s = sizeOf(param.type);
+                    int s = sizeOfPrimitive(param.type);
                     if (s != -1) {
                         size = Math.addExact(size, s);
                     } else if (sizeMethod != null) {
-                        String sizeVar = param.formattedName() + "Size";
+                        String sizeVar = sizeVariable.apply(param.formattedName());
 
                         sizeOfBlock.addStatement("int $L = " + sizeMethod, sizeVar, param.formattedName());
-                        sizes.add(sizeVar);
+
+                        // TODO: Maybe add an overflow check?
+                        sizes.add(sizeVar + "$W");
                     }
 
                     String ser = serializeMethod(param);
-                    if (ser != null) {
-                        if (sizeMethod != null) {
-                            std.addStatement(ser, param.formattedName());
+                    if (sizeMethod != null) {
+                        typeSerializer.addStatement(ser, param.formattedName());
+                    } else {
+                        if (param.type.rawType.equals("int128") ||
+                            param.type.rawType.equals("int256")) {
+                            // the problem is that writeBytes(ByteBuf) changes reader and writer indexes, which is bad for us
+                            typeSerializer.addStatement("$1T $2L = payload.$2L()", BYTE_BUF, param.formattedName());
+                            typeSerializer.addStatement("buf.writeBytes($1L, $1L.readerIndex(), $1L.readableBytes())",
+                                    param.formattedName());
                         } else {
                             String met = byteBufMethod(param);
-                            if (fluentStyle) {
-                                std.add("\n\t\t." + met + "(" + ser + ")", param.formattedName());
+                            typeSerializer.addStatement("buf." + met + "(" + ser + ")", param.formattedName());
+                        }
+                    }
+
+                    String deser = deserializeMethod(name, param);
+                    if (param.type.rawType.equals("#")) { // TODO: dont write into the separate variable if type have only bit-flags
+                        flagsRemaining--;
+
+                        if (i == 0 || flagsCount > 1 && flagsRemaining > 0) {
+                            typeDeserializer.addCode(".$1L($1L)", param.formattedName());
+                        } else {
+                            typeDeserializer.addStatement("int $L = payload.readIntLE()", param.formattedName());
+
+                            if (flagsRemaining == 0) {
+                                typeDeserializer.addCode("return builder.$1L($1L)", param.formattedName()).incIndent();
                             } else {
-                                std.addStatement("buf." + met + "(" + ser + ")", param.formattedName());
+                                typeDeserializer.addCode("builder.$1L($1L)", param.formattedName());
                             }
                         }
-                    }
-
-                    if (param.type.rawType.equals("#") && !firstIsFlags) {
-                        deserializerBuilder.addCode(";\n");
-                        deserializerBuilder.addStatement("int $L = payload.readIntLE()", param.formattedName());
-                        if (--flagsRemaining == 0) {
-                            deserializerBuilder.addCode("return builder.$1L($1L)", param.formattedName());
-                        } else {
-                            deserializerBuilder.addCode("builder.$1L($1L)", param.formattedName());
-                        }
                     } else {
-                        deserializerBuilder.addCode("\n\t\t.$L(" + deserializeMethod(param) + ")", param.formattedName());
+                        typeDeserializer.addCode(".$L(" + deser + ")", param.formattedName());
                     }
 
-                    spec.addMethod(createAttribute(constructor, param));
+                    if (flagsRemaining != 0 && needSeparation &&
+                            constructor.parameters.subList(i, constructor.parameters.size()).stream()
+                                    .anyMatch(p -> p.type.rawType.equals("#"))) {
+                        typeDeserializer.decIndent().addCode(';').ln();
+                    } else {
+                        typeDeserializer.ln();
+                    }
                 }
 
-                deserializer.addMethod(deserializerBuilder.addCode("\n\t\t.build();").build());
-
-                var serializerBuilder = MethodSpec.methodBuilder(serializeMethodName)
-                        .returns(ByteBuf.class)
-                        .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
-                        .addParameters(Arrays.asList(
-                                ParameterSpec.builder(ByteBuf.class, "buf").build(),
-                                ParameterSpec.builder(payloadType, "payload").build()))
-                        .addCode(serPrecomputeBlock.build());
-
-                if (fluentStyle) {
-                    serializerBuilder.addCode("return buf.writeIntLE(payload.identifier())");
-                    serializerBuilder.addCode(std.add(";").build());
-                } else {
-                    serializerBuilder.addStatement("buf.writeIntLE(payload.identifier())");
-                    serializerBuilder.addCode(std.build());
-                    serializerBuilder.addStatement("return buf");
-                }
-
-                serializer.addMethod(serializerBuilder.build());
+                typeSerializer.addStatement("return buf").complete();
+                typeDeserializer.addStatement(".build()").decIndent().complete();
 
                 if (sizes.length() != 0) {
-                    sizeOfBlock.addStatement("return " + size + " + " + sizes);
+                    sizeOfBlock.addStatementFormatted("return " + size + " + " + sizes);
 
                     String sizeOfMethodName = uniqueMethodName("sizeOf", name, () ->
                             camelize(parentPackageName(constructor.name.rawType)), computedSizeOfs);
 
-                    sizeOfMethod.addCode("case 0x$L: return $L(($T) payload);\n",
-                            constructor.id, sizeOfMethodName, payloadType);
+                    sizeOfMethod.addStatement("case 0x$L: return $L(($T) payload)",
+                            constructor.id, sizeOfMethodName, renderer.name);
 
-                    serializer.addMethod(MethodSpec.methodBuilder(sizeOfMethodName)
-                            .returns(int.class)
-                            .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
-                            .addParameter(ParameterSpec.builder(payloadType, "payload").build())
-                            .addCode(sizeOfBlock.build())
-                            .build());
+                    serializer.addMethod(int.class, sizeOfMethodName, Modifier.PRIVATE, Modifier.STATIC)
+                            .addParameter(renderer.name, "payload")
+                            .addCode(sizeOfBlock.complete())
+                            .complete();
                 } else {
-                    sizeOfMethod.addCode("case 0x$L: return $L;\n", constructor.id, size);
+                    var group = sizeOfGroups.computeIfAbsent(size, i -> new HashSet<>());
+                    group.add(constructor.id);
                 }
             }
 
-            writeTo(JavaFile.builder(packageName, spec.build())
-                    .indent(INDENT)
-                    .skipJavaLangImports(true)
-                    .build());
+            fileService.writeTo(renderer);
 
-            computed.put(packageName + "." + name, constructor);
+            immutableGenerator.process(prepareType(constructor, renderer.name, singleton, List.of(),
+                    interfaces, superType));
         }
     }
 
-    private MethodSpec createAttribute(Type type, Parameter param) {
-        MethodSpec.Builder attribute = MethodSpec.methodBuilder(param.formattedName())
-                .addModifiers(Modifier.PUBLIC);
+    private ImmutableGenerator.ValueType prepareType(Type tlType, ClassRef baseType, boolean singleton,
+                                                     List<TypeVariableRef> typeVars, List<? extends TypeRef> interfaces,
+                                                     TypeRef superType) {
+        ImmutableGenerator.ValueType valType = new ImmutableGenerator.ValueType(baseType, typeVars, interfaces);
+        valType.attributes = new ArrayList<>(tlType.parameters.size());
 
-        TypeName paramType = mapType(param.type);
+        NameDeduplicator initBitsName = NameDeduplicator.create("initBits");
+        NameDeduplicator hashCodeName = NameDeduplicator.create("h");
+        NameDeduplicator equalsName = NameDeduplicator.create("that");
 
-        if (param.type.rawType.equals("#")) {
-            attribute.addModifiers(Modifier.DEFAULT);
-            String precompute = type.parameters.stream()
-                    .filter(p -> p.type.isFlag() && p.type.flagsName().equals(param.formattedName()))
-                    .map(flag -> {
-                        int flagPos = flag.type.flagPos();
-                        String innerTypeRaw = flag.type.innerType().rawType;
-                        return String.format("(%s()%s ? 1 : 0) << 0x%x", flag.formattedName(),
-                                innerTypeRaw.equals("true") ? "" : " != null", flagPos);
-                    })
-                    .collect(Collectors.joining(" | "));
+        int primitiveFieldsCount = 0;
+        int refFieldsCount = 0;
+        for (Parameter p : tlType.parameters) {
+            ImmutableGenerator.ValueAttribute valAttr = new ImmutableGenerator.ValueAttribute(p.formattedName());
+            valAttr.type = mapType(p.type);
 
-            attribute.addCode("return " + precompute + ";");
-        } else if (param.type.rawType.endsWith("true")) {
-            attribute.addModifiers(Modifier.DEFAULT);
-            attribute.addCode("return false;");
-        } else if (param.type.isFlag()) {
-            paramType = wrapOptional(attribute, paramType, param);
-            attribute.addModifiers(Modifier.ABSTRACT);
-        } else {
-            attribute.addModifiers(Modifier.ABSTRACT);
-        }
+            initBitsName.accept(valAttr.name);
+            hashCodeName.accept(valAttr.name);
+            equalsName.accept(valAttr.name);
 
-        return attribute.returns(paramType).build();
-    }
-
-    private int sizeOf(TypeNameBase type) {
-        switch (type.rawType) {
-            case "int256":
-                return 32;
-            case "int128":
-                return 16;
-            case "long":
-            case "double":
-                return 8;
-            case "int":
-            case "Bool":
-            case "#":
-                return 4;
-            default:
-                if (type.rawType.endsWith("true")) {
-                    return 0; // to skip param
+            if (!p.type.isFlag()) {
+                if (valAttr.type instanceof PrimitiveTypeRef) {
+                    primitiveFieldsCount++;
+                } else {
+                    refFieldsCount++;
                 }
-                return -1;
+            }
+
+            if (p.type.isFlag()) {
+                valAttr.flagsName = p.type.flagsName();
+                valAttr.flagMask = bitMask.apply(valAttr.name, Naming.As.SCREMALIZED);
+
+                if (p.type.isBitFlag()) {
+                    valAttr.flags.add(ImmutableGenerator.ValueAttribute.Flag.BIT_FLAG);
+                } else {
+                    valAttr.flags.add(ImmutableGenerator.ValueAttribute.Flag.OPTIONAL);
+                }
+            } else if (!p.type.rawType.equals("#")) {
+                valType.initBitsCount++;
+            }
+
+            if (p.type.rawType.equals("#"))
+                valAttr.flags.add(ImmutableGenerator.ValueAttribute.Flag.BIT_SET);
+
+            valType.attributes.add(valAttr);
         }
+
+        if (singleton)
+            valType.flags.add(ImmutableGenerator.ValueType.Flag.SINGLETON);
+
+        valType.tlType = tlType;
+        valType.superType = superType;
+
+        var types = superType instanceof ClassRef
+                ? currTypeTree.getOrDefault(((ClassRef) superType).qualifiedName(), List.of())
+                : List.<Type>of();
+
+        if (types.size() > 1) {
+            valType.superTypeMethodsNames = types.stream()
+                    .flatMap(e -> e.parameters.stream())
+                    .filter(p -> types.stream()
+                            .allMatch(t -> t.parameters.contains(p)))
+                    .map(Parameter::formattedName)
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+        } else {
+            valType.superTypeMethodsNames = Set.of();
+        }
+
+        valType.initBitsName = initBitsName.get();
+        valType.hashCodeName = hashCodeName.get();
+        valType.equalsName = equalsName.get();
+
+        valType.generated = valType.attributes.stream()
+                .filter(e -> !e.flags.contains(ImmutableGenerator.ValueAttribute.Flag.BIT_FLAG))
+                .collect(Collectors.toList());
+
+        valType.canOmitCopyConstr = primitiveFieldsCount == valType.generated.size();
+        valType.needStubParam = refFieldsCount > 0;
+        return valType;
     }
 
     private void generateSuperTypes() {
@@ -782,33 +777,25 @@ public class SchemaGenerator extends AbstractProcessor {
             boolean canMakeEnum = currTypeTree.get(qualifiedName).stream()
                     .mapToInt(c -> c.parameters.size()).sum() == 0;
 
-            TypeSpec.Builder spec = canMakeEnum
-                    ? TypeSpec.enumBuilder(name)
-                    : TypeSpec.interfaceBuilder(name);
+            ClassRef className = ClassRef.of(packageName, name);
+            TopLevelRenderer renderer = ClassRenderer.create(className, canMakeEnum
+                    ? ClassRenderer.Kind.ENUM : ClassRenderer.Kind.INTERFACE);
 
-            spec.addModifiers(Modifier.PUBLIC);
-            if (config.superType != null) {
-                spec.addSuperinterface(config.superType);
-            } else {
-                spec.addSuperinterface(TlObject.class);
-            }
+            renderer.addModifiers(Modifier.PUBLIC);
+            renderer.addInterface(config.superType != null ? config.superType : TlObject.class);
 
             if (canMakeEnum) {
                 String shortenName = extractEnumName(qualifiedName);
-                ClassName className = ClassName.get(packageName, name);
 
-                MethodSpec.Builder ofMethod = MethodSpec.methodBuilder("of")
-                        .addParameter(int.class, "identifier")
-                        .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                        .returns(className)
-                        .beginControlFlow("switch (identifier)");
+                var ofMethodCode = renderer.createCode().incIndent(3);
 
+                computed.add(qualifiedName);
                 var types = currTypeTree.get(qualifiedName);
                 for (int i = 0; i < types.size(); i++) {
                     Type constructor = types.get(i);
 
                     if (i + 1 == types.size()) {
-                        deserializeMethod.addCode("case 0x$L: return (T) $T.of(identifier);\n", constructor.id, className);
+                        deserializeMethod.addStatement("case 0x$L: return (T) $T.of(identifier)", constructor.id, className);
                     } else {
                         deserializeMethod.addCode("case 0x$L:\n", constructor.id);
                     }
@@ -816,91 +803,152 @@ public class SchemaGenerator extends AbstractProcessor {
                     String subtypeName = constructor.name.normalized();
                     String constName = screamilize(subtypeName.substring(shortenName.length()));
 
-                    spec.addEnumConstant(constName, TypeSpec.anonymousClassBuilder(
-                                    "0x$L", constructor.id)
-                            .build());
+                    renderer.addConstant(constName, "0x" + constructor.id);
 
-                    ofMethod.addCode("case 0x$L: return $L;\n", constructor.id, constName);
+                    ofMethodCode.addStatement("case 0x$L: return $L", constructor.id, constName);
 
                     emptyObjectsIds.add(constructor.id);
 
-                    computed.put(packageName + "." + subtypeName, constructor);
                 }
 
-                spec.addField(int.class, "identifier", Modifier.PRIVATE, Modifier.FINAL);
+                renderer.addField(int.class, "identifier", Modifier.PRIVATE, Modifier.FINAL).complete();
 
-                spec.addMethod(MethodSpec.constructorBuilder()
+                renderer.addConstructor()
                         .addParameter(int.class, "identifier")
                         .addStatement("this.identifier = identifier")
-                        .build());
+                        .complete();
 
-                ofMethod.addCode("default: throw new IllegalArgumentException($S + Integer.toHexString(identifier));\n",
-                        "Incorrect type identifier: 0x");
-                ofMethod.endControlFlow();
-
-                spec.addMethod(MethodSpec.methodBuilder("identifier")
-                        .addAnnotation(Override.class)
-                        .returns(TypeName.INT)
+                renderer.addMethod(int.class, "identifier")
+                        .addAnnotations(Override.class)
                         .addModifiers(Modifier.PUBLIC)
-                        .addCode("return identifier;")
-                        .build());
+                        .addStatement("return identifier")
+                        .complete();
 
-                spec.addMethod(ofMethod.build());
+                renderer.addMethod(className, "of", Modifier.PUBLIC, Modifier.STATIC)
+                        .addParameter(int.class, "identifier")
+                        .beginControlFlow("switch (identifier) {")
+                        .addCode(ofMethodCode.complete())
+                        .addStatement("default: throw new IllegalArgumentException($S + Integer.toHexString(identifier))",
+                                "Incorrect type identifier: 0x")
+                        .endControlFlow()
+                        .complete();
             } else {
-
                 for (Parameter param : params) {
-                    TypeName paramType = mapType(param.type);
+                    TypeRef paramType = mapType(param.type);
 
-                    MethodSpec.Builder attribute = MethodSpec.methodBuilder(param.formattedName())
-                            .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT);
-
-                    if (!param.type.rawType.endsWith("true") && (param.type.isFlag() ||
-                            isOptionalInSuccessors(qualifiedName, param))) {
-                        paramType = wrapOptional(attribute, paramType, param);
+                    List<ClassRef> anns = List.of();
+                    if (!param.type.isBitFlag() && (param.type.isFlag() ||
+                            isNullableInSubclasses(qualifiedName, param))) {
+                        anns = List.of(ClassRef.of(Nullable.class));
                     }
 
-                    spec.addMethod(attribute.returns(paramType).build());
+                    renderer.addMethod(paramType, param.formattedName())
+                            .addAnnotations(anns)
+                            .complete();
                 }
             }
 
-            writeTo(JavaFile.builder(packageName, spec.build())
-                    .indent(INDENT)
-                    .skipJavaLangImports(true)
-                    .build());
+            fileService.writeTo(renderer);
         }
-    }
-
-    private boolean isOptionalInSuccessors(String qualifiedName, Parameter param) {
-        return currTypeTree.getOrDefault(qualifiedName, List.of()).stream()
-                .flatMap(c -> c.parameters.stream())
-                .anyMatch(p -> p.type.isFlag() &&
-                        p.type.innerType().rawType.equals(param.type.rawType) &&
-                        p.name.equals(param.name));
     }
 
     private void generateInfo() {
 
-        var tlInfo = TypeSpec.classBuilder("TlInfo")
+        var tlInfo = ClassRenderer.create(ClassRef.of(BASE_PACKAGE, "TlInfo"), ClassRenderer.Kind.CLASS)
                 .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
-                .addMethod(privateConstructor)
-                .addField(FieldSpec.builder(int.class, "LAYER", Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
-                        .initializer(Integer.toString(LAYER))
-                        .build());
+                .addConstructor(Modifier.PRIVATE).complete()
+                .addField(int.class, "LAYER", Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
+                .initializer(Integer.toString(LAYER))
+                .complete();
 
         for (var c : apiScheme.constructors()) {
             if (primitiveTypes.contains(c.type())) {
                 String name = screamilize(c.name()) + "_ID";
 
-                tlInfo.addField(FieldSpec.builder(int.class, name, Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
-                        .initializer("0x" + c.id())
-                        .build());
+                tlInfo.addField(int.class, name, Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
+                        .initializer("0x" + c.id());
             }
         }
 
-        writeTo(JavaFile.builder(BASE_PACKAGE, tlInfo.build())
-                .indent(INDENT)
-                .skipJavaLangImports(true)
-                .build());
+        fileService.writeTo(tlInfo);
+    }
+
+    private void generateAttribute(Type type, Parameter param, TopLevelRenderer renderer) {
+        TypeRef paramType = mapType(param.type);
+        var modifiers = EnumSet.noneOf(Modifier.class);
+        List<ClassRef> anns = List.of();
+        String defaultValue = null;
+
+        if (param.type.rawType.equals("#")) {
+            modifiers.add(Modifier.DEFAULT);
+
+            String precompute = type.parameters.stream()
+                    .filter(p -> p.type.isFlag() && p.type.flagsName().equals(param.formattedName()))
+                    .map(flag -> {
+                        String mask = bitMask.apply(flag.formattedName(), Naming.As.SCREMALIZED);
+                        return String.format("(%s()%s ? %s : 0)", flag.formattedName(),
+                                flag.type.isBitFlag() ? "" : " != null", mask);
+                    })
+                    .collect(Collectors.joining(" |$W "));
+
+            defaultValue = "return " + precompute;
+        } else if (param.type.isBitFlag()) {
+            modifiers.add(Modifier.DEFAULT);
+
+            defaultValue = "return false";
+        } else if (param.type.isFlag()) {
+            anns = List.of(ClassRef.of(Nullable.class));
+        }
+
+        var attribute = renderer.addMethod(paramType, param.formattedName())
+                .addAnnotations(anns)
+                .addModifiers(modifiers);
+
+        if (defaultValue != null) {
+            attribute.addStatementFormatted(defaultValue);
+        }
+
+        attribute.complete();
+    }
+
+    private void generateBitPosAndMask(Parameter param, TopLevelRenderer renderer) {
+        int flagPos = param.type.flagPos();
+
+        String posFieldName = bitPos.apply(param.formattedName(), Naming.As.SCREMALIZED);
+        renderer.addField(byte.class, posFieldName, Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
+                .initializer(Integer.toString(flagPos))
+                .complete();
+
+        renderer.addField(int.class, bitMask.apply(param.formattedName(), Naming.As.SCREMALIZED),
+                        Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
+                .initializer("1 << " + posFieldName)
+                .complete();
+    }
+
+    private int sizeOfPrimitive(TlProcessing.TypeName type) {
+        switch (type.rawType) {
+            case "int256":
+                return 32;
+            case "int128":
+                return 16;
+            case "long":
+            case "double":
+                return 8;
+            case "int":
+            case "Bool":
+            case "#":
+                return 4;
+            default:
+                return -1;
+        }
+    }
+
+    private boolean isNullableInSubclasses(String qualifiedName, Parameter param) {
+        return currTypeTree.getOrDefault(qualifiedName, List.of()).stream()
+                .flatMap(c -> c.parameters.stream())
+                .anyMatch(p -> p.type.isFlag() &&
+                        p.type.innerType().rawType.equals(param.type.rawType) &&
+                        p.name.equals(param.name));
     }
 
     private void preparePackages() {
@@ -939,60 +987,43 @@ public class SchemaGenerator extends AbstractProcessor {
         }
     }
 
-    private TypeName mapType(TlProcessing.TypeNameBase type) {
+    private TypeRef mapType(TlProcessing.TypeNameBase type) {
         switch (type.rawType) {
             case "!X": return genericTypeRef;
             case "X": return genericResultTypeRef;
             case "#":
-            case "int": return TypeName.INT;
+            case "int": return PrimitiveTypeRef.INT;
             case "true":
-            case "Bool": return TypeName.BOOLEAN;
-            case "long": return TypeName.LONG;
-            case "double": return TypeName.DOUBLE;
+            case "Bool": return PrimitiveTypeRef.BOOLEAN;
+            case "long": return PrimitiveTypeRef.LONG;
+            case "double": return PrimitiveTypeRef.DOUBLE;
             case "bytes":
             case "int128":
-            case "int256": return ClassName.get(ByteBuf.class);
-            case "string": return ClassName.get(String.class);
-            case "Object": return ClassName.OBJECT;
-            case "JSONValue": return ClassName.get(JsonNode.class);
+            case "int256": return BYTE_BUF;
+            case "string": return STRING;
+            case "Object": return ClassRef.OBJECT;
+            case "JSONValue": return ClassRef.of(JsonNode.class);
             default:
                 if (type instanceof TlProcessing.TypeName) {
                     TlProcessing.TypeName t = (TlProcessing.TypeName) type;
 
                     if (t.isFlag()) {
                         TypeNameBase innerType = t.innerType();
-                        TypeName mapped = mapType(innerType);
-                        return innerType.rawType.equals("true") ? mapped : mapped.box();
+                        TypeRef mapped = mapType(innerType);
+                        return t.isBitFlag() ? mapped : mapped.safeBox();
                     } else if (t.isVector()) {
                         TypeNameBase innerType = t.innerType();
-                        TypeName mapped = mapType(innerType);
-                        return ParameterizedTypeName.get(ClassName.get(List.class), mapped.box());
+                        TypeRef mapped = mapType(innerType);
+                        return ParameterizedTypeRef.of(LIST, mapped.safeBox());
                     }
                 }
 
-                return ClassName.get(type.packageName, type.normalized());
+                return ClassRef.of(type.packageName, type.normalized());
         }
-    }
-
-    private void collectAttributesRecursive(String name, Set<Parameter> params) {
-        Type constructor = computed.get(name);
-        if (constructor == null || constructor.name.rawType.equals(name)) {
-            return;
-        }
-        params.addAll(constructor.parameters);
-        collectAttributesRecursive(constructor.name.rawType, params);
     }
 
     private String getBasePackageName() {
         return currentElement.getQualifiedName().toString();
-    }
-
-    private void writeTo(JavaFile file) {
-        try {
-            file.writeTo(processingEnv.getFiler());
-        } catch (Throwable t) {
-            throw Exceptions.propagate(t);
-        }
     }
 
     private String extractEnumName(String type) {
@@ -1002,16 +1033,26 @@ public class SchemaGenerator extends AbstractProcessor {
                 .orElseGet(() -> normalizeName(type));
     }
 
-    private String deserializeMethod(Parameter param) {
+    private String deserializeMethod(String typeName, Parameter param) {
         if (param.type.rawType.equals("#")) {
             return param.formattedName();
         }
+
+        if (param.type.isFlag()) {
+            String flagsName = param.type.flagsName();
+            TypeNameBase innerType = param.type.innerType();
+
+            // The immutable object is already in the TlDeserializer imports
+            String mask = immutable.apply(typeName) + '.' + bitMask.apply(param.formattedName(), Naming.As.SCREMALIZED);
+            String innerMethod = deserializeMethod0(innerType);
+            return "(" + flagsName + " & " + mask + ") != 0 ? " + innerMethod + " : null";
+        }
+
         return deserializeMethod0(param.type);
     }
 
     private String deserializeMethod0(TypeNameBase type) {
         switch (type.rawType) {
-            case "#": throw new IllegalStateException();
             case "Bool": return "deserializeBoolean(payload)";
             case "int": return "payload.readIntLE()";
             case "long": return "payload.readLongLE()";
@@ -1026,17 +1067,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     TlProcessing.TypeName t = (TlProcessing.TypeName) type;
 
                     if (t.isFlag()) {
-                        int flagPos = t.flagPos();
-                        String flagsName = t.flagsName();
-                        TypeNameBase innerType = t.innerType();
-
-                        String pos = Integer.toHexString(1 << flagPos);
-                        if (innerType.rawType.equals("true")) {
-                            return "(" + flagsName + " & 0x" + pos + ") != 0";
-                        }
-
-                        String innerMethod = deserializeMethod0(innerType);
-                        return "(" + flagsName + " & 0x" + pos + ") != 0 ? " + innerMethod + " : null";
+                        throw new IllegalStateException("Unexpected flag type: " + type);
                     } else if (t.isVector()) {
                         String innerTypeRaw = t.innerType().rawType;
                         String specific = "";
@@ -1070,20 +1101,17 @@ public class SchemaGenerator extends AbstractProcessor {
             case "int": return "writeIntLE";
             case "long": return "writeLongLE";
             case "double": return "writeDoubleLE";
-            case "int128":
-            case "int256": return "writeBytes";
             default: throw new IllegalStateException("Unexpected value: " + param.type.rawType);
         }
     }
 
-    @Nullable
     private String serializeMethod(Parameter param) {
         switch (param.type.rawType) {
             case "int":
             case "#":
             case "long":
-            case "int128":
-            case "int256":
+            case "int128": // handled manually
+            case "int256": // ^
             case "double": return "payload.$L()";
             case "Bool": return "payload.$L() ? BOOL_TRUE_ID : BOOL_FALSE_ID";
             case "string": return "serializeString0(buf, payload.$L())";
@@ -1103,8 +1131,6 @@ public class SchemaGenerator extends AbstractProcessor {
                             break;
                     }
                     return "serialize" + specific + "Vector0(buf, payload.$L())";
-                } else if (param.type.rawType.endsWith("true")) {
-                    return null;
                 } else if (param.type.isFlag()) {
                     return "serializeFlags0(buf, payload.$L())";
                 } else {
@@ -1142,7 +1168,7 @@ public class SchemaGenerator extends AbstractProcessor {
                             break;
                     }
                     return "sizeOf" + specific + "Vector(payload.$L())";
-                } else if (param.type.rawType.endsWith("true")) {
+                } else if (param.type.isBitFlag()) {
                     return null;
                 } else if (param.type.isFlag()) {
                     return "sizeOfFlags(payload.$L())";
@@ -1169,23 +1195,14 @@ public class SchemaGenerator extends AbstractProcessor {
         return name;
     }
 
-    private TypeName wrapOptional(MethodSpec.Builder attribute, TypeName type, Parameter param) {
-        if (param.type.rawType.contains("bytes")) {
-            return ParameterizedTypeName.get(ClassName.get(Optional.class), type);
-        }
-
-        attribute.addAnnotation(Nullable.class);
-        return type.box();
-    }
-
     private Map<String, List<Type>> collectTypeTree(Configuration config, TlTrees.Scheme schema) {
         return schema.constructors().stream()
                 .filter(c -> !ignoredTypes.contains(c.type()) && !primitiveTypes.contains(c.type()))
                 .map(e -> Type.parse(config, e))
-                .collect(Collectors.groupingBy(c -> c.type.packageName + "." + c.type.normalized()));
+                .collect(Collectors.groupingBy(c -> c.type.packageName + '.' + c.type.normalized()));
     }
 
-    private List<ClassName> addSuperTypes(String name) { // normalized constr/method name
+    private List<ClassRef> additionalSuperTypes(String name) {
         return superTypes.stream()
                 .filter(t -> t.getT1().test(name))
                 .map(Tuple2::getT2)

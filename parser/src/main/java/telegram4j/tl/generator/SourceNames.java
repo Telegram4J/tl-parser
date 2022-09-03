@@ -34,12 +34,7 @@ public final class SourceNames {
     }
 
     public static String formatFieldName(String name, @Nullable String type) {
-        name = camelize(name);
-
-        char f = name.charAt(0);
-        if (Character.isUpperCase(f)) {
-            name = Character.toLowerCase(f) + name.substring(1);
-        }
+        name = camelize(name, true);
 
         // TODO, replace
         if (!SourceVersion.isName(name)) {
@@ -84,5 +79,19 @@ public final class SourceNames {
             return qualifiedName.substring(0, dot);
         }
         return "";
+    }
+
+    public static String escape(char c) {
+        switch (c) {
+            case '\b': return "\\b";
+            case '\f': return "\\f";
+            case '\n': return "\\n";
+            case '\r': return "\\r";
+            case '\t': return "\\t";
+            case '\'': return "\\'";
+            case '\"': return "\\\"";
+            case '\\': return "\\\\";
+            default: return c >= ' ' && c <= '~' ? String.valueOf(c) : String.format("\\u%04x", (int) c);
+        }
     }
 }

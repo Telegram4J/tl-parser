@@ -113,7 +113,7 @@ public class OptionalListByteBufEncoding {
 
         @Encoding.Build
         List<ByteBuf> build() {
-            return value.map(TlEncodingUtil::unmodifiableList).orElse(null);
+            return value.map(TlEncodingUtil::copyList).orElse(null);
         }
     }
 }

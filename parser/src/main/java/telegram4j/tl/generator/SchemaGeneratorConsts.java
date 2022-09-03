@@ -1,46 +1,62 @@
 package telegram4j.tl.generator;
 
-import com.squareup.javapoet.*;
+import io.netty.buffer.ByteBuf;
 import telegram4j.tl.api.TlMethod;
+import telegram4j.tl.generator.renderer.*;
 
-import javax.lang.model.element.Modifier;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-public final class SchemaGeneratorConsts {
+final class SchemaGeneratorConsts {
 
     private SchemaGeneratorConsts() {
     }
 
-    public static final int LAYER = 143;
+    static final int LAYER = 143;
 
     // channelFull has two flags fields
-    public static final Pattern FLAG_PATTERN = Pattern.compile("^(\\w+)\\.(\\d+)\\?(.+)$");
-    public static final Pattern VECTOR_PATTERN = Pattern.compile("^[vV]ector<%?([\\w.<>]+)>$");
+    static final Pattern FLAG_PATTERN = Pattern.compile("^(\\w+)\\.(\\d+)\\?(.+)$");
+    static final Pattern VECTOR_PATTERN = Pattern.compile("^[vV]ector<%?([\\w.<>]+)>$");
     // excluded from generation
-    public static final Set<String> ignoredTypes = Set.of("True", "Null", "HttpWait");
-    // list of types whose ids will be in TlPrimitives
-    public static final Set<String> primitiveTypes = Set.of(
+    static final Set<String> ignoredTypes = Set.of("True", "Null", "HttpWait");
+    // list of types whose ids will be in TlInfo
+    static final Set<String> primitiveTypes = Set.of(
             "Bool", "Vector t", "JSONValue", "JSONObjectValue");
 
-    public static final String METHOD_PACKAGE_PREFIX = "request";
-    public static final String TEMPLATE_PACKAGE_INFO = "package-info.template";
-    public static final String SUPERTYPES_DATA = "supertypes.json";
-    public static final String BASE_PACKAGE = "telegram4j.tl";
-    public static final String INDENT = "\t";
+    static final String METHOD_PACKAGE_PREFIX = "request";
+    static final String TEMPLATE_PACKAGE_INFO = "package-info.template";
+    static final String SUPERTYPES_DATA = "supertypes.json";
+    static final String BASE_PACKAGE = "telegram4j.tl";
 
-    public static final TypeVariableName genericTypeRef = TypeVariableName.get("T");
-    public static final TypeVariableName genericResultTypeRef = TypeVariableName.get("R");
-    public static final TypeName wildcardMethodType = ParameterizedTypeName.get(
-            ClassName.get(TlMethod.class), WildcardTypeName.subtypeOf(genericResultTypeRef));
-    public static final TypeName wildcardUnboundedMethodType = ParameterizedTypeName.get(
-            ClassName.get(TlMethod.class), WildcardTypeName.subtypeOf(TypeName.OBJECT));
+    static final TypeVariableRef genericTypeRef = TypeVariableRef.of("T");
+    static final TypeVariableRef genericResultTypeRef = TypeVariableRef.of("R");
+    // <R, T extends TlMethod<? extends R>>
+    static final TypeRef wildcardMethodType = ParameterizedTypeRef.of(
+            TlMethod.class, WildcardTypeRef.subtypeOf(genericResultTypeRef));
 
-    public static final MethodSpec privateConstructor = MethodSpec.constructorBuilder()
-            .addModifiers(Modifier.PRIVATE)
-            .build();
-
-    public static final List<NameTransformer> namingExceptions = List.of(
+    static final List<NameTransformer> namingExceptions = List.of(
             NameTransformer.create("messages.StickerSet", "messages.StickerSetWithDocuments"));
+
+    // some interned types
+
+    static final ClassRef LIST = ClassRef.of(List.class);
+    static final ClassRef ITERABLE = ClassRef.of(Iterable.class);
+    static final ClassRef STRING = ClassRef.of(String.class);
+    static final ClassRef BYTE_BUF = ClassRef.of(ByteBuf.class);
+
+    // names style
+
+    static class Style {
+        static final Naming sizeVariable = Naming.from("*Size");
+        static final Naming bitMask = Naming.from("*Mask");
+        static final Naming bitPos = Naming.from("*Pos");
+
+        static final Naming immutable = Naming.from("Immutable*");
+        static final Naming add = Naming.from("add*");
+        static final Naming addAll = Naming.from("addAll*");
+        static final Naming with = Naming.from("with*");
+        static final Naming newValue = Naming.from("new*Value");
+        static final Naming initBit = Naming.from("initBit*");
+    }
 }

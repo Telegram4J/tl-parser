@@ -18,7 +18,7 @@ import java.util.zip.Deflater;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class SerializationTest {
+class SerializationTest {
 
     static ByteBufAllocator alloc = UnpooledByteBufAllocator.DEFAULT;
 
@@ -27,7 +27,7 @@ public class SerializationTest {
         Channel expected = Channel.builder()
                 .id(1)
                 .title("title")
-                .photo(ChatPhotoEmpty.instance())
+                .photo(ImmutableChatPhotoEmpty.of())
                 .gigagroup(true)
                 .date(1)
                 .build();
@@ -46,7 +46,7 @@ public class SerializationTest {
                 .date(1337)
                 .title("A!")
                 .id(10)
-                .photo(ChatPhotoEmpty.instance())
+                .photo(ImmutableChatPhotoEmpty.of())
                 .participantsCount(99)
                 .callNotEmpty(true)
                 .build();
@@ -106,11 +106,34 @@ public class SerializationTest {
                 // flags - 4
                 .id(1) // 8
                 .title("title") // 8
-                .photo(ChatPhotoEmpty.instance()) // 4
+                .photo(ImmutableChatPhotoEmpty.of()) // 4
                 .date(1) // 4
                 .build();
 
         assertEquals(TlSerializer.sizeOf(expected), 32);
+    }
+
+    @Test
+    void objectMethods() {
+        Channel expected = Channel.builder()
+                .id(1)
+                .title("title")
+                .photo(ImmutableChatPhotoEmpty.of())
+                .gigagroup(true)
+                .date(1)
+                .build();
+
+        Channel actual = Channel.builder()
+                .id(1)
+                .title("title")
+                .photo(ImmutableChatPhotoEmpty.of())
+                .gigagroup(true)
+                .date(1)
+                .build();
+
+        assertEquals(expected.toString(), actual.toString());
+        assertEquals(expected, actual);
+        assertEquals(expected.hashCode(), actual.hashCode());
     }
 
     static <T extends TlObject> T serialize(T obj) {

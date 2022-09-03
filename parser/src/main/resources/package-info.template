@@ -1,14 +1,4 @@
-@Value.Style(
-        depluralize = true,
-        jdkOnly = true,
-        allMandatoryParameters = true,
-        defaultAsDefault = true,
-        allowedClasspathAnnotations = {Override.class}
-)
 @NonNullApi
-@TlEncodingsEnabled
 package ${package-name};
 
-import org.immutables.value.Value;
 import reactor.util.annotation.NonNullApi;
-import telegram4j.tl.encoding.TlEncodingsEnabled;

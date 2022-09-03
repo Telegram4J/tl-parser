@@ -1,19 +1,22 @@
 package telegram4j.tl.generator;
 
-final class Strings {
+public final class Strings {
 
     private Strings() {}
 
-    static String camelize(String type) {
-        if (!type.contains("_") && !type.contains(".")) {
-            return type;
-        }
+    static String camelize(String str) {
+        return camelize(str, false);
+    }
 
-        StringBuilder builder = new StringBuilder(type.length());
-        for (int i = 0; i < type.length(); i++) {
-            char c = type.charAt(i);
-            if (c == '_' || c == '.') {
-                char n = Character.toUpperCase(type.charAt(++i));
+    static String camelize(String str, boolean firstAsLower) {
+        StringBuilder builder = new StringBuilder(str.length());
+        for (int i = 0; i < str.length(); i++) {
+            char c = str.charAt(i);
+            if (i == 0 && firstAsLower) {
+                char n = Character.toLowerCase(str.charAt(i));
+                builder.append(n);
+            } else if ((c == '_' || c == '.') && ++i < str.length()) {
+                char n = Character.toUpperCase(str.charAt(i));
                 builder.append(n);
             } else {
                 builder.append(c);
@@ -29,7 +32,7 @@ final class Strings {
             char c = type.charAt(i);
 
             if (Character.isLetter(c) && Character.isLetter(p) &&
-                    Character.isLowerCase(p) && Character.isUpperCase(c)) {
+                Character.isLowerCase(p) && Character.isUpperCase(c)) {
                 buf.append('_');
             }
 

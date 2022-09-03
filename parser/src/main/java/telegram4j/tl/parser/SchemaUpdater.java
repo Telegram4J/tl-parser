@@ -129,9 +129,11 @@ class SchemaUpdater {
     static Mono<Void> handleJsonScheme(String str, String filename) {
         return Mono.fromCallable(() -> mapper.readTree(str))
                 .doOnNext(SchemaUpdater::applyModification)
-                .flatMap(tree -> Mono.fromCallable(() -> mapper.writerWithDefaultPrettyPrinter()
-                        .writeValues(new File(pathPrefix + filename))
-                        .write(tree)))
+                .flatMap(tree -> Mono.fromCallable(() -> {
+                    mapper.writerWithDefaultPrettyPrinter()
+                            .writeValue(new File(pathPrefix + filename), tree);
+                    return null;
+                }))
                 .then();
     }
 

@@ -76,11 +76,11 @@ public final class TlSerialUtil {
     }
 
     static ByteBuf readInt128(ByteBuf buf) {
-        return buf.readSlice(Long.BYTES * 2);
+        return buf.readSlice(8 * 2);
     }
 
     static ByteBuf readInt256(ByteBuf buf) {
-        return buf.readSlice(Long.BYTES * 4);
+        return buf.readSlice(8 * 4);
     }
 
     // sizeOf methods
@@ -126,15 +126,11 @@ public final class TlSerialUtil {
     static <T> int sizeOfVector0(int count, Iterator<T> it, ToIntFunction<T> func) {
         return StreamSupport.stream(Spliterators.spliterator(it, count, 0), false)
                 .mapToInt(func)
-                .reduce(0, Integer::sum);
+                .reduce(8, Integer::sum);
     }
 
     static <T> int sizeOfVector0(List<T> list, ToIntFunction<T> func) {
-        return 8 + list.stream().mapToInt(func).reduce(0, Integer::sum);
-    }
-
-    static int sizeOfFlags(Optional<?> o) {
-        return o.map(TlSerialUtil::sizeOfUnknown).orElse(0);
+        return list.stream().mapToInt(func).reduce(8, Integer::sum);
     }
 
     static int sizeOfFlags(@Nullable Object o) {
@@ -237,10 +233,6 @@ public final class TlSerialUtil {
 
     public static ByteBuf serializeVector(ByteBufAllocator allocator, List<? extends TlObject> vector) {
         return serializeVector0(allocator, vector, e -> TlSerializer.serialize(allocator, e));
-    }
-
-    public static ByteBuf serializeFlags(ByteBufAllocator allocator, Optional<?> value) {
-        return value.map(o -> serializeUnknown(allocator, o)).orElse(Unpooled.EMPTY_BUFFER);
     }
 
     public static ByteBuf serializeFlags(ByteBufAllocator allocator, @Nullable Object value) {
@@ -427,10 +419,6 @@ public final class TlSerialUtil {
         }
     }
 
-    static void serializeFlags0(ByteBuf buf, Optional<?> value) {
-        value.ifPresent(e -> serializeUnknown0(buf, e));
-    }
-
     static void serializeFlags0(ByteBuf buf, @Nullable Object value) {
         if (value != null) {
             serializeUnknown0(buf, value);
@@ -466,7 +454,11 @@ public final class TlSerialUtil {
     }
 
     static <T> void serializeVector0(ByteBuf buf, List<T> list, BiConsumer<ByteBuf, T> func) {
-        serializeVector0(buf, list.size(), list.iterator(), func);
+        buf.writeIntLE(VECTOR_ID);
+        buf.writeIntLE(list.size());
+        for (T t : list) {
+            func.accept(buf, t);
+        }
     }
 
     static void serializeString0(ByteBuf buf, String str) {
@@ -500,7 +492,7 @@ public final class TlSerialUtil {
             buf.writeByte(n);
         }
 
-        buf.writeBytes(bytes);
+        buf.writeBytes(bytes, bytes.readerIndex(), n);
         if (offset != 0) {
             buf.writeZero(4 - offset);
         }

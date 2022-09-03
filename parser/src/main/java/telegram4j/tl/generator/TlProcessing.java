@@ -1,6 +1,7 @@
 package telegram4j.tl.generator;
 
 import reactor.util.annotation.Nullable;
+import telegram4j.tl.generator.renderer.TypeRef;
 import telegram4j.tl.parser.TlTrees;
 import telegram4j.tl.parser.TlTrees.Type.Kind;
 
@@ -45,10 +46,10 @@ public class TlProcessing {
         public final String name;
         @Nullable
         public final String packagePrefix;
-        public final TypeMirror superType;
+        public final TypeRef superType;
 
         private Configuration(String basePackageName, String name,
-                              @Nullable String packagePrefix, @Nullable TypeMirror superType) {
+                              @Nullable String packagePrefix, @Nullable TypeRef superType) {
             this.basePackageName = basePackageName;
             this.name = name;
             this.packagePrefix = packagePrefix;
@@ -83,9 +84,10 @@ public class TlProcessing {
                         .map(Configuration::<String>cast)
                         .orElse(null);
 
-                TypeMirror superType = Optional.ofNullable(config.get("superType"))
+                TypeRef superType = Optional.ofNullable(config.get("superType"))
                         .map(AnnotationValue::getValue)
                         .map(Configuration::<TypeMirror>cast)
+                        .map(TypeRef::from)
                         .orElse(null);
 
                 configs[i] = new Configuration(basePackageName, name, packagePrefix, superType);
@@ -211,6 +213,10 @@ public class TlProcessing {
 
         public boolean isFlag() {
             return flagPos != -1;
+        }
+
+        public boolean isBitFlag() {
+            return isFlag() && innerType().rawType.equals("true");
         }
 
         public boolean isVector() {
