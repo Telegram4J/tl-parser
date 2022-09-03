@@ -13,7 +13,7 @@ final class SchemaGeneratorConsts {
     private SchemaGeneratorConsts() {
     }
 
-    static final int LAYER = 143;
+    public static final int LAYER = 144;
 
     // channelFull has two flags fields
     static final Pattern FLAG_PATTERN = Pattern.compile("^(\\w+)\\.(\\d+)\\?(.+)$");

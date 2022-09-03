@@ -40,6 +40,78 @@
       "type": "Error"
     },
     {
+      "id": "d433ad73",
+      "predicate": "ipPort",
+      "params": [
+        {
+          "name": "ipv4",
+          "type": "int"
+        },
+        {
+          "name": "port",
+          "type": "int"
+        }
+      ],
+      "type": "IpPort"
+    },
+    {
+      "id": "37982646",
+      "predicate": "ipPortSecret",
+      "params": [
+        {
+          "name": "ipv4",
+          "type": "int"
+        },
+        {
+          "name": "port",
+          "type": "int"
+        },
+        {
+          "name": "secret",
+          "type": "bytes"
+        }
+      ],
+      "type": "IpPort"
+    },
+    {
+      "id": "4679b65f",
+      "predicate": "accessPointRule",
+      "params": [
+        {
+          "name": "phone_prefix_rules",
+          "type": "string"
+        },
+        {
+          "name": "dc_id",
+          "type": "int"
+        },
+        {
+          "name": "ips",
+          "type": "vector<IpPort>"
+        }
+      ],
+      "type": "AccessPointRule"
+    },
+    {
+      "id": "5a592a6c",
+      "predicate": "help.configSimple",
+      "params": [
+        {
+          "name": "date",
+          "type": "int"
+        },
+        {
+          "name": "expires",
+          "type": "int"
+        },
+        {
+          "name": "rules",
+          "type": "vector<AccessPointRule>"
+        }
+      ],
+      "type": "help.ConfigSimple"
+    },
+    {
       "id": "27d69997",
       "predicate": "inputPeerPhotoFileLocationLegacy",
       "params": [
@@ -2789,6 +2861,25 @@
       "type": "MessageAction"
     },
     {
+      "id": "aba0f5c6",
+      "predicate": "messageActionGiftPremium",
+      "params": [
+        {
+          "name": "currency",
+          "type": "string"
+        },
+        {
+          "name": "amount",
+          "type": "long"
+        },
+        {
+          "name": "months",
+          "type": "int"
+        }
+      ],
+      "type": "MessageAction"
+    },
+    {
       "id": "a8edd0f5",
       "predicate": "dialog",
       "params": [
@@ -3460,7 +3551,7 @@
       "type": "ReportReason"
     },
     {
-      "id": "8c72ea81",
+      "id": "c4b1fc3f",
       "predicate": "userFull",
       "params": [
         {
@@ -3490,6 +3581,10 @@
         {
           "name": "video_calls_available",
           "type": "flags.13?true"
+        },
+        {
+          "name": "voice_messages_forbidden",
+          "type": "flags.20?true"
         },
         {
           "name": "id",
@@ -3546,6 +3641,10 @@
         {
           "name": "bot_broadcast_admin_rights",
           "type": "flags.18?ChatAdminRights"
+        },
+        {
+          "name": "premium_gifts",
+          "type": "flags.19?Vector<PremiumGiftOption>"
         }
       ],
       "type": "UserFull"
@@ -4648,6 +4747,10 @@
         {
           "name": "masks",
           "type": "flags.0?true"
+        },
+        {
+          "name": "emojis",
+          "type": "flags.1?true"
         },
         {
           "name": "order",
@@ -5890,6 +5993,12 @@
           "type": "string"
         }
       ],
+      "type": "Update"
+    },
+    {
+      "id": "fb4c496c",
+      "predicate": "updateReadFeaturedEmojiStickers",
+      "params": [],
       "type": "Update"
     },
     {
@@ -7430,6 +7539,12 @@
       "type": "InputPrivacyKey"
     },
     {
+      "id": "aee69d68",
+      "predicate": "inputPrivacyKeyVoiceMessages",
+      "params": [],
+      "type": "InputPrivacyKey"
+    },
+    {
       "id": "bc2eab30",
       "predicate": "privacyKeyStatusTimestamp",
       "params": [],
@@ -7474,6 +7589,12 @@
     {
       "id": "42ffd42b",
       "predicate": "privacyKeyAddedByPhone",
+      "params": [],
+      "type": "PrivacyKey"
+    },
+    {
+      "id": "697f414",
+      "predicate": "privacyKeyVoiceMessages",
       "params": [],
       "type": "PrivacyKey"
     },
@@ -7768,6 +7889,29 @@
       "id": "9801d2f7",
       "predicate": "documentAttributeHasStickers",
       "params": [],
+      "type": "DocumentAttribute"
+    },
+    {
+      "id": "fd149899",
+      "predicate": "documentAttributeCustomEmoji",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "free",
+          "type": "flags.0?true"
+        },
+        {
+          "name": "alt",
+          "type": "string"
+        },
+        {
+          "name": "stickerset",
+          "type": "InputStickerSet"
+        }
+      ],
       "type": "DocumentAttribute"
     },
     {
@@ -8393,7 +8537,13 @@
       "type": "InputStickerSet"
     },
     {
-      "id": "d7df217a",
+      "id": "c88b3b02",
+      "predicate": "inputStickerSetPremiumGifts",
+      "params": [],
+      "type": "InputStickerSet"
+    },
+    {
+      "id": "2dd14edc",
       "predicate": "stickerSet",
       "params": [
         {
@@ -8419,6 +8569,10 @@
         {
           "name": "videos",
           "type": "flags.6?true"
+        },
+        {
+          "name": "emojis",
+          "type": "flags.7?true"
         },
         {
           "name": "installed_date",
@@ -8451,6 +8605,10 @@
         {
           "name": "thumb_version",
           "type": "flags.4?int"
+        },
+        {
+          "name": "thumb_document_id",
+          "type": "flags.8?long"
         },
         {
           "name": "count",
@@ -9194,6 +9352,25 @@
         {
           "name": "length",
           "type": "int"
+        }
+      ],
+      "type": "MessageEntity"
+    },
+    {
+      "id": "c8cf05f8",
+      "predicate": "messageEntityCustomEmoji",
+      "params": [
+        {
+          "name": "offset",
+          "type": "int"
+        },
+        {
+          "name": "length",
+          "type": "int"
+        },
+        {
+          "name": "document_id",
+          "type": "long"
         }
       ],
       "type": "MessageEntity"
@@ -10941,6 +11118,25 @@
       "type": "StickerSetCovered"
     },
     {
+      "id": "1aed5ee5",
+      "predicate": "stickerSetFullCovered",
+      "params": [
+        {
+          "name": "set",
+          "type": "StickerSet"
+        },
+        {
+          "name": "packs",
+          "type": "Vector<StickerPack>"
+        },
+        {
+          "name": "documents",
+          "type": "Vector<Document>"
+        }
+      ],
+      "type": "StickerSetCovered"
+    },
+    {
       "id": "aed6dbb2",
       "predicate": "maskCoords",
       "params": [
@@ -12085,6 +12281,33 @@
       "type": "InputWebFileLocation"
     },
     {
+      "id": "f46fe924",
+      "predicate": "inputWebFileAudioAlbumThumbLocation",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "small",
+          "type": "flags.2?true"
+        },
+        {
+          "name": "document",
+          "type": "flags.0?InputDocument"
+        },
+        {
+          "name": "title",
+          "type": "flags.1?string"
+        },
+        {
+          "name": "performer",
+          "type": "flags.1?string"
+        }
+      ],
+      "type": "InputWebFileLocation"
+    },
+    {
       "id": "21e753bc",
       "predicate": "upload.webFile",
       "params": [
@@ -12112,7 +12335,7 @@
       "type": "upload.WebFile"
     },
     {
-      "id": "b0133b37",
+      "id": "a0058751",
       "predicate": "payments.paymentForm",
       "params": [
         {
@@ -12168,12 +12391,16 @@
           "type": "flags.4?DataJSON"
         },
         {
+          "name": "additional_methods",
+          "type": "flags.6?Vector<PaymentFormMethod>"
+        },
+        {
           "name": "saved_info",
           "type": "flags.0?PaymentRequestedInfo"
         },
         {
           "name": "saved_credentials",
-          "type": "flags.1?PaymentSavedCredentials"
+          "type": "flags.1?Vector<PaymentSavedCredentials>"
         },
         {
           "name": "users",
@@ -18471,6 +18698,86 @@
         }
       ],
       "type": "help.PremiumPromo"
+    },
+    {
+      "id": "a6751e66",
+      "predicate": "inputStorePaymentPremiumSubscription",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "restore",
+          "type": "flags.0?true"
+        }
+      ],
+      "type": "InputStorePaymentPurpose"
+    },
+    {
+      "id": "616f7fe8",
+      "predicate": "inputStorePaymentGiftPremium",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "InputUser"
+        },
+        {
+          "name": "currency",
+          "type": "string"
+        },
+        {
+          "name": "amount",
+          "type": "long"
+        }
+      ],
+      "type": "InputStorePaymentPurpose"
+    },
+    {
+      "id": "74c34319",
+      "predicate": "premiumGiftOption",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "months",
+          "type": "int"
+        },
+        {
+          "name": "currency",
+          "type": "string"
+        },
+        {
+          "name": "amount",
+          "type": "long"
+        },
+        {
+          "name": "bot_url",
+          "type": "string"
+        },
+        {
+          "name": "store_product",
+          "type": "flags.0?string"
+        }
+      ],
+      "type": "PremiumGiftOption"
+    },
+    {
+      "id": "88f8f21b",
+      "predicate": "paymentFormMethod",
+      "params": [
+        {
+          "name": "url",
+          "type": "string"
+        },
+        {
+          "name": "title",
+          "type": "string"
+        }
+      ],
+      "type": "PaymentFormMethod"
     }
   ],
   "methods": [
@@ -19088,12 +19395,20 @@
       "type": "account.PrivacyRules"
     },
     {
-      "id": "418d4e0b",
+      "id": "a2c0cf74",
       "method": "account.deleteAccount",
       "params": [
         {
+          "name": "flags",
+          "type": "#"
+        },
+        {
           "name": "reason",
           "type": "string"
+        },
+        {
+          "name": "password",
+          "type": "flags.0?InputCheckPasswordSRP"
         }
       ],
       "type": "Bool"
@@ -21415,6 +21730,10 @@
           "type": "flags.0?true"
         },
         {
+          "name": "emojis",
+          "type": "flags.1?true"
+        },
+        {
           "name": "order",
           "type": "Vector<long>"
         }
@@ -21884,6 +22203,10 @@
         {
           "name": "masks",
           "type": "flags.0?true"
+        },
+        {
+          "name": "emojis",
+          "type": "flags.1?true"
         },
         {
           "name": "offset_id",
@@ -23772,6 +24095,39 @@
       "type": "Bool"
     },
     {
+      "id": "d9ab0f54",
+      "method": "messages.getCustomEmojiDocuments",
+      "params": [
+        {
+          "name": "document_id",
+          "type": "Vector<long>"
+        }
+      ],
+      "type": "Vector<Document>"
+    },
+    {
+      "id": "fbfca18f",
+      "method": "messages.getEmojiStickers",
+      "params": [
+        {
+          "name": "hash",
+          "type": "long"
+        }
+      ],
+      "type": "messages.AllStickers"
+    },
+    {
+      "id": "ecf6736",
+      "method": "messages.getFeaturedEmojiStickers",
+      "params": [
+        {
+          "name": "hash",
+          "type": "long"
+        }
+      ],
+      "type": "messages.FeaturedStickers"
+    },
+    {
       "id": "edd4882a",
       "method": "updates.getState",
       "params": [],
@@ -25218,39 +25574,44 @@
       "type": "payments.ExportedInvoice"
     },
     {
-      "id": "d5ccfd0",
+      "id": "80ed747d",
       "method": "payments.assignAppStoreTransaction",
       "params": [
         {
-          "name": "flags",
-          "type": "#"
-        },
-        {
-          "name": "restore",
-          "type": "flags.0?true"
-        },
-        {
           "name": "receipt",
           "type": "bytes"
+        },
+        {
+          "name": "purpose",
+          "type": "InputStorePaymentPurpose"
         }
       ],
       "type": "Updates"
     },
     {
-      "id": "4faa4aed",
+      "id": "dffd50d3",
       "method": "payments.assignPlayMarketTransaction",
       "params": [
         {
-          "name": "purchase_token",
-          "type": "string"
+          "name": "receipt",
+          "type": "DataJSON"
+        },
+        {
+          "name": "purpose",
+          "type": "InputStorePaymentPurpose"
         }
       ],
       "type": "Updates"
     },
     {
-      "id": "aa6a90c8",
+      "id": "9fc19eb6",
       "method": "payments.canPurchasePremium",
-      "params": [],
+      "params": [
+        {
+          "name": "purpose",
+          "type": "InputStorePaymentPurpose"
+        }
+      ],
       "type": "Bool"
     },
     {
