@@ -36,4 +36,4 @@ jobs:
           java-version: 11
           distribution: 'temurin'
       - name: Publish sources with Gradle
-        run: ./gradlew --stacktrace -PsonatypeUsername=${{ secrets.sonatypeUsername }} -PsonatypePassword=${{ secrets.sonatypePassword }} -PsigningKey="${{ secrets.signingKey }}" -PsigningPassword=${{ secrets.signingPassword }} publish
+        run: ./gradlew -PsonatypeUsername=${{ secrets.sonatypeUsername }} -PsonatypePassword=${{ secrets.sonatypePassword }} -PsigningKey="${{ secrets.signingKey }}" -PsigningPassword=${{ secrets.signingPassword }} publish
