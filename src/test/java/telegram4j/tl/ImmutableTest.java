@@ -23,5 +23,6 @@ class ImmutableTest {
         assertSame(user, user.withRestrictionReason((Iterable<? extends RestrictionReason>) null));
         assertSame(user.withFlags(BaseUser.ACCESS_HASH_MASK), user);
         assertNotEquals(user.withFlags(BaseUser.BOT_MASK), user);
+        assertNull(user.withFlags(BaseUser.BOT_MASK).botInfoVersion());
     }
 }

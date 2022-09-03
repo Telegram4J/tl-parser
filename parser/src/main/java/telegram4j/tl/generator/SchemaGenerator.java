@@ -756,6 +756,14 @@ public class SchemaGenerator extends AbstractProcessor {
 
         valType.canOmitCopyConstr = primitiveFieldsCount == valType.generated.size();
         valType.needStubParam = refFieldsCount > 0;
+
+        valType.usedBits = new HashMap<>();
+        for (ImmutableGenerator.ValueAttribute a : valType.attributes) {
+            if (a.flags.contains(ImmutableGenerator.ValueAttribute.Flag.BIT_FLAG)) {
+                valType.usedBits.computeIfAbsent(a.flagsName, k -> new BitSet()).set(a.flagPos);
+            }
+        }
+
         return valType;
     }
 

@@ -55,7 +55,7 @@ class ImmutableGenerator {
         }
 
         for (ValueAttribute a : type.generated) {
-            renderer.addField(unboxOptional(a), a.name, Modifier.PRIVATE, Modifier.FINAL).complete();
+            renderer.addField(unboxOptional(a, type), a.name, Modifier.PRIVATE, Modifier.FINAL).complete();
         }
         // endregion
 
@@ -65,8 +65,7 @@ class ImmutableGenerator {
             var singletonConstructor = renderer.addConstructor(Modifier.PRIVATE);
 
             for (ValueAttribute a : type.generated) {
-                TypeRef unwrapped = unboxOptional(a);
-                singletonConstructor.addStatement("$L = $L", a.name, defaultValueFor(unwrapped));
+                singletonConstructor.addStatement("$L = $L", a.name, defaultValueFor(unboxOptional(a, type)));
             }
 
             singletonConstructor.complete();
@@ -124,24 +123,17 @@ class ImmutableGenerator {
                     mandatoryConstructorBody.ln();
                 }
             } else {
-                TypeRef unwrapped = unboxOptional(a);
+                TypeRef unwrapped = unboxOptional(a, type);
                 mandatoryConstructorBody.addStatement("$L = $L", a.name, defaultValueFor(unwrapped));
             }
         }
 
         Map<String, List<ValueAttribute>> bitSetsToFlags = new HashMap<>();
-        Map<String, BitSet> usedBits = new HashMap<>();
-        for (ValueAttribute a : type.attributes) {
-            if (a.flags.contains(ValueAttribute.Flag.BIT_FLAG)) {
-                usedBits.computeIfAbsent(a.flagsName, k -> new BitSet()).set(a.flagPos);
-            }
-        }
-
         for (ValueAttribute a : type.generated) {
             if (a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
                 var list = bitSetsToFlags.computeIfAbsent(a.flagsName, k -> new ArrayList<>());
 
-                BitSet bits = usedBits.get(a.flagsName);
+                BitSet bits = type.usedBits.get(a.flagsName);
                 if (bits == null || !bits.get(a.flagPos)) {
                     list.add(a);
                 }
@@ -181,8 +173,10 @@ class ImmutableGenerator {
         for (ValueAttribute a : type.generated) {
             StringBuilder format = new StringBuilder("this.$1L = ");
             TypeRef listElement = unwrap(a.type, LIST);
+            BitSet bs;
             boolean isOptional = a.flags.contains(ValueAttribute.Flag.OPTIONAL) &&
-                    (listElement != a.type || a.type.safeUnbox() instanceof PrimitiveTypeRef);
+                    (listElement != a.type || a.type.safeUnbox() instanceof PrimitiveTypeRef &&
+                    ((bs = type.usedBits.get(a.flagsName)) == null || !bs.get(a.flagPos)));
             if (isOptional) {
                 format.append("builder.$1L != null ? ");
             }
@@ -217,7 +211,7 @@ class ImmutableGenerator {
             }
 
             for (ValueAttribute a : type.generated) {
-                allConstructor.addParameter(unboxOptional(a), a.name);
+                allConstructor.addParameter(unboxOptional(a, type), a.name);
                 allConstructorBody.addStatement("this.$1L = $1L", a.name);
             }
 
@@ -287,15 +281,18 @@ class ImmutableGenerator {
             attr.addModifiers(Modifier.PUBLIC);
 
             if (a.flags.contains(ValueAttribute.Flag.BIT_FLAG)) {
-                attr.addStatement("return ($L & $L) != 0", a.flagsName(), a.flagMask());
+                attr.addStatement("return ($L & $L) != 0", a.flagsName, a.flagMask);
             } else {
                 TypeRef listElement = unwrap(a.type, LIST);
 
                 boolean opt = a.flags.contains(ValueAttribute.Flag.OPTIONAL);
+                BitSet bs;
+                boolean primitiveOpt = opt && a.type.safeUnbox() instanceof PrimitiveTypeRef
+                        && ((bs = type.usedBits.get(a.flagsName)) == null || !bs.get(a.flagPos));
                 StringBuilder format = new StringBuilder("return ");
                 if (opt && listElement == BYTE_BUF) {
                     format.append("$L != null ? ");
-                } else if (opt && a.type.safeUnbox() instanceof PrimitiveTypeRef) {
+                } else if (primitiveOpt) {
                     format.append("($2L & $3L) != 0 ? ");
                 }
 
@@ -309,7 +306,7 @@ class ImmutableGenerator {
                     format.append("$1L");
                 }
 
-                if (opt && (listElement == BYTE_BUF || a.type.safeUnbox() instanceof PrimitiveTypeRef)) {
+                if (opt && (listElement == BYTE_BUF || primitiveOpt)) {
                     format.append(" : null");
                 }
 
@@ -358,7 +355,7 @@ class ImmutableGenerator {
         for (int i = 0, n = type.generated.size(); i < n; i++) {
             ValueAttribute a = type.generated.get(i);
 
-            TypeRef unwrapped = unboxOptional(a);
+            TypeRef unwrapped = unboxOptional(a, type);
 
             // region hashCode
             if (unwrapped == PrimitiveTypeRef.DOUBLE) {
@@ -799,7 +796,10 @@ class ImmutableGenerator {
         } else if (a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
             TypeRef unboxed = a.type.safeUnbox();
 
-            if (unboxed instanceof PrimitiveTypeRef) {
+            BitSet bs;
+            if (unboxed instanceof PrimitiveTypeRef && (bs = type.usedBits.get(a.flagsName)) != null && bs.get(a.flagPos)) {
+                withMethod.addStatement("if ($T.equals($L, $L)) return this", Objects.class, localName, paramName);
+            } else if (unboxed instanceof PrimitiveTypeRef) {
                 transformed = true;
 
                 withMethod.addStatement("if ($T.eq(($L & $L) != 0, $L, $L)) return this",
@@ -814,7 +814,7 @@ class ImmutableGenerator {
                 withMethod.addStatement("$1T $2L = $4L != null ? $3T.copyAsUnpooled($4L) : null", BYTE_BUF, newValueVar, UTILITY, paramName);
             } else if (unboxed == STRING) {
                 withMethod.addStatement("if ($T.equals($L, $L)) return this", Objects.class, localName, paramName);
-            } else  {
+            } else {
                 withMethod.addStatement("if ($L == $L) return this", localName, paramName);
             }
 
@@ -1086,11 +1086,12 @@ class ImmutableGenerator {
         }
     }
 
-    private TypeRef unboxOptional(ValueAttribute attribute) {
-        if (attribute.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
-            return attribute.type.safeUnbox();
+    private TypeRef unboxOptional(ValueAttribute a, ValueType type) {
+        if (a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
+            BitSet bs = type.usedBits.get(a.flagsName);
+            return bs == null || !bs.get(a.flagPos) ? a.type.safeUnbox() : a.type;
         }
-        return attribute.type;
+        return a.type;
     }
 
     private String defaultValueFor(TypeRef type) {
@@ -1123,6 +1124,7 @@ class ImmutableGenerator {
             builderType = ParameterizedTypeRef.of(immutableType.rawType.nested("Builder"), typeVarNames);
         }
 
+        public Map<String, BitSet> usedBits;
         public boolean needStubParam;
         public boolean canOmitCopyConstr;
         public List<ValueAttribute> attributes;
