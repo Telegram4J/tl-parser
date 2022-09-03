@@ -140,6 +140,17 @@ public class ExecutableRenderer<P extends BaseClassRenderer<?>>
     }
 
     @Override
+    public ExecutableRenderer<P> addCodeFormatted(CharSequence code) {
+        if (stage != BODY) {
+            RenderUtils.requireStage(stage, ANNOTATIONS, EXCEPTIONS);
+            completeStage(BODY);
+        }
+
+        parent.formatCode(out, code);
+        return this;
+    }
+
+    @Override
     public ExecutableRenderer<P> addCode(CharSequence format, Object... args) {
         if (stage != BODY) {
             RenderUtils.requireStage(stage, ANNOTATIONS, EXCEPTIONS);

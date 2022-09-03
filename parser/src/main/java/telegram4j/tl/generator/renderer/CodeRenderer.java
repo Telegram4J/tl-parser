@@ -12,6 +12,8 @@ public interface CodeRenderer<P> extends CompletableRenderer<P> {
 
     CodeRenderer<P> addCode(CharSequence code);
 
+    CodeRenderer<P> addCodeFormatted(CharSequence code);
+
     CodeRenderer<P> addCode(CharSequence format, Object... args);
 
     CodeRenderer<P> beginControlFlow(CharSequence code);

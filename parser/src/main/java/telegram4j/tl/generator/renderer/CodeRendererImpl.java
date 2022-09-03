@@ -67,6 +67,14 @@ class CodeRendererImpl implements CodeRenderer<CharSequence> {
     }
 
     @Override
+    public CodeRenderer<CharSequence> addCodeFormatted(CharSequence code) {
+        RenderUtils.requireStage(stage, Stage.PROCESSING);
+
+        parent.formatCode(out, code);
+        return this;
+    }
+
+    @Override
     public CodeRenderer<CharSequence> addCode(CharSequence format, Object... args) {
         RenderUtils.requireStage(stage, Stage.PROCESSING);
 

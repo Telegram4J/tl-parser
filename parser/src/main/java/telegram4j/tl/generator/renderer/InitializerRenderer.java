@@ -62,6 +62,13 @@ public class InitializerRenderer<P extends BaseClassRenderer<?>>
     }
 
     @Override
+    public InitializerRenderer<P> addCodeFormatted(CharSequence code) {
+        RenderUtils.requireStage(stage, PROCESSING);
+        parent.formatCode(out, code);
+        return this;
+    }
+
+    @Override
     public InitializerRenderer<P> addCode(CharSequence format, Object... args) {
         RenderUtils.requireStage(stage, PROCESSING);
         parent.formatCode(out, format, args);

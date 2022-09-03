@@ -708,6 +708,7 @@ public class SchemaGenerator extends AbstractProcessor {
             if (p.type.isFlag()) {
                 valAttr.flagsName = p.type.flagsName();
                 valAttr.flagMask = bitMask.apply(valAttr.name, Naming.As.SCREMALIZED);
+                valAttr.flagPos = p.type.flagPos();
 
                 if (p.type.isBitFlag()) {
                     valAttr.flags.add(ImmutableGenerator.ValueAttribute.Flag.BIT_FLAG);

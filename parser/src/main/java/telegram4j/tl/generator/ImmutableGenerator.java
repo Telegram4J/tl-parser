@@ -18,13 +18,6 @@ import static telegram4j.tl.generator.SchemaGeneratorConsts.*;
 import static telegram4j.tl.generator.SchemaGeneratorConsts.Style.*;
 
 class ImmutableGenerator {
-    // At the moment there known one *serious* mistake in design of immutable classes.
-    // We allow users to change flags:# fields for the sake of convenient initialization of bit flags (flags.num?true type)
-    // But at the same time users can change bits of the optional fields,
-    // initialization of which has ambiguous behavior depending on the type
-    // (primitive fields depends on bits (expected behavior), and reference fields depends on null-reference and just ignore
-    // bits in the builder constructor for better *performance*)
-    // ^ it seems that this can be easily fixed, but I will deal with it later
 
     private static final ClassRef UTILITY = ClassRef.of(TlEncodingUtil.class);
 
@@ -136,6 +129,43 @@ class ImmutableGenerator {
             }
         }
 
+        Map<String, List<ValueAttribute>> bitSetsToFlags = new HashMap<>();
+        Map<String, BitSet> usedBits = new HashMap<>();
+        for (ValueAttribute a : type.attributes) {
+            if (a.flags.contains(ValueAttribute.Flag.BIT_FLAG)) {
+                usedBits.computeIfAbsent(a.flagsName, k -> new BitSet()).set(a.flagPos);
+            }
+        }
+
+        for (ValueAttribute a : type.generated) {
+            if (a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
+                var list = bitSetsToFlags.computeIfAbsent(a.flagsName, k -> new ArrayList<>());
+
+                BitSet bits = usedBits.get(a.flagsName);
+                if (bits == null || !bits.get(a.flagPos)) {
+                    list.add(a);
+                }
+            }
+        }
+
+        for (var e : bitSetsToFlags.entrySet()) {
+            if (e.getValue().isEmpty()) continue;
+
+            mandatoryOf.addCode("$L &= ~", e.getKey());
+            boolean first = true;
+            for (ValueAttribute a : e.getValue()) {
+                if (!first) {
+                    mandatoryOf.addCodeFormatted(" &$W ~");
+                } else {
+                    first = false;
+                }
+
+                mandatoryOf.addCode(a.flagMask);
+            }
+
+            mandatoryOf.addCode(';').ln();
+        }
+
         if (singleton) {
             mandatoryOf.addStatement("return canonize(new $T($L))", type.immutableType, params);
         } else {
@@ -150,21 +180,20 @@ class ImmutableGenerator {
 
         for (ValueAttribute a : type.generated) {
             StringBuilder format = new StringBuilder("this.$1L = ");
-            if (a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
-                if (a.type.safeUnbox() instanceof PrimitiveTypeRef) {
-                    format.append("(builder.$2L & $3L) != 0 ? ");
-                } else {
-                    format.append("builder.$1L != null ? ");
-                }
+            TypeRef listElement = unwrap(a.type, LIST);
+            boolean isOptional = a.flags.contains(ValueAttribute.Flag.OPTIONAL) &&
+                    (listElement != a.type || a.type.safeUnbox() instanceof PrimitiveTypeRef);
+            if (isOptional) {
+                format.append("builder.$1L != null ? ");
             }
 
-            if (unwrap(a.type, LIST) != a.type) {
+            if (listElement != a.type) {
                 format.append("$4T.copyOf(builder.$1L)");
             } else {
                 format.append("builder.$1L");
             }
 
-            if (a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
+            if (isOptional) {
                 format.append(" : ").append(defaultValueFor(a.type.safeUnbox()));
             }
 
@@ -523,11 +552,7 @@ class ImmutableGenerator {
         Map<TypeRef, List<String>> typeToMethods = new HashMap<>();
 
         for (String name : type.superTypeMethodsNames) {
-            if (!commonMethods.containsKey(name)) {
-                String mask = Integer.toHexString(1 << optBits++);
-
-                commonMethods.put(name, mask);
-            }
+            commonMethods.put(name, Integer.toHexString(1 << optBits++));
         }
 
         for (TypeRef typeRef : type.interfaces) {
@@ -798,6 +823,10 @@ class ImmutableGenerator {
         } else if (a.type == PrimitiveTypeRef.DOUBLE) {
             withMethod.addStatement("if (Double.doubleToLongBits($L) == Double.doubleToLongBits($L)) return this", localName, paramName);
         } else if (a.type instanceof PrimitiveTypeRef) {
+            if (a.flags.contains(ValueAttribute.Flag.BIT_SET) && type.generated.size() > 1) {
+                generateValueBitsMask(type, a, paramName, withMethod);
+            }
+
             withMethod.addStatement("if ($L == $L) return this", localName, paramName);
         } else {
             withMethod.addStatement("$T.requireNonNull($L)", Objects.class, paramName);
@@ -820,6 +849,31 @@ class ImmutableGenerator {
 
         generateCopyParameters(type, a, withMethod, paramName, newValueVar);
         withMethod.complete();
+    }
+
+    private void generateValueBitsMask(ValueType type, ValueAttribute a, String name, MethodRenderer<?> renderer) {
+        BitSet usedBits = new BitSet();
+        for (ValueAttribute b : type.attributes) {
+            if (b.flags.contains(ValueAttribute.Flag.BIT_FLAG) && a.name.equals(b.flagsName)) {
+                usedBits.set(b.flagPos);
+            }
+        }
+
+        StringJoiner s = new StringJoiner(" |$W ");
+        for (int i = 0; i < type.generated.size(); i++) {
+            ValueAttribute e = type.generated.get(i);
+
+            if (e.flags.contains(ValueAttribute.Flag.OPTIONAL) &&
+                    a.name.equals(e.flagsName) && !usedBits.get(e.flagPos)) {
+                s.add(e.flagMask());
+            }
+        }
+
+        if (s.length() != 0) {
+            renderer.addCode("$L &= ~(", name);
+            renderer.addCodeFormatted(s.toString());
+            renderer.addCode(");").ln();
+        }
     }
 
     private void generateSetter(ValueType type, ValueAttribute a,
@@ -847,6 +901,10 @@ class ImmutableGenerator {
             setter.addStatement("$1L = $4T.mask($1L, $2L, $3L != null)", a.flagsName, a.flagMask, a.name, UTILITY);
         } else if (a.type instanceof PrimitiveTypeRef) {
             setter.addParameter(a.type, a.name);
+
+            if (a.flags.contains(ValueAttribute.Flag.BIT_SET) && type.generated.size() > 1) {
+                generateValueBitsMask(type, a, a.name, setter);
+            }
 
             setter.addStatement("this.$1L = $1L", a.name);
 
@@ -1068,7 +1126,7 @@ class ImmutableGenerator {
         public boolean needStubParam;
         public boolean canOmitCopyConstr;
         public List<ValueAttribute> attributes;
-        public List<ValueAttribute> generated;
+        public List<ValueAttribute> generated; // list without boolean bit flags
         public EnumSet<ValueType.Flag> flags = EnumSet.noneOf(ValueType.Flag.class);
         public TlProcessing.Type tlType;
         public TypeRef superType;
@@ -1118,6 +1176,7 @@ class ImmutableGenerator {
         public String flagsName;
         @Nullable
         public String flagMask;
+        public int flagPos = -1;
 
         ValueAttribute(String name) {
             this.name = name;

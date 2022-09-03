@@ -92,13 +92,11 @@ public class CharSink {
 
         return this;
     }
-    // optional new line
 
     public CharSink lno() {
         if (!lastIsLn) {
             ln();
         }
-
         return this;
     }
 

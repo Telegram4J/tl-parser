@@ -138,6 +138,12 @@ public class MethodRenderer<P extends BaseClassRenderer<?>> extends ExecutableRe
     }
 
     @Override
+    public MethodRenderer<P> addCodeFormatted(CharSequence code) {
+        requireNotAbstract();
+        return (MethodRenderer<P>) super.addCodeFormatted(code);
+    }
+
+    @Override
     public MethodRenderer<P> addCode(CharSequence format, Object... args) {
         requireNotAbstract();
         return (MethodRenderer<P>) super.addCode(format, args);
