@@ -8,8 +8,9 @@ abstract class BaseCompletableRenderer<P extends BaseClassRenderer<?>> implement
 
     protected BaseCompletableRenderer(P parent, Stage stage) {
         this.parent = parent;
-        this.out = parent.out.createChild();
         this.stage = stage;
+
+        out = parent.out.createChild();
     }
 
     @Override

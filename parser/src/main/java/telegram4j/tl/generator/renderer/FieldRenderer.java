@@ -16,7 +16,7 @@ public class FieldRenderer<P extends BaseClassRenderer<?>>
     protected final TypeRef type;
     protected final String name;
 
-    // cached for comparing in #separate
+    // cached for comparing in separate(T)
     private final EnumSet<Modifier> modifiers = EnumSet.noneOf(Modifier.class);
 
     protected FieldRenderer(P parent, TypeRef type, String name) {

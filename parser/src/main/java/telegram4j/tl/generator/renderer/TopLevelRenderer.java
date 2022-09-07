@@ -216,6 +216,11 @@ public class TopLevelRenderer extends BaseClassRenderer<CharSequence> {
     }
 
     @Override
+    public TopLevelRenderer addAnnotation(AnnotationRenderer renderer) {
+        return (TopLevelRenderer) super.addAnnotation(renderer);
+    }
+
+    @Override
     public TopLevelRenderer addAnnotations(Type... annotations) {
         return (TopLevelRenderer) super.addAnnotations(annotations);
     }

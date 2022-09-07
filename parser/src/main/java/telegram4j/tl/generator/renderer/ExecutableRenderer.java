@@ -22,6 +22,12 @@ public class ExecutableRenderer<P extends BaseClassRenderer<?>>
         this.name = name;
     }
 
+    public ExecutableRenderer<P> addAnnotation(AnnotationRenderer renderer) {
+        RenderUtils.requireStage(stage, ANNOTATIONS);
+        out.append(renderer.complete());
+        return this;
+    }
+
     public ExecutableRenderer<P> addAnnotations(Type... annotations) {
         return addAnnotations(false, Arrays.asList(annotations));
     }

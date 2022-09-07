@@ -56,6 +56,7 @@ final class SchemaGeneratorConsts {
         static final Naming add = Naming.from("add*");
         static final Naming addAll = Naming.from("addAll*");
         static final Naming with = Naming.from("with*");
+        static final Naming set = Naming.from("set*");
         static final Naming newValue = Naming.from("new*Value");
         static final Naming initBit = Naming.from("initBit*");
     }

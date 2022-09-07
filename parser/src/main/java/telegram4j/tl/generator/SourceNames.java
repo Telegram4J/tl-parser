@@ -12,6 +12,11 @@ public final class SourceNames {
     private SourceNames() {
     }
 
+    @Nullable
+    public static String jacksonName(String name) {
+        return name.indexOf('_') == -1 ? null : name;
+    }
+
     public static String normalizeName(String type) {
         type = applyNamingExceptions(type);
 

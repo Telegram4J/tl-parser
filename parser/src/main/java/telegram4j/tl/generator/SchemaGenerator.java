@@ -1,5 +1,6 @@
 package telegram4j.tl.generator;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -72,6 +73,19 @@ public class SchemaGenerator extends AbstractProcessor {
     private final Set<String> computedDeserializers = new HashSet<>();
 
     private final List<String> emptyObjectsIds = new ArrayList<>(200); // and also enums
+
+    private final TopLevelRenderer tlInfo = ClassRenderer.create(ClassRef.of(BASE_PACKAGE, "TlInfo"), ClassRenderer.Kind.CLASS)
+            .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
+            .addConstructor(Modifier.PRIVATE).complete()
+            .addField(int.class, "LAYER", Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
+                    .initializer(Integer.toString(LAYER))
+                    .complete();
+
+    private final MethodRenderer<TopLevelRenderer> tlTypeOf = tlInfo.addMethod(
+            ParameterizedTypeRef.of(Class.class, WildcardTypeRef.subtypeOf(TlObject.class)), "typeOf")
+            .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+            .addParameter(int.class, "id")
+            .beginControlFlow("switch (id) {");
 
     private final TopLevelRenderer serializer = ClassRenderer.create(ClassRef.of(BASE_PACKAGE, "TlSerializer"), ClassRenderer.Kind.CLASS)
             .addStaticImport(BASE_PACKAGE + ".TlSerialUtil.*")
@@ -310,6 +324,12 @@ public class SchemaGenerator extends AbstractProcessor {
         deserializeMethod.complete();
 
         fileService.writeTo(deserializer);
+
+        tlTypeOf.addStatement("default: throw new IllegalArgumentException($S + id)", "Incorrect TlObject identifier: 0x");
+        tlTypeOf.endControlFlow();
+        tlTypeOf.complete();
+
+        fileService.writeTo(tlInfo);
     }
 
     private void generateMethods() {
@@ -320,10 +340,17 @@ public class SchemaGenerator extends AbstractProcessor {
 
             Type method = Type.parse(config, rawMethod);
 
+            String name = method.name.normalized();
+            ClassRef immutableTypeRaw = ClassRef.of(method.name.packageName, immutable.apply(name));
+            boolean isEmptyMethod = method.parameters.isEmpty();
             TopLevelRenderer renderer = ClassRenderer.create(
-                    ClassRef.of(method.name.packageName, method.name.normalized()),
-                            ClassRenderer.Kind.INTERFACE)
+                    ClassRef.of(method.name.packageName, name),
+                            isEmptyMethod ? ClassRenderer.Kind.CLASS : ClassRenderer.Kind.INTERFACE)
                     .addModifiers(Modifier.PUBLIC);
+
+            if (isEmptyMethod) {
+                renderer.addModifiers(Modifier.FINAL);
+            }
 
             boolean generic = method.type.rawType.equals("X");
             if (generic) {
@@ -332,7 +359,6 @@ public class SchemaGenerator extends AbstractProcessor {
 
             TypeRef returnType = ParameterizedTypeRef.of(TlMethod.class, mapType(method.type).safeBox());
 
-            String name = method.name.normalized();
             var interfaces = additionalSuperTypes(name);
             renderer.addInterfaces(interfaces);
             if (config.superType != null) {
@@ -353,13 +379,12 @@ public class SchemaGenerator extends AbstractProcessor {
                 }
             }
 
-            ClassRef immutableTypeRaw = ClassRef.of(method.name.packageName, "Immutable" + name);
             ClassRef immutableTypeBuilderRaw = immutableTypeRaw.nested("Builder");
             TypeRef immutableBuilderType = generic
                     ? ParameterizedTypeRef.of(immutableTypeBuilderRaw, genericResultTypeRef, genericTypeRef)
                     : immutableTypeBuilderRaw;
 
-            if (!method.parameters.isEmpty()) {
+            if (!isEmptyMethod) {
                 var builder = renderer.addMethod(immutableBuilderType, "builder")
                         .addModifiers(Modifier.PUBLIC, Modifier.STATIC);
 
@@ -368,16 +393,43 @@ public class SchemaGenerator extends AbstractProcessor {
                 }
 
                 builder.addStatement("return $T.builder()", immutableTypeRaw).complete();
+            } else {
+                renderer.addField(renderer.name, "INSTANCE", Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
+                        .initializer("new $T()", renderer.name)
+                        .complete();
+
+                renderer.addConstructor(Modifier.PRIVATE).complete();
+
+                renderer.addMethod(renderer.name, "instance", Modifier.PUBLIC, Modifier.STATIC)
+                        .addStatement("return INSTANCE")
+                        .complete();
             }
 
-            renderer.addMethod(int.class, "identifier")
-                    .addAnnotations(Override.class)
-                    .addModifiers(Modifier.DEFAULT)
-                    .addStatement("return ID")
-                    .complete();
+            var identifierMethod = renderer.addMethod(int.class, "identifier")
+                    .addAnnotations(Override.class);
+            if (isEmptyMethod) {
+                identifierMethod.addModifiers(Modifier.PUBLIC);
+            } else {
+                identifierMethod.addModifiers(Modifier.DEFAULT);
+            }
 
-            if (method.parameters.isEmpty()) {
+            identifierMethod.addStatement("return ID");
+            identifierMethod.complete();
+
+            if (isEmptyMethod) {
                 emptyObjectsIds.add(method.id);
+
+                renderer.addMethod(int.class, "hashCode")
+                        .addAnnotations(Override.class)
+                        .addModifiers(Modifier.PUBLIC)
+                        .addStatement("return ID")
+                        .complete();
+
+                renderer.addMethod(String.class, "toString")
+                        .addAnnotations(Override.class)
+                        .addModifiers(Modifier.PUBLIC)
+                        .addStatement("return \"$L#$L{}\"", renderer.name, method.id)
+                        .complete();
             } else {
                 ClassRef typeRaw = ClassRef.of(method.name.packageName, name);
                 TypeRef payloadType = generic
@@ -404,7 +456,7 @@ public class SchemaGenerator extends AbstractProcessor {
                 for (int i = 0, n = method.parameters.size(); i < n; i++) {
                     Parameter param = method.parameters.get(i);
 
-                    generateAttribute(method, param, renderer);
+                    generateAttribute(param, renderer);
 
                     if (param.type.isBitFlag()) {
                         continue;
@@ -462,11 +514,18 @@ public class SchemaGenerator extends AbstractProcessor {
 
             fileService.writeTo(renderer);
 
+            tlTypeOf.addStatement("case 0x$L: return $T.class", method.id, renderer.name);
+
+            if (isEmptyMethod) {
+                continue;
+            }
+
             TypeRef superType = config.superType != null
                     ? config.superType : ParameterizedTypeRef.of(TlMethod.class, WildcardTypeRef.none());
 
             var typeRefs = generic ? List.of(genericResultTypeRef,
                     genericTypeRef.withBounds(wildcardMethodType)) : List.<TypeVariableRef>of();
+
             immutableGenerator.process(prepareType(method, renderer.name, singleton, typeRefs,
                     interfaces, superType));
         }
@@ -499,11 +558,19 @@ public class SchemaGenerator extends AbstractProcessor {
                 name = type;
             }
 
-            var interfaces = additionalSuperTypes(name);
-            var renderer = ClassRenderer.create(ClassRef.of(packageName, name), ClassRenderer.Kind.INTERFACE)
-                    .addModifiers(Modifier.PUBLIC)
-                    .addInterfaces(interfaces);
+            boolean isEmptyObject = constructor.parameters.isEmpty();
+            var renderer = ClassRenderer.create(ClassRef.of(packageName, name),
+                            isEmptyObject ? ClassRenderer.Kind.CLASS : ClassRenderer.Kind.INTERFACE)
+                    .addModifiers(Modifier.PUBLIC);
 
+            if (isEmptyObject) {
+                renderer.addModifiers(Modifier.FINAL);
+            }
+
+            var interfaces = additionalSuperTypes(name);
+            renderer.addInterfaces(interfaces);
+
+            ClassRef immutableType = renderer.name.peer(immutable.apply(name));
             TypeRef superType = multiple ? typeName : config.superType != null ? config.superType : ClassRef.of(TlObject.class);
 
             renderer.addInterface(superType);
@@ -511,8 +578,6 @@ public class SchemaGenerator extends AbstractProcessor {
             renderer.addField(int.class, "ID", Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
                     .initializer("0x" + constructor.id)
                     .complete();
-
-            ClassRef immutableType = renderer.name.peer(immutable.apply(name));
 
             boolean singleton = true;
             int flagsCount = 0;
@@ -526,22 +591,49 @@ public class SchemaGenerator extends AbstractProcessor {
 
             int flagsRemaining = flagsCount;
 
-            if (!constructor.parameters.isEmpty()) {
+            if (!isEmptyObject) {
                 renderer.addMethod(immutableType.nested("Builder"), "builder", Modifier.PUBLIC, Modifier.STATIC)
                         .addStatement("return Immutable$L.builder()", name)
                         .complete();
+            } else {
+                renderer.addField(renderer.name, "INSTANCE", Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
+                        .initializer("new $T()", renderer.name)
+                        .complete();
+
+                renderer.addConstructor(Modifier.PRIVATE).complete();
+
+                renderer.addMethod(renderer.name, "instance", Modifier.PUBLIC, Modifier.STATIC)
+                        .addStatement("return INSTANCE")
+                        .complete();
             }
 
-            renderer.addMethod(int.class, "identifier")
-                    .addAnnotations(Override.class)
-                    .addModifiers(Modifier.DEFAULT)
-                    .addStatement("return ID")
-                    .complete();
+            var identifierMethod = renderer.addMethod(int.class, "identifier")
+                    .addAnnotations(Override.class);
+            if (isEmptyObject) {
+                identifierMethod.addModifiers(Modifier.PUBLIC);
+            } else {
+                identifierMethod.addModifiers(Modifier.DEFAULT);
+            }
 
-            if (constructor.parameters.isEmpty()) {
-                deserializeMethod.addStatement("case 0x$L: return (T) $T.of()", constructor.id, immutableType);
+            identifierMethod.addStatement("return ID");
+            identifierMethod.complete();
+
+            if (isEmptyObject) {
+                deserializeMethod.addStatement("case 0x$L: return (T) $T.instance()", constructor.id, renderer.name);
 
                 emptyObjectsIds.add(constructor.id);
+
+                renderer.addMethod(int.class, "hashCode")
+                        .addAnnotations(Override.class)
+                        .addModifiers(Modifier.PUBLIC)
+                        .addStatement("return ID")
+                        .complete();
+
+                renderer.addMethod(String.class, "toString")
+                        .addAnnotations(Override.class)
+                        .addModifiers(Modifier.PUBLIC)
+                        .addStatement("return \"$L#$L{}\"", renderer.name, constructor.id)
+                        .complete();
             } else {
                 String serializeMethodName = uniqueMethodName("serialize", name, () ->
                         camelize(parentPackageName(constructor.name.rawType)), computedSerializers);
@@ -584,7 +676,7 @@ public class SchemaGenerator extends AbstractProcessor {
                 for (int i = 0, n = constructor.parameters.size(); i < n; i++) {
                     Parameter param = constructor.parameters.get(i);
 
-                    generateAttribute(constructor, param, renderer);
+                    generateAttribute(param, renderer);
 
                     if (param.type.isBitFlag()) {
                         continue;
@@ -672,25 +764,35 @@ public class SchemaGenerator extends AbstractProcessor {
 
             fileService.writeTo(renderer);
 
+            tlTypeOf.addStatement("case 0x$L: return $T.class", constructor.id, renderer.name);
+
+            if (isEmptyObject)
+                continue;
+
             immutableGenerator.process(prepareType(constructor, renderer.name, singleton, List.of(),
                     interfaces, superType));
         }
     }
 
-    private ImmutableGenerator.ValueType prepareType(Type tlType, ClassRef baseType, boolean singleton,
-                                                     List<TypeVariableRef> typeVars, List<? extends TypeRef> interfaces,
-                                                     TypeRef superType) {
-        ImmutableGenerator.ValueType valType = new ImmutableGenerator.ValueType(baseType, typeVars, interfaces);
+    private ValueType prepareType(Type tlType, ClassRef baseType, boolean singleton,
+                                  List<TypeVariableRef> typeVars, List<? extends TypeRef> interfaces,
+                                  TypeRef superType) {
+        ValueType valType = new ValueType(baseType, typeVars, interfaces);
         valType.attributes = new ArrayList<>(tlType.parameters.size());
 
         NameDeduplicator initBitsName = NameDeduplicator.create("initBits");
         NameDeduplicator hashCodeName = NameDeduplicator.create("h");
         NameDeduplicator equalsName = NameDeduplicator.create("that");
 
-        int primitiveFieldsCount = 0;
-        int refFieldsCount = 0;
+        short primitivefCount = 0; // including fields with '#' type
+        short reffCount = 0;
+        short flagsfCount = 0;
+        short bitSetfCount = 0;
+
+        valType.usedBits = new HashMap<>();
         for (Parameter p : tlType.parameters) {
-            ImmutableGenerator.ValueAttribute valAttr = new ImmutableGenerator.ValueAttribute(p.formattedName());
+            ValueAttribute valAttr = new ValueAttribute(p.formattedName());
+            valAttr.jsonName = SourceNames.jacksonName(p.name);
             valAttr.type = mapType(p.type);
 
             initBitsName.accept(valAttr.name);
@@ -699,9 +801,9 @@ public class SchemaGenerator extends AbstractProcessor {
 
             if (!p.type.isFlag()) {
                 if (valAttr.type instanceof PrimitiveTypeRef) {
-                    primitiveFieldsCount++;
+                    primitivefCount++;
                 } else {
-                    refFieldsCount++;
+                    reffCount++;
                 }
             }
 
@@ -711,22 +813,24 @@ public class SchemaGenerator extends AbstractProcessor {
                 valAttr.flagPos = p.type.flagPos();
 
                 if (p.type.isBitFlag()) {
-                    valAttr.flags.add(ImmutableGenerator.ValueAttribute.Flag.BIT_FLAG);
+                    flagsfCount++;
+                    valType.usedBits.computeIfAbsent(p.type.flagsName(), k -> new BitSet()).set(p.type.flagPos());
+                    valAttr.flags.add(ValueAttribute.Flag.BIT_FLAG);
                 } else {
-                    valAttr.flags.add(ImmutableGenerator.ValueAttribute.Flag.OPTIONAL);
+                    valAttr.flags.add(ValueAttribute.Flag.OPTIONAL);
                 }
             } else if (!p.type.rawType.equals("#")) {
                 valType.initBitsCount++;
+            } else {
+                bitSetfCount++;
+                valAttr.flags.add(ValueAttribute.Flag.BIT_SET);
             }
-
-            if (p.type.rawType.equals("#"))
-                valAttr.flags.add(ImmutableGenerator.ValueAttribute.Flag.BIT_SET);
 
             valType.attributes.add(valAttr);
         }
 
         if (singleton)
-            valType.flags.add(ImmutableGenerator.ValueType.Flag.SINGLETON);
+            valType.flags.add(ValueType.Flag.SINGLETON);
 
         valType.tlType = tlType;
         valType.superType = superType;
@@ -751,18 +855,13 @@ public class SchemaGenerator extends AbstractProcessor {
         valType.equalsName = equalsName.get();
 
         valType.generated = valType.attributes.stream()
-                .filter(e -> !e.flags.contains(ImmutableGenerator.ValueAttribute.Flag.BIT_FLAG))
+                .filter(e -> !e.flags.contains(ValueAttribute.Flag.BIT_FLAG))
                 .collect(Collectors.toList());
 
-        valType.canOmitCopyConstr = primitiveFieldsCount == valType.generated.size();
-        valType.needStubParam = refFieldsCount > 0;
-
-        valType.usedBits = new HashMap<>();
-        for (ImmutableGenerator.ValueAttribute a : valType.attributes) {
-            if (a.flags.contains(ImmutableGenerator.ValueAttribute.Flag.BIT_FLAG)) {
-                valType.usedBits.computeIfAbsent(a.flagsName, k -> new BitSet()).set(a.flagPos);
-            }
-        }
+        valType.canOmitCopyConstr = primitivefCount == valType.generated.size();
+        // TODO: don't generate bitset parameter if it has no bit flags
+        valType.canOmitOfMethod = bitSetfCount != 0 && flagsfCount == 0;
+        valType.needStubParam = reffCount > 0;
 
         return valType;
     }
@@ -805,8 +904,10 @@ public class SchemaGenerator extends AbstractProcessor {
 
                     if (i + 1 == types.size()) {
                         deserializeMethod.addStatement("case 0x$L: return (T) $T.of(identifier)", constructor.id, className);
+                        tlTypeOf.addStatement("case 0x$L: return $T.class", constructor.id, className);
                     } else {
-                        deserializeMethod.addCode("case 0x$L:\n", constructor.id);
+                        deserializeMethod.addCode("case 0x$L:", constructor.id).ln();
+                        tlTypeOf.addCode("case 0x$L:", constructor.id).ln();
                     }
 
                     String subtypeName = constructor.name.normalized();
@@ -817,7 +918,6 @@ public class SchemaGenerator extends AbstractProcessor {
                     ofMethodCode.addStatement("case 0x$L: return $L", constructor.id, constName);
 
                     emptyObjectsIds.add(constructor.id);
-
                 }
 
                 renderer.addField(int.class, "identifier", Modifier.PRIVATE, Modifier.FINAL).complete();
@@ -863,58 +963,37 @@ public class SchemaGenerator extends AbstractProcessor {
 
     private void generateInfo() {
 
-        var tlInfo = ClassRenderer.create(ClassRef.of(BASE_PACKAGE, "TlInfo"), ClassRenderer.Kind.CLASS)
-                .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
-                .addConstructor(Modifier.PRIVATE).complete()
-                .addField(int.class, "LAYER", Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
-                .initializer(Integer.toString(LAYER))
-                .complete();
-
         for (var c : apiScheme.constructors()) {
             if (primitiveTypes.contains(c.type())) {
                 String name = screamilize(c.name()) + "_ID";
 
                 tlInfo.addField(int.class, name, Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
-                        .initializer("0x" + c.id());
+                        .initializer("0x" + c.id())
+                        .complete();
             }
         }
-
-        fileService.writeTo(tlInfo);
     }
 
-    private void generateAttribute(Type type, Parameter param, TopLevelRenderer renderer) {
+    private void generateAttribute(Parameter param, TopLevelRenderer renderer) {
         TypeRef paramType = mapType(param.type);
-        var modifiers = EnumSet.noneOf(Modifier.class);
-        List<ClassRef> anns = List.of();
-        String defaultValue = null;
 
-        if (param.type.rawType.equals("#")) {
-            modifiers.add(Modifier.DEFAULT);
+        var attribute = renderer.addMethod(paramType, param.formattedName());
 
-            String precompute = type.parameters.stream()
-                    .filter(p -> p.type.isFlag() && p.type.flagsName().equals(param.formattedName()))
-                    .map(flag -> {
-                        String mask = bitMask.apply(flag.formattedName(), Naming.As.SCREMALIZED);
-                        return String.format("(%s()%s ? %s : 0)", flag.formattedName(),
-                                flag.type.isBitFlag() ? "" : " != null", mask);
-                    })
-                    .collect(Collectors.joining(" |$W "));
+        if (!param.type.isBitFlag()) {
+            var ann = renderer.createAnnotation(JsonProperty.class);
+            if (param.name.contains("_")) {
+                ann.addAttribute(param.name);
+            }
 
-            defaultValue = "return " + precompute;
-        } else if (param.type.isBitFlag()) {
-            modifiers.add(Modifier.DEFAULT);
-
-            defaultValue = "return false";
-        } else if (param.type.isFlag()) {
-            anns = List.of(ClassRef.of(Nullable.class));
+            attribute.addAnnotation(ann);
         }
 
-        var attribute = renderer.addMethod(paramType, param.formattedName())
-                .addAnnotations(anns)
-                .addModifiers(modifiers);
-
-        if (defaultValue != null) {
-            attribute.addStatementFormatted(defaultValue);
+        if (param.type.isBitFlag()) {
+            attribute.addModifiers(Modifier.DEFAULT);
+            attribute.addStatement("return ($L() & $L) != 0", param.type.flagsName,
+                    bitMask.apply(param.formattedName(), Naming.As.SCREMALIZED));
+        } else if (param.type.isFlag()) {
+            attribute.addAnnotations(Nullable.class);
         }
 
         attribute.complete();

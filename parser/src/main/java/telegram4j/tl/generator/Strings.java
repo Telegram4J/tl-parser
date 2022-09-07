@@ -25,11 +25,11 @@ public final class Strings {
         return builder.toString();
     }
 
-    static String screamilize(String type) {
-        StringBuilder buf = new StringBuilder(type.length());
-        for (int i = 0; i < type.length(); i++) {
-            char p = i - 1 != -1 ? type.charAt(i - 1) : Character.MIN_VALUE;
-            char c = type.charAt(i);
+    static String screamilize(CharSequence cs) {
+        StringBuilder buf = new StringBuilder(cs.length());
+        for (int i = 0; i < cs.length(); i++) {
+            char p = i - 1 != -1 ? cs.charAt(i - 1) : Character.MIN_VALUE;
+            char c = cs.charAt(i);
 
             if (Character.isLetter(c) && Character.isLetter(p) &&
                 Character.isLowerCase(p) && Character.isUpperCase(c)) {
@@ -37,8 +37,8 @@ public final class Strings {
             }
 
             if (c == '.' || c == '-' || c == '_' || Character.isWhitespace(c) &&
-                    Character.isLetterOrDigit(p) && i + 1 < type.length() &&
-                    Character.isLetterOrDigit(type.charAt(i + 1))) {
+                    Character.isLetterOrDigit(p) && i + 1 < cs.length() &&
+                    Character.isLetterOrDigit(cs.charAt(i + 1))) {
 
                 buf.append('_');
             } else {

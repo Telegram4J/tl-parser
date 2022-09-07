@@ -27,7 +27,7 @@ class SerializationTest {
         Channel expected = Channel.builder()
                 .id(1)
                 .title("title")
-                .photo(ImmutableChatPhotoEmpty.of())
+                .photo(ChatPhotoEmpty.instance())
                 .gigagroup(true)
                 .date(1)
                 .build();
@@ -46,7 +46,7 @@ class SerializationTest {
                 .date(1337)
                 .title("A!")
                 .id(10)
-                .photo(ImmutableChatPhotoEmpty.of())
+                .photo(ChatPhotoEmpty.instance())
                 .participantsCount(99)
                 .callNotEmpty(true)
                 .build();
@@ -106,7 +106,7 @@ class SerializationTest {
                 // flags - 4
                 .id(1) // 8
                 .title("title") // 8
-                .photo(ImmutableChatPhotoEmpty.of()) // 4
+                .photo(ChatPhotoEmpty.instance()) // 4
                 .date(1) // 4
                 .build();
 
@@ -118,7 +118,7 @@ class SerializationTest {
         Channel expected = Channel.builder()
                 .id(1)
                 .title("title")
-                .photo(ImmutableChatPhotoEmpty.of())
+                .photo(ChatPhotoEmpty.instance())
                 .gigagroup(true)
                 .date(1)
                 .build();
@@ -126,7 +126,7 @@ class SerializationTest {
         Channel actual = Channel.builder()
                 .id(1)
                 .title("title")
-                .photo(ImmutableChatPhotoEmpty.of())
+                .photo(ChatPhotoEmpty.instance())
                 .gigagroup(true)
                 .date(1)
                 .build();

@@ -66,6 +66,11 @@ public class MethodRenderer<P extends BaseClassRenderer<?>> extends ExecutableRe
     }
 
     @Override
+    public MethodRenderer<P> addAnnotation(AnnotationRenderer renderer) {
+        return (MethodRenderer<P>) super.addAnnotation(renderer);
+    }
+
+    @Override
     public MethodRenderer<P> addAnnotations(Collection<? extends Type> annotations) {
         return (MethodRenderer<P>) super.addAnnotations(annotations);
     }

@@ -57,7 +57,7 @@ public class ClassRenderer<P extends BaseClassRenderer<?>> extends BaseClassRend
     @Override
     public InitializerRenderer<ClassRenderer<P>> addStaticInitializer() {
         Preconditions.requireState(kind == Kind.CLASS || kind == Kind.ENUM,
-                "Static initializers is not allowed in " + kind);
+                "Static initializers are not allowed in " + kind);
         if (stage != PROCESSING) {
             requireStage(ANNOTATIONS, PROCESSING);
             completeStage(PROCESSING);
@@ -68,7 +68,7 @@ public class ClassRenderer<P extends BaseClassRenderer<?>> extends BaseClassRend
     @Override
     public InitializerRenderer<ClassRenderer<P>> addInitializer() {
         Preconditions.requireState(kind == Kind.CLASS || kind == Kind.ENUM,
-                "Static initializers is not allowed in " + kind);
+                "Static initializers are not allowed in " + kind);
         if (stage != PROCESSING) {
             requireStage(ANNOTATIONS, PROCESSING);
             completeStage(PROCESSING);
@@ -89,6 +89,11 @@ public class ClassRenderer<P extends BaseClassRenderer<?>> extends BaseClassRend
     @Override
     public ClassRenderer<P> addModifiers(Modifier... modifiers) {
         return (ClassRenderer<P>) super.addModifiers(modifiers);
+    }
+
+    @Override
+    public ClassRenderer<P> addAnnotation(AnnotationRenderer renderer) {
+        return (ClassRenderer<P>) super.addAnnotation(renderer);
     }
 
     @Override

@@ -1,5 +1,6 @@
 package telegram4j.tl.generator;
 
+import com.fasterxml.jackson.annotation.JsonSetter;
 import io.netty.buffer.ByteBufUtil;
 import reactor.util.annotation.Nullable;
 import telegram4j.tl.api.TlEncodingUtil;
@@ -15,7 +16,8 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import static telegram4j.tl.generator.SchemaGeneratorConsts.*;
-import static telegram4j.tl.generator.SchemaGeneratorConsts.Style.*;
+import static telegram4j.tl.generator.SchemaGeneratorConsts.Style.newValue;
+import static telegram4j.tl.generator.SchemaGeneratorConsts.Style.with;
 
 class ImmutableGenerator {
 
@@ -30,19 +32,10 @@ class ImmutableGenerator {
     }
 
     public void process(ValueType type) {
-
         var renderer = ClassRenderer.create(type.immutableType.rawType, ClassRenderer.Kind.CLASS)
                 .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
                 .addTypeVariables(type.typeVars)
                 .addInterface(type.baseType);
-
-        // to simplify further generation
-        if (type.attributes.isEmpty()) {
-            generateEmpty(type, renderer);
-
-            fileService.writeTo(renderer);
-            return;
-        }
 
         CompletionDeferrer pending = new CompletionDeferrer();
         boolean singleton = type.flags.contains(ValueType.Flag.SINGLETON);
@@ -72,100 +65,79 @@ class ImmutableGenerator {
         }
 
         // constructor with mandatory parameters
-        var mandatoryConstructorBody = renderer.createCode().incIndent(2);
-        var mandatoryConstructor = renderer.addConstructor(Modifier.PRIVATE);
+        if (!type.canOmitOfMethod) {
+            var mandatoryConstructorBody = renderer.createCode().incIndent(2);
+            var mandatoryConstructor = renderer.addConstructor(Modifier.PRIVATE);
+            var mandatoryOf = renderer.addMethod(type.immutableType, "of", Modifier.PUBLIC, Modifier.STATIC)
+                    .addTypeVariables(type.typeVars);
 
-        var mandatoryOf = renderer.addMethod(type.immutableType, "of", Modifier.PUBLIC, Modifier.STATIC)
-                .addTypeVariables(type.typeVars);
+            StringJoiner params = new StringJoiner(", ");
 
-        StringJoiner params = new StringJoiner(", ");
+            // I want to initialize the fields in order:
+            // [ mandatory fields ]
+            // \n
+            // [ optional fields ]
 
-        // I want to initialize the fields in order:
-        // [ mandatory fields ]
-        // \n
-        // [ optional fields ]
+            var sorted = type.generated.stream()
+                    .sorted(Comparator.comparingInt(d -> d.flags.contains(ValueAttribute.Flag.OPTIONAL) ? 1 : 0))
+                    .collect(Collectors.toList());
 
-        var sorted = type.generated.stream()
-                .sorted(Comparator.comparingInt(d -> d.flags.contains(ValueAttribute.Flag.OPTIONAL) ? 1 : 0))
-                .collect(Collectors.toList());
+            for (int i = 0, n = sorted.size(); i < n; i++) {
+                ValueAttribute a = sorted.get(i);
 
-        for (int i = 0, n = sorted.size(); i < n; i++) {
-            ValueAttribute a = sorted.get(i);
+                if (!a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
+                    TypeRef listElement = unwrap(a.type, LIST);
+                    TypeRef paramType = a.type;
+                    if (listElement != a.type) // Iterable<? extends ListElement>
+                        paramType = ParameterizedTypeRef.of(ITERABLE, expandBounds(listElement));
 
-            if (!a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
-                TypeRef listElement = unwrap(a.type, LIST);
-                TypeRef paramType = a.type;
-                if (listElement != a.type) // Iterable<? extends ParamType>
-                    paramType = ParameterizedTypeRef.of(ITERABLE, expandBounds(listElement));
+                    mandatoryConstructor.addParameter(paramType, a.name);
 
-                mandatoryConstructor.addParameter(paramType, a.name);
-
-                if (a.type instanceof PrimitiveTypeRef) {
-                    mandatoryConstructorBody.addStatement("this.$1L = $1L", a.name);
-                } else if (listElement != a.type) {
-                    if (listElement == BYTE_BUF) {
-                        mandatoryConstructorBody.addStatement("this.$1L = $2T.stream($1L.spliterator(), false)$B" +
-                                ".map($3T::copyAsUnpooled)$B.collect($4T.toUnmodifiableList())",
-                                a.name, StreamSupport.class, UTILITY, Collectors.class);
+                    if (a.type instanceof PrimitiveTypeRef) {
+                        mandatoryConstructorBody.addStatement("this.$1L = $1L", a.name);
+                    } else if (listElement != a.type) {
+                        if (listElement == BYTE_BUF) {
+                            mandatoryConstructorBody.addStatement("this.$1L = $2T.stream($1L.spliterator(), false)$B" +
+                                            ".map($3T::copyAsUnpooled)$B.collect($4T.toUnmodifiableList())",
+                                    a.name, StreamSupport.class, UTILITY, Collectors.class);
+                        } else {
+                            mandatoryConstructorBody.addStatement("this.$1L = $2T.copyList($1L)", a.name, UTILITY);
+                        }
+                    } else if (a.type == BYTE_BUF) {
+                        mandatoryConstructorBody.addStatement("this.$1L = $2T.copyAsUnpooled($1L)", a.name, UTILITY);
                     } else {
-                        mandatoryConstructorBody.addStatement("this.$1L = $2T.copyList($1L)", a.name, UTILITY);
+                        mandatoryConstructorBody.addStatement("this.$1L = $2T.requireNonNull($1L)", a.name, Objects.class);
                     }
-                } else if (a.type == BYTE_BUF) {
-                    mandatoryConstructorBody.addStatement("this.$1L = $2T.copyAsUnpooled($1L)", a.name, UTILITY);
+
+                    params.add(a.name);
+                    mandatoryOf.addParameter(paramType, a.name);
+
+                    if (i + 1 < n && sorted.get(i + 1).flags.contains(ValueAttribute.Flag.OPTIONAL)) {
+                        mandatoryConstructorBody.ln();
+                    }
                 } else {
-                    mandatoryConstructorBody.addStatement("this.$1L = $2T.requireNonNull($1L)", a.name, Objects.class);
+                    TypeRef unwrapped = unboxOptional(a, type);
+                    mandatoryConstructorBody.addStatement("$L = $L", a.name, defaultValueFor(unwrapped));
                 }
+            }
 
-                params.add(a.name);
-                mandatoryOf.addParameter(paramType, a.name);
-
-                if (i + 1 < n && sorted.get(i + 1).flags.contains(ValueAttribute.Flag.OPTIONAL)) {
-                    mandatoryConstructorBody.ln();
+            for (ValueAttribute a : type.generated) {
+                if (a.flags.contains(ValueAttribute.Flag.BIT_SET)) {
+                    generateValueBitsMask(type, a, a.name, mandatoryOf);
                 }
+            }
+
+            if (singleton) {
+                mandatoryOf.addStatement("return canonize(new $T($L))", type.immutableType, params);
             } else {
-                TypeRef unwrapped = unboxOptional(a, type);
-                mandatoryConstructorBody.addStatement("$L = $L", a.name, defaultValueFor(unwrapped));
-            }
-        }
-
-        Map<String, List<ValueAttribute>> bitSetsToFlags = new HashMap<>();
-        for (ValueAttribute a : type.generated) {
-            if (a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
-                var list = bitSetsToFlags.computeIfAbsent(a.flagsName, k -> new ArrayList<>());
-
-                BitSet bits = type.usedBits.get(a.flagsName);
-                if (bits == null || !bits.get(a.flagPos)) {
-                    list.add(a);
-                }
-            }
-        }
-
-        for (var e : bitSetsToFlags.entrySet()) {
-            if (e.getValue().isEmpty()) continue;
-
-            mandatoryOf.addCode("$L &= ~", e.getKey());
-            boolean first = true;
-            for (ValueAttribute a : e.getValue()) {
-                if (!first) {
-                    mandatoryOf.addCodeFormatted(" &$W ~");
-                } else {
-                    first = false;
-                }
-
-                mandatoryOf.addCode(a.flagMask);
+                mandatoryOf.addStatement("return new $T($L)", type.immutableType, params);
             }
 
-            mandatoryOf.addCode(';').ln();
-        }
+            mandatoryConstructor.addCode(mandatoryConstructorBody.complete());
+            mandatoryConstructor.complete();
 
-        if (singleton) {
-            mandatoryOf.addStatement("return canonize(new $T($L))", type.immutableType, params);
-        } else {
-            mandatoryOf.addStatement("return new $T($L)", type.immutableType, params);
+            pending.add(mandatoryOf);
         }
-
-        mandatoryConstructor.addCode(mandatoryConstructorBody.complete());
-        mandatoryConstructor.complete();
 
         var builderConstructor = renderer.addConstructor(Modifier.PRIVATE)
                 .addParameter(type.builderType, "builder");
@@ -234,11 +206,12 @@ class ImmutableGenerator {
                     .complete();
         }
 
-        mandatoryOf.complete();
+        // To complete mandatory of(...)
+        pending.complete();
 
         var copyOf = renderer.addMethod(type.immutableType, "copyOf", Modifier.PUBLIC, Modifier.STATIC)
                 .addTypeVariables(type.typeVars)
-                .addParameter(type.immutableType, "instance")
+                .addParameter(type.baseType, "instance")
                 .addStatement("$T.requireNonNull(instance)", Objects.class)
                 .beginControlFlow("if (instance instanceof $T) {", type.immutableType.withTypeArguments(
                         Collections.nCopies(type.typeVars.size(), WildcardTypeRef.none())))
@@ -272,6 +245,10 @@ class ImmutableGenerator {
                 .complete();
 
         for (ValueAttribute a : type.attributes) {
+            if (a.flags.contains(ValueAttribute.Flag.BIT_FLAG)) {
+                continue;
+            }
+
             var attr = renderer.addMethod(a.type, a.name);
             if (a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
                 attr.addAnnotations(Nullable.class);
@@ -280,38 +257,33 @@ class ImmutableGenerator {
             attr.addAnnotations(Override.class);
             attr.addModifiers(Modifier.PUBLIC);
 
-            if (a.flags.contains(ValueAttribute.Flag.BIT_FLAG)) {
-                attr.addStatement("return ($L & $L) != 0", a.flagsName, a.flagMask);
-            } else {
-                TypeRef listElement = unwrap(a.type, LIST);
+            TypeRef listElement = unwrap(a.type, LIST);
 
-                boolean opt = a.flags.contains(ValueAttribute.Flag.OPTIONAL);
-                BitSet bs;
-                boolean primitiveOpt = opt && a.type.safeUnbox() instanceof PrimitiveTypeRef
-                        && ((bs = type.usedBits.get(a.flagsName)) == null || !bs.get(a.flagPos));
-                StringBuilder format = new StringBuilder("return ");
-                if (opt && listElement == BYTE_BUF) {
-                    format.append("$L != null ? ");
-                } else if (primitiveOpt) {
-                    format.append("($2L & $3L) != 0 ? ");
-                }
-
-                if (listElement != a.type &&
-                    listElement == BYTE_BUF) {
-                    // I then rewrite to explicit imports
-                    format.append("$1L.stream().map(ByteBuf::duplicate).collect(Collectors.toList())");
-                } else if (a.type == BYTE_BUF) {
-                    format.append("$1L.duplicate()");
-                } else {
-                    format.append("$1L");
-                }
-
-                if (opt && (listElement == BYTE_BUF || primitiveOpt)) {
-                    format.append(" : null");
-                }
-
-                attr.addStatement(format, a.name, a.flagsName, a.flagMask);
+            boolean opt = a.flags.contains(ValueAttribute.Flag.OPTIONAL);
+            BitSet bs;
+            boolean primitiveOpt = opt && a.type.safeUnbox() instanceof PrimitiveTypeRef
+                    && ((bs = type.usedBits.get(a.flagsName)) == null || !bs.get(a.flagPos));
+            StringBuilder format = new StringBuilder("return ");
+            if (opt && listElement == BYTE_BUF) {
+                format.append("$L != null ? ");
+            } else if (primitiveOpt) {
+                format.append("($2L & $3L) != 0 ? ");
             }
+
+            if (listElement != a.type && listElement == BYTE_BUF) {
+                // I then rewrite to explicit imports
+                format.append("$1L.stream().map(ByteBuf::duplicate).collect(Collectors.toList())");
+            } else if (a.type == BYTE_BUF) {
+                format.append("$1L.duplicate()");
+            } else {
+                format.append("$1L");
+            }
+
+            if (opt && (listElement == BYTE_BUF || primitiveOpt)) {
+                format.append(" : null");
+            }
+
+            attr.addStatement(format, a.name, a.flagsName, a.flagMask);
             attr.complete();
         }
 
@@ -477,7 +449,7 @@ class ImmutableGenerator {
                     continue;
                 }
 
-                builder.addField(bitsType, a.names.initBit, Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
+                builder.addField(bitsType, a.names().initBit, Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
                         .initializer("0x" + Integer.toHexString(1 << pos++))
                         .complete();
             }
@@ -491,14 +463,12 @@ class ImmutableGenerator {
         generateFrom(type, builder, pending);
 
         for (ValueAttribute a : type.attributes) {
-            generateSetter(type, a, builder, pending);
+            generateSetter(type, a, builder, renderer, pending);
         }
 
         pending.complete();
 
         var build = builder.addMethod(type.immutableType, "build", Modifier.PUBLIC);
-
-        // endregion
 
         if (type.initBitsCount > 0) {
             var initializationIncomplete = builder.addMethod(
@@ -513,7 +483,7 @@ class ImmutableGenerator {
                     continue;
                 }
 
-                initializationIncomplete.addStatement("if ((initBits & $L) != 0) attributes.add($S)", a.names.initBit, a.name);
+                initializationIncomplete.addStatement("if ((initBits & $L) != 0) attributes.add($S)", a.names().initBit, a.name);
             }
 
             initializationIncomplete.addStatement("return new $T($S + attributes)",
@@ -535,6 +505,8 @@ class ImmutableGenerator {
         pending.complete();
 
         builder.complete();
+
+        // endregion
 
         fileService.writeTo(renderer);
     }
@@ -823,7 +795,7 @@ class ImmutableGenerator {
         } else if (a.type == PrimitiveTypeRef.DOUBLE) {
             withMethod.addStatement("if (Double.doubleToLongBits($L) == Double.doubleToLongBits($L)) return this", localName, paramName);
         } else if (a.type instanceof PrimitiveTypeRef) {
-            if (a.flags.contains(ValueAttribute.Flag.BIT_SET) && type.generated.size() > 1) {
+            if (a.flags.contains(ValueAttribute.Flag.BIT_SET)) {
                 generateValueBitsMask(type, a, paramName, withMethod);
             }
 
@@ -831,7 +803,7 @@ class ImmutableGenerator {
         } else {
             withMethod.addStatement("$T.requireNonNull($L)", Objects.class, paramName);
 
-            if (a.type == STRING) { // Its implementation of the equals method is fast enough
+            if (a.type == STRING) { // Its implementation of the equals() method is fast enough
                 withMethod.addStatement("if ($L.equals($L)) return this", localName, paramName);
             } else {
                 withMethod.addStatement("if ($L == $L) return this", localName, paramName);
@@ -852,20 +824,15 @@ class ImmutableGenerator {
     }
 
     private void generateValueBitsMask(ValueType type, ValueAttribute a, String name, MethodRenderer<?> renderer) {
-        BitSet usedBits = new BitSet();
-        for (ValueAttribute b : type.attributes) {
-            if (b.flags.contains(ValueAttribute.Flag.BIT_FLAG) && a.name.equals(b.flagsName)) {
-                usedBits.set(b.flagPos);
-            }
-        }
-
         StringJoiner s = new StringJoiner(" |$W ");
         for (int i = 0; i < type.generated.size(); i++) {
             ValueAttribute e = type.generated.get(i);
 
+            BitSet bs;
             if (e.flags.contains(ValueAttribute.Flag.OPTIONAL) &&
-                    a.name.equals(e.flagsName) && !usedBits.get(e.flagPos)) {
-                s.add(e.flagMask());
+                    a.name.equals(e.flagsName) && ((bs = type.usedBits.get(a.name)) == null ||
+                    !bs.get(e.flagPos))) {
+                s.add(e.flagMask);
             }
         }
 
@@ -877,7 +844,8 @@ class ImmutableGenerator {
     }
 
     private void generateSetter(ValueType type, ValueAttribute a,
-                                ClassRenderer<?> builder, CompletionDeferrer pending) {
+                                ClassRenderer<?> builder, TopLevelRenderer renderer,
+                                CompletionDeferrer pending) {
 
         TypeRef listElement = unwrap(a.type, LIST);
 
@@ -885,8 +853,17 @@ class ImmutableGenerator {
             builder.addField(a.type, a.name, Modifier.PRIVATE).complete();
         }
 
-        var setter = builder.addMethod(type.builderType, a.name)
-                .addModifiers(Modifier.PUBLIC);
+        var setter = builder.addMethod(type.builderType, a.name);
+
+        if (!a.flags.contains(ValueAttribute.Flag.BIT_FLAG)) {
+            var ann = renderer.createAnnotation(JsonSetter.class);
+            if (a.jsonName != null) {
+                ann.addAttribute(a.jsonName);
+            }
+            setter.addAnnotation(ann);
+        }
+
+        setter.addModifiers(Modifier.PUBLIC);
 
         if (a.flags.contains(ValueAttribute.Flag.BIT_FLAG)) {
             setter.addParameter(a.type, a.name);
@@ -902,15 +879,15 @@ class ImmutableGenerator {
         } else if (a.type instanceof PrimitiveTypeRef) {
             setter.addParameter(a.type, a.name);
 
-            if (a.flags.contains(ValueAttribute.Flag.BIT_SET) && type.generated.size() > 1) {
+            if (a.flags.contains(ValueAttribute.Flag.BIT_SET)) {
                 generateValueBitsMask(type, a, a.name, setter);
             }
 
             setter.addStatement("this.$1L = $1L", a.name);
 
-            // flags fields is implicitly optional
+            // bitset fields is implicitly optional
             if (!a.flags.contains(ValueAttribute.Flag.BIT_SET)) {
-                setter.addStatement("this.initBits &= ~$L", a.names.initBit);
+                setter.addStatement("this.initBits &= ~$L", a.names().initBit);
             }
         } else { // reference type
             setter.addParameter(a.type, a.name);
@@ -920,7 +897,7 @@ class ImmutableGenerator {
             } else {
                 setter.addStatement("this.$1L = $2T.requireNonNull($1L)", a.name, Objects.class);
             }
-            setter.addStatement("this.initBits &= ~$L", a.names.initBit);
+            setter.addStatement("this.initBits &= ~$L", a.names().initBit);
         }
 
         setter.addStatement("return this");
@@ -939,17 +916,17 @@ class ImmutableGenerator {
         String localNameSingular = qualify(a, "value");
         String localName = qualify(a, "values");
 
-        var add = pending.add(builder.addMethod(type.builderType, a.names.add)
+        var add = pending.add(builder.addMethod(type.builderType, a.names().add)
                 .addModifiers(Modifier.PUBLIC)
                 .addParameter(listElement, "value")
                 .addStatement("$T.requireNonNull(value)", Objects.class)
                 .addStatement("if ($1L == null) $1L = new $2T<>()", localNameSingular, ArrayList.class));
 
-        var addv = pending.add(builder.addMethod(type.builderType, a.names.addv)
+        var addv = pending.add(builder.addMethod(type.builderType, a.names().addv)
                 .addModifiers(Modifier.PUBLIC)
                 .addParameter(listElement, "values", true));
 
-        var addAll = pending.add(builder.addMethod(type.builderType, a.names.addAll)
+        var addAll = pending.add(builder.addMethod(type.builderType, a.names().addAll)
                 .addModifiers(Modifier.PUBLIC)
                 .addParameter(iterableType, "values"));
 
@@ -981,9 +958,9 @@ class ImmutableGenerator {
             addv.addStatement("$L |= $L", a.flagsName, a.flagMask);
             addAll.addStatement("$L |= $L", a.flagsName, a.flagMask);
         } else {
-            add.addStatement("$L &= ~$L", type.initBitsName, a.names.initBit);
-            addv.addStatement("$L &= ~$L", type.initBitsName, a.names.initBit);
-            addAll.addStatement("$L &= ~$L", type.initBitsName, a.names.initBit);
+            add.addStatement("$L &= ~$L", type.initBitsName, a.names().initBit);
+            addv.addStatement("$L &= ~$L", type.initBitsName, a.names().initBit);
+            addAll.addStatement("$L &= ~$L", type.initBitsName, a.names().initBit);
         }
 
         add.addStatement("return this");
@@ -1006,47 +983,8 @@ class ImmutableGenerator {
         } else {
             setter.addParameter(iterableType, "values")
                     .addStatement("$1L = " + copyCode, localName, StreamSupport.class, UTILITY, Collectors.class, Objects.class)
-                    .addStatement("$L &= ~$L", type.initBitsName, a.names.initBit);
+                    .addStatement("$L &= ~$L", type.initBitsName, a.names().initBit);
         }
-    }
-
-    private void generateEmpty(ValueType type, TopLevelRenderer renderer) {
-
-        renderer.addField(type.immutableType, "INSTANCE", Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
-                .initializer("new $T()", type.immutableType)
-                .complete();
-
-        renderer.addConstructor(Modifier.PRIVATE).complete();
-
-        renderer.addMethod(type.immutableType, "of", Modifier.PUBLIC, Modifier.STATIC)
-                .addStatement("return INSTANCE")
-                .complete();
-
-        renderer.addMethod(int.class, "identifier")
-                .addAnnotations(Override.class)
-                .addModifiers(Modifier.PUBLIC)
-                .addStatement("return ID")
-                .complete();
-
-        renderer.addMethod(boolean.class, "equals")
-                .addAnnotations(Override.class)
-                .addModifiers(Modifier.PUBLIC)
-                .addParameter(Object.class, "o")
-                .addStatement("return this == o || o instanceof $1L && ID == (($1L) o).identifier()",
-                        type.baseType.withTypeArguments(Collections.nCopies(type.typeVars.size(), WildcardTypeRef.none())))
-                .complete();
-
-        renderer.addMethod(int.class, "hashCode")
-                .addAnnotations(Override.class)
-                .addModifiers(Modifier.PUBLIC)
-                .addStatement("return ID")
-                .complete();
-
-        renderer.addMethod(String.class, "toString")
-                .addAnnotations(Override.class)
-                .addModifiers(Modifier.PUBLIC)
-                .addStatement("return \"$L#$L{}\"", type.baseType.rawType.name, type.tlType.id)
-                .complete();
     }
 
     // utilities
@@ -1103,48 +1041,6 @@ class ImmutableGenerator {
             return "null";
     }
 
-    static class ValueType {
-        public final ParameterizedTypeRef baseType;
-        public final ParameterizedTypeRef immutableType;
-        public final ParameterizedTypeRef builderType;
-        public final List<TypeVariableRef> typeVars;
-        public final List<TypeVariableRef> typeVarNames;
-        public final List<? extends TypeRef> interfaces;
-
-        public ValueType(ClassRef baseType, List<TypeVariableRef> typeVars, List<? extends TypeRef> interfaces) {
-            typeVarNames = typeVars.stream()
-                    .map(TypeVariableRef::withBounds)
-                    .collect(Collectors.toList());
-
-            this.baseType = ParameterizedTypeRef.of(baseType, typeVarNames);
-            this.typeVars = typeVars;
-            this.interfaces = interfaces;
-
-            immutableType = ParameterizedTypeRef.of(baseType.peer(immutable.apply(baseType.name)), typeVarNames);
-            builderType = ParameterizedTypeRef.of(immutableType.rawType.nested("Builder"), typeVarNames);
-        }
-
-        public Map<String, BitSet> usedBits;
-        public boolean needStubParam;
-        public boolean canOmitCopyConstr;
-        public List<ValueAttribute> attributes;
-        public List<ValueAttribute> generated; // list without boolean bit flags
-        public EnumSet<ValueType.Flag> flags = EnumSet.noneOf(ValueType.Flag.class);
-        public TlProcessing.Type tlType;
-        public TypeRef superType;
-        public Set<String> superTypeMethodsNames;
-        public int initBitsCount;
-
-        public String initBitsName;
-        public String hashCodeName;
-        public String equalsName;
-
-        enum Flag {
-            SINGLETON, // all fields are optional
-            GENERIC_METHOD,
-        }
-    }
-
     static TypeRef unwrap(TypeRef type, TypeRef pred) {
         ParameterizedTypeRef p;
         return type instanceof ParameterizedTypeRef &&
@@ -1162,52 +1058,10 @@ class ImmutableGenerator {
             pending.add(renderer);
             return renderer;
         }
+
         public void complete() {
             pending.forEach(CompletableRenderer::complete);
             pending.clear();
-        }
-    }
-
-    static class ValueAttribute {
-        public final String name;
-        public final Names names;
-
-        public TypeRef type;
-        public EnumSet<ValueAttribute.Flag> flags = EnumSet.noneOf(ValueAttribute.Flag.class);
-        @Nullable
-        public String flagsName;
-        @Nullable
-        public String flagMask;
-        public int flagPos = -1;
-
-        ValueAttribute(String name) {
-            this.name = name;
-
-            names = new Names();
-        }
-
-        public String flagsName() {
-            Objects.requireNonNull(flagsName);
-            return flagsName;
-        }
-
-        public String flagMask() {
-            Objects.requireNonNull(flagMask);
-            return flagMask;
-        }
-
-        enum Flag {
-            BIT_FLAG,
-            BIT_SET,
-            OPTIONAL // all @Nullable fields except bit flags
-        }
-
-        class Names {
-            public final String singular = Depluralizer.instance().apply(name);
-            public final String initBit = Style.initBit.apply(name, Naming.As.SCREMALIZED);
-            public final String add = Style.add.apply(singular);
-            public final String addv = Style.add.apply(name);
-            public final String addAll = Style.addAll.apply(name);
         }
     }
 }

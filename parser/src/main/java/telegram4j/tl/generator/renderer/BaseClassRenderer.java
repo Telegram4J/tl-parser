@@ -4,6 +4,7 @@ import telegram4j.tl.generator.Preconditions;
 import telegram4j.tl.generator.SourceNames;
 
 import javax.lang.model.element.Modifier;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 import java.util.*;
 
@@ -81,6 +82,8 @@ public abstract class BaseClassRenderer<P> implements CompletableRenderer<P> {
                 }
             } else if (stage == SUPER_TYPE) { // optional
                 stage = required;
+
+                out.incIndent().append(" {")/*.ln()*/;
             } else if (stage == INTERFACES) { // optional
                 stage = required;
 
@@ -236,7 +239,7 @@ public abstract class BaseClassRenderer<P> implements CompletableRenderer<P> {
 
     protected abstract void appendType(CharSink out, TypeRef type);
 
-    private void appendStringLiteral(CharSink out, Object o) {
+    protected void appendStringLiteral(CharSink out, Object o) {
         if (o == null) {
             out.append("null");
             return;
@@ -277,6 +280,10 @@ public abstract class BaseClassRenderer<P> implements CompletableRenderer<P> {
 
     public CodeRenderer<CharSequence> createCode() {
         return new CodeRendererImpl(this, new CharSink(out.autoIndent, out.lineWrap));
+    }
+
+    public AnnotationRenderer createAnnotation(Class<? extends Annotation> type) {
+        return new AnnotationRenderer(ClassRef.of(type), this, new CharSink(out.autoIndent, out.lineWrap));
     }
 
     // writers
@@ -323,6 +330,15 @@ public abstract class BaseClassRenderer<P> implements CompletableRenderer<P> {
 
             appendTypeVariable(out, type);
         }
+        return this;
+    }
+
+    public BaseClassRenderer<P> addAnnotation(AnnotationRenderer renderer) {
+        if (stage != ANNOTATIONS) {
+            requireStage(BEGIN, ANNOTATIONS);
+            completeStage(ANNOTATIONS);
+        }
+        out.append(renderer.complete());
         return this;
     }
 
