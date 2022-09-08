@@ -10,7 +10,8 @@ import java.util.*;
 
 import static telegram4j.tl.generator.renderer.CompletableRenderer.Stage.*;
 
-public abstract class BaseClassRenderer<P> implements CompletableRenderer<P> {
+public abstract class BaseClassRenderer<P>
+        implements CompletableRenderer<P>, AnnotatedRenderer<P> {
     protected static final Stage BEGIN = new Stage(-2, "BEGIN"),
             SUPER_TYPE = new Stage(2, "SUPER_TYPE"),
             INTERFACES = new Stage(3, "INTERFACES"),
@@ -222,16 +223,12 @@ public abstract class BaseClassRenderer<P> implements CompletableRenderer<P> {
         }
     }
 
-    protected void appendAnnotations(CharSink out, boolean inline, Collection<? extends Type> annotations) {
+    protected void appendAnnotations(CharSink out, Iterable<? extends Type> annotations) {
         for (Type annotation : annotations) {
             out.append('@');
             appendType(out, TypeRef.of(annotation));
 
-            if (inline) {
-                out.append(' ');
-            } else {
-                out.ln();
-            }
+            out.ln();
         }
     }
 
@@ -333,6 +330,7 @@ public abstract class BaseClassRenderer<P> implements CompletableRenderer<P> {
         return this;
     }
 
+    @Override
     public BaseClassRenderer<P> addAnnotation(AnnotationRenderer renderer) {
         if (stage != ANNOTATIONS) {
             requireStage(BEGIN, ANNOTATIONS);
@@ -342,20 +340,18 @@ public abstract class BaseClassRenderer<P> implements CompletableRenderer<P> {
         return this;
     }
 
+    @Override
     public BaseClassRenderer<P> addAnnotations(Type... annotations) {
-        return addAnnotations(false, Arrays.asList(annotations));
+        return addAnnotations(Arrays.asList(annotations));
     }
 
+    @Override
     public BaseClassRenderer<P> addAnnotations(Collection<? extends Type> annotations) {
-        return addAnnotations(false, annotations);
-    }
-
-    public BaseClassRenderer<P> addAnnotations(boolean inline, Collection<? extends Type> annotations) {
         if (stage != ANNOTATIONS) {
             requireStage(BEGIN, ANNOTATIONS);
             completeStage(ANNOTATIONS);
         }
-        appendAnnotations(out, inline, annotations);
+        appendAnnotations(out, annotations);
         return this;
     }
 

@@ -81,11 +81,6 @@ public class MethodRenderer<P extends BaseClassRenderer<?>> extends ExecutableRe
     }
 
     @Override
-    public MethodRenderer<P> addAnnotations(boolean inline, Collection<? extends Type> annotations) {
-        return (MethodRenderer<P>) super.addAnnotations(inline, annotations);
-    }
-
-    @Override
     public MethodRenderer<P> addModifiers(Collection<Modifier> modifiers) {
         this.modifiers.addAll(modifiers);
         return (MethodRenderer<P>) super.addModifiers(modifiers);

@@ -231,11 +231,6 @@ public class TopLevelRenderer extends BaseClassRenderer<CharSequence> {
     }
 
     @Override
-    public TopLevelRenderer addAnnotations(boolean inline, Collection<? extends Type> annotations) {
-        return (TopLevelRenderer) super.addAnnotations(inline, annotations);
-    }
-
-    @Override
     public TopLevelRenderer addModifiers(Modifier... modifiers) {
         return (TopLevelRenderer) super.addModifiers(modifiers);
     }

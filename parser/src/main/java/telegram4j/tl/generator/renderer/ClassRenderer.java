@@ -107,11 +107,6 @@ public class ClassRenderer<P extends BaseClassRenderer<?>> extends BaseClassRend
     }
 
     @Override
-    public ClassRenderer<P> addAnnotations(boolean inline, Collection<? extends Type> annotations) {
-        return (ClassRenderer<P>) super.addAnnotations(inline, annotations);
-    }
-
-    @Override
     public ClassRenderer<P> addSuperType(Type type) {
         return (ClassRenderer<P>) super.addSuperType(type);
     }

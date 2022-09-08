@@ -9,7 +9,7 @@ import static telegram4j.tl.generator.renderer.CompletableRenderer.Stage.MODIFIE
 
 public class FieldRenderer<P extends BaseClassRenderer<?>>
         extends BaseCompletableRenderer<P>
-        implements SeparableRenderer<P> {
+        implements SeparableRenderer<P>, AnnotatedRenderer<P> {
 
     private static final Stage INITIALIZER = new Stage(1, "INITIALIZER");
 
@@ -35,17 +35,22 @@ public class FieldRenderer<P extends BaseClassRenderer<?>>
         }
     }
 
-    public FieldRenderer<P> addAnnotations(Type... annotations) {
-        return addAnnotations(false, Arrays.asList(annotations));
-    }
-
-    public FieldRenderer<P> addAnnotations(Collection<? extends Type> annotations) {
-        return addAnnotations(false, annotations);
-    }
-
-    public FieldRenderer<P> addAnnotations(boolean inline, Collection<? extends Type> annotations) {
+    @Override
+    public AnnotatedRenderer<P> addAnnotation(AnnotationRenderer renderer) {
         RenderUtils.requireStage(stage, ANNOTATIONS);
-        parent.appendAnnotations(out, inline, annotations);
+        out.append(renderer.complete());
+        return this;
+    }
+
+    @Override
+    public FieldRenderer<P> addAnnotations(Type... annotations) {
+        return addAnnotations(Arrays.asList(annotations));
+    }
+
+    @Override
+    public FieldRenderer<P> addAnnotations(Collection<? extends Type> annotations) {
+        RenderUtils.requireStage(stage, ANNOTATIONS);
+        parent.appendAnnotations(out, annotations);
         return this;
     }
 

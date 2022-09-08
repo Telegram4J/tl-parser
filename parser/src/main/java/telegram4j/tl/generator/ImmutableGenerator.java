@@ -6,10 +6,8 @@ import reactor.util.annotation.Nullable;
 import telegram4j.tl.api.TlEncodingUtil;
 import telegram4j.tl.generator.renderer.*;
 
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
-import javax.lang.model.element.Modifier;
-import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.*;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.util.Elements;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -513,8 +511,10 @@ class ImmutableGenerator {
 
     private void generateFrom(ValueType type, ClassRenderer<?> builder, CompletionDeferrer pending) {
 
+        boolean needUseSuperType = !type.superTypeMethodsNames.isEmpty();
+        TypeRef paramType = needUseSuperType ? type.superType : type.baseType;
         var from = builder.addMethod(type.builderType, "from", Modifier.PUBLIC)
-                .addParameter(type.superType, "instance");
+                .addParameter(paramType, "instance");
 
         int optBits = 0;
         Map<String, String> commonMethods = new HashMap<>();
@@ -533,7 +533,10 @@ class ImmutableGenerator {
                 String name = e.getSimpleName().toString();
                 if (e.getKind() != ElementKind.METHOD ||
                     name.equals("identifier") ||
-                    e.getModifiers().contains(Modifier.STATIC)) {
+                    e.getModifiers().contains(Modifier.STATIC) || // of()/instance()/builder()
+                    e.getModifiers().contains(Modifier.DEFAULT) && // bit flag
+                    e instanceof ExecutableElement &&
+                    ((ExecutableElement) e).getReturnType().getKind() == TypeKind.BOOLEAN) {
                     continue;
                 }
 
@@ -546,7 +549,7 @@ class ImmutableGenerator {
                 methods.add(name);
             }
 
-            if (!methods.isEmpty()){
+            if (!methods.isEmpty()) {
                 typeToMethods.put(typeRef, methods);
             }
         }
@@ -559,25 +562,29 @@ class ImmutableGenerator {
         // - super type (if it has common methods)
         // - interfaces
 
-        from.beginControlFlow("if (instance instanceof $T) {",
-                type.baseType.withTypeArguments(Collections.nCopies(
-                        type.typeVars.size(), WildcardTypeRef.none())));
-        from.addStatement("$1T c = ($1T) instance", type.baseType);
+        String c;
+        if (needUseSuperType) {
+            from.beginControlFlow("if (instance instanceof $T) {",
+                    type.baseType.withTypeArguments(Collections.nCopies(
+                            type.typeVars.size(), WildcardTypeRef.none())));
+            from.addStatement("$1T c = ($1T) instance", type.baseType);
+
+            c = "c";
+        } else {
+            c = "instance";
+        }
 
         for (ValueAttribute a : type.attributes) {
             String mask = commonMethods.get(a.name);
-            from.addStatement("$1L(c.$1L())", a.name);
+            from.addStatement("$1L($2L.$1L())", a.name, c);
 
             if (mask != null) {
                 from.addStatement("bits |= 0x$L", mask);
             }
         }
 
-        from.endControlFlow();
-
-        if (!type.superTypeMethodsNames.isEmpty()) {
-            from.beginControlFlow("if (instance instanceof $T) {", type.superType);
-            from.addStatement("$1T c = ($1T) instance", type.superType);
+        if (needUseSuperType) {
+            from.endControlFlow();
 
             for (String name : type.superTypeMethodsNames) {
                 String mask = commonMethods.get(name);
@@ -585,15 +592,13 @@ class ImmutableGenerator {
                     from.beginControlFlow("if ((bits & 0x$L) == 0) {", mask);
                 }
 
-                from.addStatement("$1L(c.$1L())", name);
+                from.addStatement("$1L(instance.$1L())", name);
 
                 if (mask != null) {
                     from.addStatement("bits |= 0x$L", mask);
                     from.endControlFlow();
                 }
             }
-
-            from.endControlFlow();
         }
 
         for (var e : typeToMethods.entrySet()) {
@@ -638,19 +643,16 @@ class ImmutableGenerator {
         for (int i = 0, n = type.generated.size(); i < n; i++) {
             ValueAttribute b = type.generated.get(i);
 
-            String c = i != 0 ? ",$W " : "";
-            String s = qualify(b, paramName);
-
-            if (a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
-                if (b.name.equals(a.flagsName)) {
-                    s = newValue.apply(a.flagsName); // update flags
-                } else if (a == b) { // update param
-                    s = newValueVar;
-                }
-            } else if (a == b) {
+            String s;
+            if (a == b) { // update param
                 s = newValueVar;
+            } else if (a.flags.contains(ValueAttribute.Flag.OPTIONAL) && b.name.equals(a.flagsName)) {
+                s = newValue.apply(a.flagsName); // update flags
+            } else {
+                s = qualify(b, paramName);
             }
 
+            String c = i != 0 ? ",$W " : "";
             renderer.addCode(c + "$L", s);
         }
 
@@ -667,7 +669,7 @@ class ImmutableGenerator {
         TypeRef listElement = unwrap(a.type, LIST);
 
         TypeRef paramType = a.type;
-        if (listElement != a.type) // Iterable<? extends ParamType>
+        if (listElement != a.type) // Iterable<? extends ListElement>
             paramType = ParameterizedTypeRef.of(ITERABLE, expandBounds(listElement));
         if (a.flags.contains(ValueAttribute.Flag.OPTIONAL)) // @Nullable ParamType
             paramType = AnnotatedTypeRef.create(paramType, Nullable.class);
@@ -697,7 +699,7 @@ class ImmutableGenerator {
                 withMethod.addStatement("if ($L == $L) return this", localName, paramName);
 
                 if (listElement == BYTE_BUF) {
-                    // implicit null-check in .map()
+                    // implicit null-check in TlEncodingUtil.copyAsUnpooled()
                     withMethod.addStatement("$1T $2L = $3L != null ? $4T.stream($3L.spliterator(), false)$B" +
                                     ".map($5T::copyAsUnpooled)$B.collect($6T.toUnmodifiableList()) : null",
                             a.type, newValueVar, paramName, StreamSupport.class, UTILITY, Collectors.class);

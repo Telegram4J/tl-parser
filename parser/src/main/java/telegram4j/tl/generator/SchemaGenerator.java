@@ -842,6 +842,7 @@ public class SchemaGenerator extends AbstractProcessor {
         if (types.size() > 1) {
             valType.superTypeMethodsNames = types.stream()
                     .flatMap(e -> e.parameters.stream())
+                    .filter(e -> !e.type.isBitFlag())
                     .filter(p -> types.stream()
                             .allMatch(t -> t.parameters.contains(p)))
                     .map(Parameter::formattedName)
