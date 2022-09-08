@@ -574,7 +574,7 @@ class ImmutableGenerator {
             c = "instance";
         }
 
-        for (ValueAttribute a : type.attributes) {
+        for (ValueAttribute a : type.generated) {
             String mask = commonMethods.get(a.name);
             from.addStatement("$1L($2L.$1L())", a.name, c);
 

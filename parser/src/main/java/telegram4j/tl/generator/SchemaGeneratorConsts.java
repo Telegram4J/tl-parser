@@ -35,9 +35,6 @@ final class SchemaGeneratorConsts {
     static final TypeRef wildcardMethodType = ParameterizedTypeRef.of(
             TlMethod.class, WildcardTypeRef.subtypeOf(genericResultTypeRef));
 
-    static final List<NameTransformer> namingExceptions = List.of(
-            NameTransformer.create("messages.StickerSet", "messages.StickerSetWithDocuments"));
-
     // some interned types
 
     static final ClassRef LIST = ClassRef.of(List.class);

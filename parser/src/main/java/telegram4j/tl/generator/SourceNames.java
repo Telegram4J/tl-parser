@@ -4,7 +4,6 @@ import reactor.util.annotation.Nullable;
 
 import javax.lang.model.SourceVersion;
 
-import static telegram4j.tl.generator.SchemaGeneratorConsts.namingExceptions;
 import static telegram4j.tl.generator.Strings.camelize;
 
 public final class SourceNames {
@@ -18,8 +17,6 @@ public final class SourceNames {
     }
 
     public static String normalizeName(String type) {
-        type = applyNamingExceptions(type);
-
         int dotIdx = type.lastIndexOf('.');
         if (dotIdx != -1) {
             type = type.substring(dotIdx + 1);
@@ -68,14 +65,6 @@ public final class SourceNames {
         }
 
         return name;
-    }
-
-    public static String applyNamingExceptions(String s) {
-        String l = s;
-        for (NameTransformer t : namingExceptions) {
-            l = t.apply(l);
-        }
-        return l;
     }
 
     public static String parentPackageName(String qualifiedName) {
