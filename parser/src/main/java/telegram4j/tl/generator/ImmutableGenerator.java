@@ -69,7 +69,7 @@ class ImmutableGenerator {
             var mandatoryOf = renderer.addMethod(type.immutableType, "of", Modifier.PUBLIC, Modifier.STATIC)
                     .addTypeVariables(type.typeVars);
 
-            StringJoiner params = new StringJoiner(", ");
+            StringJoiner params = new StringJoiner(",$W ");
 
             // I want to initialize the fields in order:
             // [ mandatory fields ]
@@ -126,9 +126,9 @@ class ImmutableGenerator {
             }
 
             if (singleton) {
-                mandatoryOf.addStatement("return canonize(new $T($L))", type.immutableType, params);
+                mandatoryOf.addStatement("return canonize(new $T(" + params + "))", type.immutableType);
             } else {
-                mandatoryOf.addStatement("return new $T($L)", type.immutableType, params);
+                mandatoryOf.addStatement("return new $T(" + params + ")", type.immutableType);
             }
 
             mandatoryConstructor.addCode(mandatoryConstructorBody.complete());
@@ -236,12 +236,6 @@ class ImmutableGenerator {
 
         // region interface methods
 
-        renderer.addMethod(int.class, "identifier")
-                .addAnnotations(Override.class)
-                .addModifiers(Modifier.PUBLIC)
-                .addStatement("return ID")
-                .complete();
-
         for (ValueAttribute a : type.attributes) {
             if (a.flags.contains(ValueAttribute.Flag.BIT_FLAG)) {
                 continue;
@@ -299,15 +293,15 @@ class ImmutableGenerator {
 
         // region object methods
 
-        var unbounded = type.baseType.withTypeArguments(
+        var unknownTypeParams = type.baseType.withTypeArguments(
                 Collections.nCopies(type.typeVars.size(), WildcardTypeRef.none()));
         var equals = renderer.addMethod(boolean.class, "equals")
                 .addAnnotations(Override.class)
                 .addModifiers(Modifier.PUBLIC)
                 .addParameter(ClassRef.OBJECT, "o")
                 .addStatement("if (this == o) return true")
-                .addStatement("if (!(o instanceof $T)) return false", unbounded)
-                .addStatement("$1T $2L = ($1T) o", unbounded, type.equalsName)
+                .addStatement("if (!(o instanceof $T)) return false", unknownTypeParams)
+                .addStatement("$1T $2L = ($1T) o", unknownTypeParams, type.equalsName)
                 .addCode("return ID == $L.identifier() &&", type.equalsName).incIndent(2).ln();
 
         var hashCode = renderer.addMethod(int.class, "hashCode")
@@ -516,7 +510,7 @@ class ImmutableGenerator {
         var from = builder.addMethod(type.builderType, "from", Modifier.PUBLIC)
                 .addParameter(paramType, "instance");
 
-        int optBits = 0;
+        byte optBits = 0;
         Map<String, String> commonMethods = new HashMap<>();
         Map<TypeRef, List<String>> typeToMethods = new HashMap<>();
 
@@ -575,12 +569,11 @@ class ImmutableGenerator {
         }
 
         for (ValueAttribute a : type.generated) {
-            String mask = commonMethods.get(a.name);
             from.addStatement("$1L($2L.$1L())", a.name, c);
+        }
 
-            if (mask != null) {
-                from.addStatement("bits |= 0x$L", mask);
-            }
+        if (optBits > 0) {
+            from.addStatement("bits |= 0x$L", Integer.toHexString(0xffffffff >>> -optBits));
         }
 
         if (needUseSuperType) {
