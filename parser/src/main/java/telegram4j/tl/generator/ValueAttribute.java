@@ -58,8 +58,7 @@ class ValueAttribute {
 
     enum Flag {
         BIT_FLAG,
-        BIT_SET,
-        OPTIONAL // all @Nullable fields except bit flags
-
+        BIT_SET, // implicitly optional attribute
+        OPTIONAL
     }
 }

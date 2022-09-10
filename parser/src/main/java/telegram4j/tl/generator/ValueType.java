@@ -42,7 +42,7 @@ class ValueType {
     public List<ValueAttribute> attributes;
     public List<ValueAttribute> generated; // list without boolean bit flags
     public EnumSet<Flag> flags = EnumSet.noneOf(ValueType.Flag.class);
-    public TlProcessing.Type tlType;
+    public String identifier;
     public TypeRef superType;
     public Set<String> superTypeMethodsNames;
     public int initBitsCount;

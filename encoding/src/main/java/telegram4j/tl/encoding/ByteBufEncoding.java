@@ -41,7 +41,6 @@ public class ByteBufEncoding {
         @Encoding.Init
         @Encoding.Copy
         public void set(ByteBuf value) {
-            java.lang.reflect.Array.newInstance(Integer.class, 1);
             this.value = TlEncodingUtil.copyAsUnpooled(value);
         }
 

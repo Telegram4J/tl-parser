@@ -832,7 +832,7 @@ public class SchemaGenerator extends AbstractProcessor {
         if (singleton)
             valType.flags.add(ValueType.Flag.SINGLETON);
 
-        valType.tlType = tlType;
+        valType.identifier = tlType.id;
         valType.superType = superType;
 
         var types = superType instanceof ClassRef
@@ -946,15 +946,13 @@ public class SchemaGenerator extends AbstractProcessor {
                 for (Parameter param : params) {
                     TypeRef paramType = mapType(param.type);
 
-                    List<ClassRef> anns = List.of();
-                    if (!param.type.isBitFlag() && (param.type.isFlag() ||
-                            isNullableInSubclasses(qualifiedName, param))) {
-                        anns = List.of(ClassRef.of(Nullable.class));
+                    var commonAttr = renderer.addMethod(paramType, param.formattedName());
+
+                    if (param.type.isFlag() && !param.type.isBitFlag()) {
+                        commonAttr.addAnnotations(Nullable.class);
                     }
 
-                    renderer.addMethod(paramType, param.formattedName())
-                            .addAnnotations(anns)
-                            .complete();
+                    commonAttr.complete();
                 }
             }
 
@@ -1030,14 +1028,6 @@ public class SchemaGenerator extends AbstractProcessor {
             default:
                 return -1;
         }
-    }
-
-    private boolean isNullableInSubclasses(String qualifiedName, Parameter param) {
-        return currTypeTree.getOrDefault(qualifiedName, List.of()).stream()
-                .flatMap(c -> c.parameters.stream())
-                .anyMatch(p -> p.type.isFlag() &&
-                        p.type.innerType().rawType.equals(param.type.rawType) &&
-                        p.name.equals(param.name));
     }
 
     private void preparePackages() {

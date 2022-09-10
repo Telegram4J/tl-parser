@@ -236,11 +236,7 @@ class ImmutableGenerator {
 
         // region interface methods
 
-        for (ValueAttribute a : type.attributes) {
-            if (a.flags.contains(ValueAttribute.Flag.BIT_FLAG)) {
-                continue;
-            }
-
+        for (ValueAttribute a : type.generated) {
             var attr = renderer.addMethod(a.type, a.name);
             if (a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
                 attr.addAnnotations(Nullable.class);
@@ -263,7 +259,6 @@ class ImmutableGenerator {
             }
 
             if (listElement != a.type && listElement == BYTE_BUF) {
-                // I then rewrite to explicit imports
                 format.append("$1L.stream().map(ByteBuf::duplicate).collect(Collectors.toList())");
             } else if (a.type == BYTE_BUF) {
                 format.append("$1L.duplicate()");
@@ -313,7 +308,7 @@ class ImmutableGenerator {
         var toString = renderer.addMethod(STRING, "toString")
                 .addAnnotations(Override.class)
                 .addModifiers(Modifier.PUBLIC)
-                .addCode("return \"$L#$L{\" +", type.baseType.rawType.name, type.tlType.id)
+                .addCode("return \"$L#$L{\" +", type.baseType.rawType.name, type.identifier)
                 .incIndent(2).ln();
 
         for (int i = 0, n = type.generated.size(); i < n; i++) {
@@ -375,9 +370,8 @@ class ImmutableGenerator {
                 toString.addCode('"');
             }
 
-            boolean isString = unwrapped == STRING;
             toString.addCode(a.name);
-            if (isString) {
+            if (unwrapped == STRING) {
                 toString.addCode("='\" + ");
             } else {
                 toString.addCode("=\" + ");
@@ -471,7 +465,7 @@ class ImmutableGenerator {
             pending.add(initializationIncomplete);
 
             for (ValueAttribute a : type.attributes) {
-                if (!a.flags.isEmpty()) {
+                if (!a.flags.isEmpty()) { // allow only mandatory fields
                     continue;
                 }
 
@@ -851,6 +845,7 @@ class ImmutableGenerator {
         var setter = builder.addMethod(type.builderType, a.name);
 
         if (!a.flags.contains(ValueAttribute.Flag.BIT_FLAG)) {
+            // necessary for our json deserialization
             var ann = renderer.createAnnotation(JsonSetter.class);
             if (a.jsonName != null) {
                 ann.addAttribute(a.jsonName);

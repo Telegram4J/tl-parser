@@ -1,14 +1,16 @@
 package telegram4j.tl;
 
-import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.PropertyAccessor;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ser.impl.IndexedListSerializer;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import org.junit.jupiter.api.Test;
 import telegram4j.tl.api.TlObject;
 import telegram4j.tl.json.TlModule;
 import telegram4j.tl.request.InvokeWithLayer;
 import telegram4j.tl.request.help.GetConfig;
+
+import java.security.SecureRandom;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -17,6 +19,17 @@ class JsonSerializationTest {
 
     static final ObjectMapper mapper = new ObjectMapper()
             .registerModule(new TlModule());
+
+    @Test
+    void byteBuf() throws Throwable {
+        SecureRandom rnd = SecureRandom.getInstanceStrong();
+        byte[] b = new byte[1024];
+        rnd.nextBytes(b);
+
+        ByteBuf exp = Unpooled.wrappedBuffer(b);
+        ByteBuf act = serialize(exp, ByteBuf.class);
+        assertEquals(exp, act);
+    }
 
     @Test
     void allCases() throws Throwable {
@@ -44,9 +57,18 @@ class JsonSerializationTest {
         assertEquals(expBaseUser, serialize(expBaseUser));
     }
 
+    static <T> T serialize(T o, TypeReference<? extends T> ptype) throws Throwable {
+        String s = mapper.writeValueAsString(o);
+        return mapper.readValue(s, ptype);
+    }
+
+    static <T> T serialize(T o, Class<? extends T> klass) throws Throwable {
+        String s = mapper.writeValueAsString(o);
+        return mapper.readValue(s, klass);
+    }
+
     @SuppressWarnings("unchecked")
     static <T extends TlObject> T serialize(T o) throws Throwable {
-        String s = mapper.writeValueAsString(o);
-        return (T) mapper.readValue(s, TlObject.class);
+        return (T) serialize(o, TlObject.class);
     }
 }
