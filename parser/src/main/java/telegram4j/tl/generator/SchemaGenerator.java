@@ -859,10 +859,13 @@ public class SchemaGenerator extends AbstractProcessor {
                 .filter(e -> !e.flags.contains(ValueAttribute.Flag.BIT_FLAG))
                 .collect(Collectors.toList());
 
-        valType.canOmitCopyConstr = primitivefCount == valType.generated.size();
+        if (primitivefCount == valType.generated.size())
+            valType.flags.add(ValueType.Flag.CAN_OMIT_COPY_CONSTRUCTOR);
         // TODO: don't generate bitset parameter if it has no bit flags
-        valType.canOmitOfMethod = bitSetfCount != 0 && flagsfCount == 0;
-        valType.needStubParam = reffCount > 0;
+        if (bitSetfCount != 0 && flagsfCount == 0)
+            valType.flags.add(ValueType.Flag.CAN_OMIT_OF_METHOD);
+        if (reffCount > 0)
+            valType.flags.add(ValueType.Flag.NEED_STUB_PARAM);
 
         return valType;
     }

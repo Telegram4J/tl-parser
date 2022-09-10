@@ -63,10 +63,11 @@ class ImmutableGenerator {
         }
 
         // constructor with mandatory parameters
-        if (!type.canOmitOfMethod) {
+        if (!type.flags.contains(ValueType.Flag.CAN_OMIT_OF_METHOD)) {
             var mandatoryConstructorBody = renderer.createCode().incIndent(2);
             var mandatoryConstructor = renderer.addConstructor(Modifier.PRIVATE);
-            var mandatoryOf = renderer.addMethod(type.immutableType, "of", Modifier.PUBLIC, Modifier.STATIC)
+            var mandatoryOf = renderer.addMethod(type.immutableType, "of",
+                            Modifier.PUBLIC, Modifier.STATIC)
                     .addTypeVariables(type.typeVars);
 
             StringJoiner params = new StringJoiner(",$W ");
@@ -170,13 +171,13 @@ class ImmutableGenerator {
 
         // - no reference fields
         // - no optional fields
-        if (!type.canOmitCopyConstr) {
+        if (!type.flags.contains(ValueType.Flag.CAN_OMIT_COPY_CONSTRUCTOR)) {
             var allConstructorBody = renderer.createCode().incIndent(2);
             var allConstructor = renderer.addConstructor(Modifier.PRIVATE);
 
             // have a reference fields, need to stub.
             // This is necessary because this constructor does not contain null checks
-            if (type.needStubParam) {
+            if (type.flags.contains(ValueType.Flag.NEED_STUB_PARAM)) {
                 allConstructor.addParameter(Void.class, "synthetic0");
             }
 
@@ -430,7 +431,7 @@ class ImmutableGenerator {
 
         if (type.initBitsCount > 0) {
             short pos = 0;
-            for (ValueAttribute a : type.attributes) {
+            for (ValueAttribute a : type.generated) {
                 if (!a.flags.isEmpty()) {
                     continue;
                 }
@@ -441,7 +442,7 @@ class ImmutableGenerator {
             }
 
             builder.addField(bitsType, "initBits", Modifier.PRIVATE)
-                    .initializer("0x" + Integer.toHexString(~(~0 << type.initBitsCount)))
+                    .initializer("0x" + Integer.toHexString(~(0xffffffff << type.initBitsCount)))
                     .complete();
         }
 
@@ -464,7 +465,7 @@ class ImmutableGenerator {
 
             pending.add(initializationIncomplete);
 
-            for (ValueAttribute a : type.attributes) {
+            for (ValueAttribute a : type.generated) {
                 if (!a.flags.isEmpty()) { // allow only mandatory fields
                     continue;
                 }
@@ -623,7 +624,7 @@ class ImmutableGenerator {
         }
 
         renderer.addCode("new $T(", type.immutableType);
-        if (type.needStubParam) {
+        if (type.flags.contains(ValueType.Flag.NEED_STUB_PARAM)) {
             renderer.addCode("null, ");
         }
 

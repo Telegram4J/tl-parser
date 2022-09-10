@@ -26,8 +26,6 @@ class ValueAttribute {
 
     ValueAttribute(String name) {
         this.name = name;
-
-        names = new Names();
     }
 
     public Names names() {
