@@ -1,6 +1,7 @@
 package telegram4j.tl.generator.renderer;
 
 import javax.lang.model.element.Modifier;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 import java.util.*;
 
@@ -43,12 +44,12 @@ public class FieldRenderer<P extends BaseClassRenderer<?>>
     }
 
     @Override
-    public FieldRenderer<P> addAnnotations(Type... annotations) {
-        return addAnnotations(Arrays.asList(annotations));
+    public FieldRenderer<P> addAnnotation(Class<? extends Annotation> annotation) {
+        return addAnnotations(List.of(annotation));
     }
 
     @Override
-    public FieldRenderer<P> addAnnotations(Collection<? extends Type> annotations) {
+    public FieldRenderer<P> addAnnotations(Iterable<Class<? extends Annotation>> annotations) {
         RenderUtils.requireStage(stage, ANNOTATIONS);
         parent.appendAnnotations(out, annotations);
         return this;

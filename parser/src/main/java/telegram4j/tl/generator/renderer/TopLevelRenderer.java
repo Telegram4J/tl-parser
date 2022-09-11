@@ -3,6 +3,7 @@ package telegram4j.tl.generator.renderer;
 import telegram4j.tl.generator.Preconditions;
 
 import javax.lang.model.element.Modifier;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 import java.util.*;
 
@@ -29,7 +30,8 @@ public class TopLevelRenderer extends BaseClassRenderer<CharSequence> {
         } else if (type instanceof ClassRef) {
             ClassRef c = (ClassRef) type;
 
-            String simpleName = c.toString();
+            String simpleName = c.name;
+
             if (c.name.equals(name.name) && !c.packageName.equals(name.packageName) ||
                     c.packageName.equals("java.lang") ||
                     c.packageName.isEmpty() ||
@@ -38,6 +40,7 @@ public class TopLevelRenderer extends BaseClassRenderer<CharSequence> {
             }
 
             if (simpleNames.putIfAbsent(simpleName, c.packageName) == null) {
+                // TODO handle collisions via enclosing class name
                 imports.add(c.qualifiedName());
             }
         } else if (type instanceof ParameterizedTypeRef) {
@@ -88,18 +91,15 @@ public class TopLevelRenderer extends BaseClassRenderer<CharSequence> {
             out.append(arraySuffix);
         } else if (type instanceof ClassRef) {
             ClassRef c = (ClassRef) type;
-            String simpleName = c.toString();
-            String pckg = simpleNames.get(simpleName);
-
+            String simpleName = c.name;
 
             if (c.name.equals(name.name) && !c.packageName.equals(name.packageName)) {
                 out.append(c.qualifiedName()).append(varargsSuffix);
                 return;
             }
 
+            String pckg = simpleNames.get(simpleName);
             if ((c.packageName.equals("java.lang") ||
-                // c.packageName.equals(name.packageName) ||
-                // simpleName.equals(name.name) ||
                 c.packageName.isEmpty()) &&
                 (pckg == null || pckg.equals(c.packageName))) {
                 out.append(simpleName).append(varargsSuffix);
@@ -221,12 +221,12 @@ public class TopLevelRenderer extends BaseClassRenderer<CharSequence> {
     }
 
     @Override
-    public TopLevelRenderer addAnnotations(Type... annotations) {
-        return (TopLevelRenderer) super.addAnnotations(annotations);
+    public TopLevelRenderer addAnnotation(Class<? extends Annotation> annotation) {
+        return (TopLevelRenderer) super.addAnnotation(annotation);
     }
 
     @Override
-    public TopLevelRenderer addAnnotations(Collection<? extends Type> annotations) {
+    public TopLevelRenderer addAnnotations(Iterable<Class<? extends Annotation>> annotations) {
         return (TopLevelRenderer) super.addAnnotations(annotations);
     }
 

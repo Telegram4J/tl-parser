@@ -18,7 +18,7 @@ public class Depluralizer implements UnaryOperator<String> {
     public String apply(String s) {
         String detected = NAMING_IES_PLURAL.detect(s);
         if (detected != null) {
-            return detected + "y";
+            return detected + 'y';
         }
         detected = NAMING_S_PLURAL.detect(s);
         if (detected != null) {

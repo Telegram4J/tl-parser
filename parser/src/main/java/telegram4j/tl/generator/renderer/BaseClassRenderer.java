@@ -341,12 +341,12 @@ public abstract class BaseClassRenderer<P>
     }
 
     @Override
-    public BaseClassRenderer<P> addAnnotations(Type... annotations) {
-        return addAnnotations(Arrays.asList(annotations));
+    public BaseClassRenderer<P> addAnnotation(Class<? extends Annotation> annotation) {
+        return addAnnotations(List.of(annotation));
     }
 
     @Override
-    public BaseClassRenderer<P> addAnnotations(Collection<? extends Type> annotations) {
+    public BaseClassRenderer<P> addAnnotations(Iterable<Class<? extends Annotation>> annotations) {
         if (stage != ANNOTATIONS) {
             requireStage(BEGIN, ANNOTATIONS);
             completeStage(ANNOTATIONS);

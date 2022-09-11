@@ -3,6 +3,7 @@ package telegram4j.tl.generator.renderer;
 import telegram4j.tl.generator.Preconditions;
 
 import javax.lang.model.element.Modifier;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.Collection;
@@ -71,12 +72,12 @@ public class MethodRenderer<P extends BaseClassRenderer<?>> extends ExecutableRe
     }
 
     @Override
-    public MethodRenderer<P> addAnnotations(Collection<? extends Type> annotations) {
-        return (MethodRenderer<P>) super.addAnnotations(annotations);
+    public MethodRenderer<P> addAnnotation(Class<? extends Annotation> annotation) {
+        return (MethodRenderer<P>) super.addAnnotation(annotation);
     }
 
     @Override
-    public MethodRenderer<P> addAnnotations(Type... annotations) {
+    public MethodRenderer<P> addAnnotations(Iterable<Class<? extends Annotation>> annotations) {
         return (MethodRenderer<P>) super.addAnnotations(annotations);
     }
 

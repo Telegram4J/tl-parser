@@ -197,7 +197,7 @@ class ImmutableGenerator {
         if (singleton) { // unhandled possible generics
             renderer.addMethod(type.immutableType, "canonize", Modifier.PRIVATE, Modifier.STATIC)
                     .addParameter(type.immutableType, "instance")
-                    .addStatement("return INSTANCE.equals(instance) ? INSTANCE : instance")
+                    .addStatement("return INSTANCE.equalsTo(instance) ? INSTANCE : instance")
                     .complete();
 
             renderer.addMethod(type.immutableType, "of", Modifier.PUBLIC, Modifier.STATIC)
@@ -240,10 +240,10 @@ class ImmutableGenerator {
         for (ValueAttribute a : type.generated) {
             var attr = renderer.addMethod(a.type, a.name);
             if (a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
-                attr.addAnnotations(Nullable.class);
+                attr.addAnnotation(Nullable.class);
             }
 
-            attr.addAnnotations(Override.class);
+            attr.addAnnotation(Override.class);
             attr.addModifiers(Modifier.PUBLIC);
 
             TypeRef listElement = unwrap(a.type, LIST);
@@ -291,23 +291,31 @@ class ImmutableGenerator {
 
         var unknownTypeParams = type.baseType.withTypeArguments(
                 Collections.nCopies(type.typeVars.size(), WildcardTypeRef.none()));
-        var equals = renderer.addMethod(boolean.class, "equals")
-                .addAnnotations(Override.class)
-                .addModifiers(Modifier.PUBLIC)
-                .addParameter(ClassRef.OBJECT, "o")
-                .addStatement("if (this == o) return true")
-                .addStatement("if (!(o instanceof $T)) return false", unknownTypeParams)
-                .addStatement("$1T $2L = ($1T) o", unknownTypeParams, type.equalsName)
-                .addCode("return ID == $L.identifier() &&", type.equalsName).incIndent(2).ln();
+        MethodRenderer<TopLevelRenderer> equals0;
+        if (singleton) {
+            equals0 = renderer.addMethod(boolean.class, "equalsTo")
+                    .addModifiers(Modifier.PRIVATE)
+                    .addParameter(type.baseType, type.equalsName);
+        } else {
+            equals0 = renderer.addMethod(boolean.class, "equals")
+                    .addAnnotation(Override.class)
+                    .addModifiers(Modifier.PUBLIC)
+                    .addParameter(ClassRef.OBJECT, "o")
+                    .addStatement("if (this == o) return true")
+                    .addStatement("if (!(o instanceof $T)) return false", unknownTypeParams)
+                    .addStatement("$1T $2L = ($1T) o", unknownTypeParams, type.equalsName)
+                    .addCode("return ID == $L.identifier() &&", type.equalsName)
+                    .incIndent(2).ln();
+        }
 
         var hashCode = renderer.addMethod(int.class, "hashCode")
-                .addAnnotations(Override.class)
+                .addAnnotation(Override.class)
                 .addModifiers(Modifier.PUBLIC)
                 .addStatement("int $L = 5381", type.hashCodeName)
                 .addStatement("$1L += ($1L << 5) + ID", type.hashCodeName);
 
         var toString = renderer.addMethod(STRING, "toString")
-                .addAnnotations(Override.class)
+                .addAnnotation(Override.class)
                 .addModifiers(Modifier.PUBLIC)
                 .addCode("return \"$L#$L{\" +", type.baseType.rawType.name, type.identifier)
                 .incIndent(2).ln();
@@ -341,18 +349,26 @@ class ImmutableGenerator {
 
             // region equals
 
+            if (i == 0 && singleton) {
+                equals0.addCode("return ");
+            }
+
             if (a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
-                equals.addCode("$T.equals($2L(), $3L.$2L())", Objects.class, a.name, type.equalsName);
+                equals0.addCode("$T.equals($2L(), $3L.$2L())", Objects.class, a.name, type.equalsName);
             } else if (unwrapped == PrimitiveTypeRef.DOUBLE) {
-                equals.addCode("Double.doubleToLongBits($1L) == Double.doubleToLongBits($2L.$1L())", a.name, type.equalsName);
+                equals0.addCode("Double.doubleToLongBits($1L) == Double.doubleToLongBits($2L.$1L())", a.name, type.equalsName);
             } else if (unwrapped instanceof PrimitiveTypeRef) {
-                equals.addCode("$1L == $2L.$1L()", a.name, type.equalsName);
+                equals0.addCode("$1L == $2L.$1L()", a.name, type.equalsName);
             } else {
-                equals.addCode("$1L.equals($2L.$1L())", a.name, type.equalsName);
+                equals0.addCode("$1L.equals($2L.$1L())", a.name, type.equalsName);
             }
 
             if (i != n - 1) {
-                equals.addCode(" &&").ln();
+                equals0.addCode(" &&").ln();
+            }
+
+            if (i == 0 && singleton) {
+                equals0.incIndent(2);
             }
 
             // endregion
@@ -409,13 +425,24 @@ class ImmutableGenerator {
             // endregion
         }
 
-        equals.decIndent(2).addCode(';');
+        equals0.decIndent(2).addCode(';');
 
         hashCode.addStatement("return $L", type.hashCodeName);
 
         toString.addCode("'}';").decIndent(2);
 
-        equals.complete();
+        if (singleton) {
+            renderer.addMethod(boolean.class, "equals")
+                    .addAnnotation(Override.class)
+                    .addModifiers(Modifier.PUBLIC)
+                    .addParameter(ClassRef.OBJECT, "o")
+                    .addStatement("if (this == o) return true")
+                    .addStatement("if (!(o instanceof $T)) return false", unknownTypeParams)
+                    .addStatement("$1T $2L = ($1T) o", unknownTypeParams, type.equalsName)
+                    .addStatement("return ID == $1L.identifier() && equalsTo($1L)", type.equalsName)
+                    .complete();
+        }
+        equals0.complete();
         hashCode.complete();
         toString.complete();
 

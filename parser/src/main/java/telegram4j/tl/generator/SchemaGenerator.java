@@ -406,7 +406,7 @@ public class SchemaGenerator extends AbstractProcessor {
             }
 
             var identifierMethod = renderer.addMethod(int.class, "identifier")
-                    .addAnnotations(Override.class);
+                    .addAnnotation(Override.class);
             if (isEmptyMethod) {
                 identifierMethod.addModifiers(Modifier.PUBLIC);
             } else {
@@ -420,13 +420,13 @@ public class SchemaGenerator extends AbstractProcessor {
                 emptyObjectsIds.add(method.id);
 
                 renderer.addMethod(int.class, "hashCode")
-                        .addAnnotations(Override.class)
+                        .addAnnotation(Override.class)
                         .addModifiers(Modifier.PUBLIC)
                         .addStatement("return ID")
                         .complete();
 
                 renderer.addMethod(String.class, "toString")
-                        .addAnnotations(Override.class)
+                        .addAnnotation(Override.class)
                         .addModifiers(Modifier.PUBLIC)
                         .addStatement("return \"$L#$L{}\"", renderer.name, method.id)
                         .complete();
@@ -608,7 +608,7 @@ public class SchemaGenerator extends AbstractProcessor {
             }
 
             var identifierMethod = renderer.addMethod(int.class, "identifier")
-                    .addAnnotations(Override.class);
+                    .addAnnotation(Override.class);
             if (isEmptyObject) {
                 identifierMethod.addModifiers(Modifier.PUBLIC);
             } else {
@@ -624,13 +624,13 @@ public class SchemaGenerator extends AbstractProcessor {
                 emptyObjectsIds.add(constructor.id);
 
                 renderer.addMethod(int.class, "hashCode")
-                        .addAnnotations(Override.class)
+                        .addAnnotation(Override.class)
                         .addModifiers(Modifier.PUBLIC)
                         .addStatement("return ID")
                         .complete();
 
                 renderer.addMethod(String.class, "toString")
-                        .addAnnotations(Override.class)
+                        .addAnnotation(Override.class)
                         .addModifiers(Modifier.PUBLIC)
                         .addStatement("return \"$L#$L{}\"", renderer.name, constructor.id)
                         .complete();
@@ -932,7 +932,7 @@ public class SchemaGenerator extends AbstractProcessor {
                         .complete();
 
                 renderer.addMethod(int.class, "identifier")
-                        .addAnnotations(Override.class)
+                        .addAnnotation(Override.class)
                         .addModifiers(Modifier.PUBLIC)
                         .addStatement("return identifier")
                         .complete();
@@ -952,7 +952,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     var commonAttr = renderer.addMethod(paramType, param.formattedName());
 
                     if (param.type.isFlag() && !param.type.isBitFlag()) {
-                        commonAttr.addAnnotations(Nullable.class);
+                        commonAttr.addAnnotation(Nullable.class);
                     }
 
                     commonAttr.complete();
@@ -995,7 +995,7 @@ public class SchemaGenerator extends AbstractProcessor {
             attribute.addStatement("return ($L() & $L) != 0", param.type.flagsName,
                     bitMask.apply(param.formattedName(), Naming.As.SCREMALIZED));
         } else if (param.type.isFlag()) {
-            attribute.addAnnotations(Nullable.class);
+            attribute.addAnnotation(Nullable.class);
         }
 
         attribute.complete();

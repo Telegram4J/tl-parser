@@ -1,9 +1,11 @@
 package telegram4j.tl.generator.renderer;
 
 import javax.lang.model.element.Modifier;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 
 import static telegram4j.tl.generator.renderer.CompletableRenderer.Stage.*;
 
@@ -30,12 +32,12 @@ public class ExecutableRenderer<P extends BaseClassRenderer<?>>
     }
 
     @Override
-    public ExecutableRenderer<P> addAnnotations(Type... annotations) {
-        return addAnnotations(Arrays.asList(annotations));
+    public ExecutableRenderer<P> addAnnotation(Class<? extends Annotation> annotation) {
+        return addAnnotations(List.of(annotation));
     }
 
     @Override
-    public ExecutableRenderer<P> addAnnotations(Collection<? extends Type> annotations) {
+    public ExecutableRenderer<P> addAnnotations(Iterable<Class<? extends Annotation>> annotations) {
         RenderUtils.requireStage(stage, ANNOTATIONS);
         parent.appendAnnotations(out, annotations);
         return this;
