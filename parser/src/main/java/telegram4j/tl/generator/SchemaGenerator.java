@@ -354,6 +354,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
             boolean generic = method.type.rawType.equals("X");
             if (generic) {
+                // <R, T extends TlMethod<? extends R>>
                 renderer.addTypeVariables(genericResultTypeRef, genericTypeRef.withBounds(wildcardMethodType));
             }
 
@@ -452,7 +453,7 @@ public class SchemaGenerator extends AbstractProcessor {
                 var sizeOfBlock = serializer.createCode().incIndent(2);
 
                 int size = 4;
-                StringJoiner sizes = new StringJoiner(" + ");
+                StringJoiner sizes = new StringJoiner(" +$W ");
                 for (int i = 0, n = method.parameters.size(); i < n; i++) {
                     Parameter param = method.parameters.get(i);
 
@@ -471,7 +472,7 @@ public class SchemaGenerator extends AbstractProcessor {
                         String sizeVar = sizeVariable.apply(param.formattedName());
 
                         sizeOfBlock.addStatement("int $L = " + sizeMethod, sizeVar, param.formattedName());
-                        sizes.add(sizeVar + "$W");
+                        sizes.add(sizeVar);
                     }
 
                     String ser = serializeMethod(param);
@@ -672,7 +673,7 @@ public class SchemaGenerator extends AbstractProcessor {
                 var sizeOfBlock = serializer.createCode().incIndent(2);
 
                 int size = 4;
-                StringJoiner sizes = new StringJoiner(" + ");
+                StringJoiner sizes = new StringJoiner(" +$W ");
                 for (int i = 0, n = constructor.parameters.size(); i < n; i++) {
                     Parameter param = constructor.parameters.get(i);
 
@@ -693,7 +694,7 @@ public class SchemaGenerator extends AbstractProcessor {
                         sizeOfBlock.addStatement("int $L = " + sizeMethod, sizeVar, param.formattedName());
 
                         // TODO: Maybe add an overflow check?
-                        sizes.add(sizeVar + "$W");
+                        sizes.add(sizeVar);
                     }
 
                     String ser = serializeMethod(param);

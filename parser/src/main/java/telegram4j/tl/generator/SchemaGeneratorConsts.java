@@ -15,7 +15,6 @@ final class SchemaGeneratorConsts {
 
     public static final int LAYER = 144;
 
-    // channelFull has two flags fields
     static final Pattern FLAG_PATTERN = Pattern.compile("^(\\w+)\\.(\\d+)\\?(.+)$");
     static final Pattern VECTOR_PATTERN = Pattern.compile("^[vV]ector<%?([\\w.<>]+)>$");
     // excluded from generation
@@ -31,7 +30,7 @@ final class SchemaGeneratorConsts {
 
     static final TypeVariableRef genericTypeRef = TypeVariableRef.of("T");
     static final TypeVariableRef genericResultTypeRef = TypeVariableRef.of("R");
-    // <R, T extends TlMethod<? extends R>>
+    // <TlMethod<? extends R>>
     static final TypeRef wildcardMethodType = ParameterizedTypeRef.of(
             TlMethod.class, WildcardTypeRef.subtypeOf(genericResultTypeRef));
 

@@ -938,7 +938,16 @@ class ImmutableGenerator {
                 .addModifiers(Modifier.PUBLIC)
                 .addParameter(listElement, "value")
                 .addStatement("$T.requireNonNull(value)", Objects.class)
-                .addStatement("if ($1L == null) $1L = new $2T<>()", localNameSingular, ArrayList.class));
+                .beginControlFlow("if ($L == null) {", localNameSingular)
+                .addStatement("$L = new $T<>()", localNameSingular, ArrayList.class));
+
+        if (opt) {
+            add.addStatement("$L |= $L", a.flagsName, a.flagMask);
+        } else {
+            add.addStatement("$L &= ~$L", type.initBitsName, a.names().initBit);
+        }
+
+        add.endControlFlow();
 
         var addv = pending.add(builder.addMethod(type.builderType, a.names().addv)
                 .addModifiers(Modifier.PUBLIC)
@@ -953,6 +962,11 @@ class ImmutableGenerator {
                 a.type, Arrays.class, UTILITY, Objects.class, Collectors.class);
         addv.beginControlFlow("if ($L == null) {", localName);
         addv.addStatement("$L = copy", localName);
+        if (opt) {
+            addv.addStatement("$L |= $L", a.flagsName, a.flagMask);
+        } else {
+            addv.addStatement("$L &= ~$L", type.initBitsName, a.names().initBit);
+        }
         addv.nextControlFlow("} else {");
         addv.addStatement("$L.addAll(copy)", localName);
         addv.endControlFlow();
@@ -961,6 +975,11 @@ class ImmutableGenerator {
                 a.type, StreamSupport.class, UTILITY, Objects.class, Collectors.class);
         addAll.beginControlFlow("if ($L == null) {", localName);
         addAll.addStatement("$L = copy", localName);
+        if (opt) {
+            addAll.addStatement("$L |= $L", a.flagsName, a.flagMask);
+        } else {
+            addAll.addStatement("$L &= ~$L", type.initBitsName, a.names().initBit);
+        }
         addAll.nextControlFlow("} else {");
         addAll.addStatement("$L.addAll(copy)", localName);
         addAll.endControlFlow();
@@ -969,16 +988,6 @@ class ImmutableGenerator {
             add.addStatement("$L.add($L.copyAsUnpooled(value))", localNameSingular, UTILITY);
         } else {
             add.addStatement("$L.add(value)", localNameSingular);
-        }
-
-        if (opt) {
-            add.addStatement("$L |= $L", a.flagsName, a.flagMask);
-            addv.addStatement("$L |= $L", a.flagsName, a.flagMask);
-            addAll.addStatement("$L |= $L", a.flagsName, a.flagMask);
-        } else {
-            add.addStatement("$L &= ~$L", type.initBitsName, a.names().initBit);
-            addv.addStatement("$L &= ~$L", type.initBitsName, a.names().initBit);
-            addAll.addStatement("$L &= ~$L", type.initBitsName, a.names().initBit);
         }
 
         add.addStatement("return this");
