@@ -19,7 +19,7 @@ public class FileService {
         CharSequence seq = renderer.complete();
         try {
             String filename = renderer.name.qualifiedName().replace('/', '.');
-            JavaFileObject fo = filer.createSourceFile(filename);
+            JavaFileObject fo = filer.createSourceFile("telegram4j.tl/" + filename);
             try (Writer w = fo.openWriter()) {
                 w.append(seq);
             }

@@ -75,6 +75,8 @@ allprojects {
     java {
         withJavadocJar()
         withSourcesJar()
+
+        modularity.inferModulePath = true
     }
 
     configurations.all {
@@ -92,8 +94,7 @@ subprojects {
     jar {
         manifest {
             attributes 'Implementation-Title': archivesBaseName,
-                    'Implementation-Version': archiveVersion,
-                    'Automatic-Module-Name': "telegram4j.tl.$project.name"
+                    'Implementation-Version': archiveVersion
         }
     }
 }
@@ -101,8 +102,7 @@ subprojects {
 jar {
     manifest {
         attributes 'Implementation-Title': 'tl-parser',
-                'Implementation-Version': archiveVersion,
-                'Automatic-Module-Name': 'telegram4j.tl'
+                'Implementation-Version': archiveVersion
     }
 }
 
