@@ -5,9 +5,10 @@ import io.netty.buffer.Unpooled;
 import io.netty.buffer.UnpooledHeapByteBuf;
 import reactor.util.annotation.Nullable;
 
-import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 /** Utility methods for encodings module. */
 public class TlEncodingUtil {
@@ -23,21 +24,32 @@ public class TlEncodingUtil {
         return Unpooled.unreleasableBuffer(Unpooled.copiedBuffer(value).asReadOnly());
     }
 
-    public static <T> List<T> unmodifiableList(@Nullable List<? extends T> list) {
-        if (list == null) {
-            return Collections.emptyList();
-        }
+    public static int mask(int flags, int mask, boolean state) {
+        return state ? flags | mask : flags & ~mask;
+    }
 
-        switch (list.size()) {
-            case 0:
-                return Collections.emptyList();
-            case 1:
-                return Collections.singletonList(list.get(0));
-            default:
-                if (list instanceof ArrayList<?>) {
-                    ((ArrayList<?>) list).trimToSize();
-                }
-                return Collections.unmodifiableList(list);
+    public static boolean eq(boolean present, boolean value, @Nullable Boolean newValue) {
+        return !present && newValue == null || newValue != null && newValue == value;
+    }
+
+    public static boolean eq(boolean present, int value, @Nullable Integer newValue) {
+        return !present && newValue == null || newValue != null && newValue == value;
+    }
+
+    public static boolean eq(boolean present, long value, @Nullable Long newValue) {
+        return !present && newValue == null || newValue != null && newValue == value;
+    }
+
+    public static boolean eq(boolean present, double value, @Nullable Double newValue) {
+        return !present && newValue == null || newValue != null && newValue.equals(value);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T> List<T> copyList(Iterable<? extends T> values) {
+        if (values instanceof Collection<?>) {
+            return List.copyOf((Collection<? extends T>) values);
         }
+        return StreamSupport.stream(values.spliterator(), false)
+                .collect(Collectors.toUnmodifiableList());
     }
 }

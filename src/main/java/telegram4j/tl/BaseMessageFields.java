@@ -22,9 +22,6 @@ public interface BaseMessageFields extends Message {
     Peer peerId();
 
     @Nullable
-    MessageFwdHeader fwdFrom();
-
-    @Nullable
     MessageReplyHeader replyTo();
 
     int date();

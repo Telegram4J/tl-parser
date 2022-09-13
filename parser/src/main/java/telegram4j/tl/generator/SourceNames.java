@@ -4,7 +4,6 @@ import reactor.util.annotation.Nullable;
 
 import javax.lang.model.SourceVersion;
 
-import static telegram4j.tl.generator.SchemaGeneratorConsts.namingExceptions;
 import static telegram4j.tl.generator.Strings.camelize;
 
 public final class SourceNames {
@@ -12,9 +11,12 @@ public final class SourceNames {
     private SourceNames() {
     }
 
-    public static String normalizeName(String type) {
-        type = applyNamingExceptions(type);
+    @Nullable
+    public static String jacksonName(String name) {
+        return name.indexOf('_') == -1 ? null : name;
+    }
 
+    public static String normalizeName(String type) {
         int dotIdx = type.lastIndexOf('.');
         if (dotIdx != -1) {
             type = type.substring(dotIdx + 1);
@@ -34,12 +36,7 @@ public final class SourceNames {
     }
 
     public static String formatFieldName(String name, @Nullable String type) {
-        name = camelize(name);
-
-        char f = name.charAt(0);
-        if (Character.isUpperCase(f)) {
-            name = Character.toLowerCase(f) + name.substring(1);
-        }
+        name = camelize(name, true);
 
         // TODO, replace
         if (!SourceVersion.isName(name)) {
@@ -70,19 +67,25 @@ public final class SourceNames {
         return name;
     }
 
-    public static String applyNamingExceptions(String s) {
-        String l = s;
-        for (NameTransformer t : namingExceptions) {
-            l = t.apply(l);
-        }
-        return l;
-    }
-
     public static String parentPackageName(String qualifiedName) {
         int dot = qualifiedName.lastIndexOf('.');
         if (dot != -1) {
             return qualifiedName.substring(0, dot);
         }
         return "";
+    }
+
+    public static String escape(char c) {
+        switch (c) {
+            case '\b': return "\\b";
+            case '\f': return "\\f";
+            case '\n': return "\\n";
+            case '\r': return "\\r";
+            case '\t': return "\\t";
+            case '\'': return "\\'";
+            case '\"': return "\\\"";
+            case '\\': return "\\\\";
+            default: return c >= ' ' && c <= '~' ? String.valueOf(c) : String.format("\\u%04x", (int) c);
+        }
     }
 }

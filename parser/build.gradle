@@ -2,7 +2,6 @@ dependencies {
     compileOnly project(":encoding")
     api project(":api")
 
-    implementation "com.squareup:javapoet:$javapoet_version"
     compileOnly "org.immutables:value:$immutables_version"
     annotationProcessor "org.immutables:value:$immutables_version"
 

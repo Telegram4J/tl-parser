@@ -1,6 +1,7 @@
 package telegram4j.tl.generator;
 
 import reactor.util.annotation.Nullable;
+import telegram4j.tl.generator.renderer.TypeRef;
 import telegram4j.tl.parser.TlTrees;
 import telegram4j.tl.parser.TlTrees.Type.Kind;
 
@@ -45,10 +46,10 @@ public class TlProcessing {
         public final String name;
         @Nullable
         public final String packagePrefix;
-        public final TypeMirror superType;
+        public final TypeRef superType;
 
         private Configuration(String basePackageName, String name,
-                              @Nullable String packagePrefix, @Nullable TypeMirror superType) {
+                              @Nullable String packagePrefix, @Nullable TypeRef superType) {
             this.basePackageName = basePackageName;
             this.name = name;
             this.packagePrefix = packagePrefix;
@@ -83,9 +84,10 @@ public class TlProcessing {
                         .map(Configuration::<String>cast)
                         .orElse(null);
 
-                TypeMirror superType = Optional.ofNullable(config.get("superType"))
+                TypeRef superType = Optional.ofNullable(config.get("superType"))
                         .map(AnnotationValue::getValue)
                         .map(Configuration::<TypeMirror>cast)
+                        .map(TypeRef::from)
                         .orElse(null);
 
                 configs[i] = new Configuration(basePackageName, name, packagePrefix, superType);
@@ -157,6 +159,19 @@ public class TlProcessing {
             String packageName = parsePackageName(config, rawType, method);
             return new TypeNameBase(packageName, rawType);
         }
+
+        @Override
+        public boolean equals(@Nullable Object o) {
+            if (this == o) return true;
+            if (!(o instanceof TypeNameBase)) return false;
+            TypeNameBase that = (TypeNameBase) o;
+            return packageName.equals(that.packageName) && rawType.equals(that.rawType);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(packageName, rawType);
+        }
     }
 
     public static class TypeName extends TypeNameBase {
@@ -213,8 +228,26 @@ public class TlProcessing {
             return flagPos != -1;
         }
 
+        public boolean isBitFlag() {
+            return isFlag() && innerType().rawType.equals("true");
+        }
+
         public boolean isVector() {
             return innerType != null && flagPos == -1;
+        }
+
+        @Override
+        public boolean equals(@Nullable Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            if (!super.equals(o)) return false;
+            TypeName typeName = (TypeName) o;
+            return Objects.equals(innerType, typeName.innerType);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(super.hashCode(), innerType);
         }
     }
 
@@ -233,27 +266,24 @@ public class TlProcessing {
             if (formattedName != null) {
                 return formattedName;
             }
-            return formattedName = SourceNames.formatFieldName(name, correctType0());
+            return formattedName = SourceNames.formatFieldName(name, rawType0());
         }
 
-        private String correctType0() {
+        private String rawType0() {
             return (type.innerType != null && type.isFlag() ? type.innerType : type).rawType;
         }
 
         @Override
-        public int hashCode() {
-            return Objects.hash(name, correctType0());
+        public boolean equals(@Nullable Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            Parameter parameter = (Parameter) o;
+            return name.equals(parameter.name) && type.equals(parameter.type);
         }
 
         @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
-            Parameter that = (Parameter) o;
-
-            return name.equals(that.name) &&
-                    type.isFlag() == that.type.isFlag() &&
-                    correctType0().equals(that.correctType0());
+        public int hashCode() {
+            return Objects.hash(name, type);
         }
     }
 }
