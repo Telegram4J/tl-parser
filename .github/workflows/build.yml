@@ -26,6 +26,7 @@ jobs:
           distribution: 'temurin'
       - name: Build sources with Gradle
         run: ./gradlew build
+        if: !contains(github.event.head_commit.message, '[ci skip]')
   release:
     runs-on: ubuntu-latest
     name: Publish artifacts
