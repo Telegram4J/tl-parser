@@ -9,6 +9,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class AnnotatedTypeRef implements TypeRef {
 
@@ -24,19 +25,18 @@ public class AnnotatedTypeRef implements TypeRef {
         return annotations;
     }
 
-    public static AnnotatedTypeRef create(Type type) {
-        return create(type, List.of());
-    }
-
-    @SafeVarargs
-    public static AnnotatedTypeRef create(Type type, Class<? extends Annotation>... annotations) {
-        return create(type, Arrays.asList(annotations));
+    public static AnnotatedTypeRef create(Type type, Class<? extends Annotation> annotation) {
+        return create(type, List.of(annotation));
     }
 
     public static AnnotatedTypeRef create(Type type, Collection<Class<? extends Annotation>> annotations) {
         Objects.requireNonNull(type);
         if (type instanceof AnnotatedTypeRef) {
-            return (AnnotatedTypeRef) type;
+            AnnotatedTypeRef c = (AnnotatedTypeRef) type;
+
+            return new AnnotatedTypeRef(c.type, Stream.concat(c.annotations.stream(), annotations.stream()
+                            .map(ClassRef::of))
+                    .collect(Collectors.toUnmodifiableList()));
         }
 
         return new AnnotatedTypeRef(TypeRef.of(type), annotations.stream()

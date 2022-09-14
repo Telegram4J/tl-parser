@@ -1,8 +1,6 @@
 package telegram4j.tl.generator;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.netty.buffer.ByteBufAllocator;
@@ -11,7 +9,6 @@ import reactor.util.annotation.Nullable;
 import reactor.util.function.Tuple2;
 import reactor.util.function.Tuples;
 import telegram4j.tl.api.TlMethod;
-import telegram4j.tl.api.TlObject;
 import telegram4j.tl.generator.TlProcessing.Configuration;
 import telegram4j.tl.generator.TlProcessing.Parameter;
 import telegram4j.tl.generator.TlProcessing.Type;
@@ -30,9 +27,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.Writer;
 import java.util.*;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static telegram4j.tl.generator.SchemaGeneratorConsts.*;
@@ -57,7 +52,6 @@ public class SchemaGenerator extends AbstractProcessor {
     private PackageElement currentElement;
     private List<Tuple2<TlTrees.Scheme, Configuration>> schemas;
     private Map<TlTrees.Scheme, Map<String, List<Type>>> typeTree;
-    private List<Tuple2<Predicate<String>, ClassRef>> superTypes;
 
     private int iteration;
     private int schemaIteration;
@@ -82,7 +76,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     .complete();
 
     private final MethodRenderer<TopLevelRenderer> tlTypeOf = tlInfo.addMethod(
-            ParameterizedTypeRef.of(Class.class, WildcardTypeRef.subtypeOf(TlObject.class)), "typeOf")
+            ParameterizedTypeRef.of(Class.class, WildcardTypeRef.subtypeOf(TL_OBJECT)), "typeOf")
             .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
             .addParameter(int.class, "id")
             .beginControlFlow("switch (id) {");
@@ -95,13 +89,13 @@ public class SchemaGenerator extends AbstractProcessor {
 
     private final MethodRenderer<TopLevelRenderer> sizeOfMethod = serializer.addMethod(int.class, "sizeOf")
             .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-            .addParameter(TlObject.class, "payload")
+            .addParameter(TL_OBJECT, "payload")
             .beginControlFlow("switch (payload.identifier()) {");
 
     private final MethodRenderer<TopLevelRenderer> serializeMethod = serializer.addMethod(BYTE_BUF, "serialize0")
             .addModifiers(Modifier.STATIC)
             .addParameter(BYTE_BUF, "buf")
-            .addParameter(TlObject.class, "payload")
+            .addParameter(TL_OBJECT, "payload")
             .beginControlFlow("switch (payload.identifier()) {");
 
     private final TopLevelRenderer deserializer = ClassRenderer.create(ClassRef.of(BASE_PACKAGE, "TlDeserializer"), ClassRenderer.Kind.CLASS)
@@ -178,52 +172,6 @@ public class SchemaGenerator extends AbstractProcessor {
                 } catch (Throwable t) {
                     throw Exceptions.propagate(t);
                 }
-            }
-
-            try {
-                mapper.enable(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY);
-
-                InputStream is = processingEnv.getFiler().getResource(
-                        StandardLocation.ANNOTATION_PROCESSOR_PATH, "",
-                        SUPERTYPES_DATA).openInputStream();
-
-                var map = mapper.readValue(is, new TypeReference<Map<String, List<String>>>() {});
-                superTypes = new ArrayList<>(map.size());
-                for (var e : map.entrySet()) {
-                    String qual = BASE_PACKAGE + '.' + e.getKey();
-                    String pck = parentPackageName(qual);
-                    ClassRef type = ClassRef.of(pck, qual.substring(pck.length() + 1));
-
-                    Set<String> set = null;
-                    Predicate<String> prev = null;
-                    for (String s : e.getValue()) {
-                        if (s.startsWith("$")) {
-                            var patternFilter = Pattern.compile(s.substring(1)).asMatchPredicate();
-                            if (prev == null) {
-                                prev = patternFilter;
-                            } else {
-                                prev = prev.or(patternFilter);
-                            }
-                        } else {
-                            if (set == null)
-                                set = new HashSet<>();
-                            set.add(s);
-                        }
-                    }
-
-                    Predicate<String> filter = null;
-                    if (set != null)
-                        filter = set::contains;
-                    if (filter == null && prev != null)
-                        filter = prev;
-                    else if (prev != null)
-                        filter = filter.or(prev);
-
-                    if (filter != null)
-                        superTypes.add(Tuples.of(filter, type));
-                }
-            } catch (Throwable t) {
-                throw Exceptions.propagate(t);
             }
 
             preparePackages();
@@ -308,7 +256,7 @@ public class SchemaGenerator extends AbstractProcessor {
         serializer.addMethod(BYTE_BUF, "serialize")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                 .addParameter(ByteBufAllocator.class, "alloc")
-                .addParameter(TlObject.class, "payload")
+                .addParameter(TL_OBJECT, "payload")
                 .addStatement("int size = sizeOf(payload)")
                 .addStatement("$T buf = alloc.buffer(size)", BYTE_BUF)
                 .addStatement("return serialize0(buf, payload)")
@@ -572,7 +520,7 @@ public class SchemaGenerator extends AbstractProcessor {
             renderer.addInterfaces(interfaces);
 
             ClassRef immutableType = renderer.name.peer(immutable.apply(name));
-            TypeRef superType = multiple ? typeName : config.superType != null ? config.superType : ClassRef.of(TlObject.class);
+            TypeRef superType = multiple ? typeName : config.superType != null ? config.superType : TL_OBJECT;
 
             renderer.addInterface(superType);
 
@@ -895,7 +843,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     ? ClassRenderer.Kind.ENUM : ClassRenderer.Kind.INTERFACE);
 
             renderer.addModifiers(Modifier.PUBLIC);
-            renderer.addInterface(config.superType != null ? config.superType : TlObject.class);
+            renderer.addInterface(config.superType != null ? config.superType : TL_OBJECT);
 
             if (canMakeEnum) {
                 String shortenName = extractEnumName(qualifiedName);
@@ -1286,7 +1234,7 @@ public class SchemaGenerator extends AbstractProcessor {
     }
 
     private List<ClassRef> additionalSuperTypes(String name) {
-        return superTypes.stream()
+        return Supertypes.predicates.stream()
                 .filter(t -> t.getT1().test(name))
                 .map(Tuple2::getT2)
                 .collect(Collectors.toList());

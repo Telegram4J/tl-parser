@@ -1,4 +1,3 @@
-/** Telegram API objects generated as immutable objects. */
 @GenerateSchema({
         @Configuration(name = "api"),
         @Configuration(name = "mtproto", packagePrefix = "mtproto", superType = MTProtoObject.class),

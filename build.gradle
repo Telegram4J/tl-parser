@@ -55,28 +55,29 @@ allprojects {
         api "io.projectreactor.netty:reactor-netty"
     }
 
+    java {
+        withJavadocJar()
+        withSourcesJar()
+
+        modularity.inferModulePath = true
+    }
+
     tasks.withType(JavaCompile) {
         options.encoding = "UTF-8"
         options.incremental = true
     }
 
     tasks.withType(Javadoc) {
-        options.addBooleanOption('html5', true)
+        source += fileTree("$buildDir/generated/sources/annotationProcessor/java/main/")
 
         options {
             encoding = "UTF-8"
+            addBooleanOption "html5", true
             addStringOption "encoding", "UTF-8"
             tags = ["apiNote:a:API Note:",
                     "implSpec:a:Implementation Requirements:",
                     "implNote:a:Implementation Note:"]
         }
-    }
-
-    java {
-        withJavadocJar()
-        withSourcesJar()
-
-        modularity.inferModulePath = true
     }
 
     configurations.all {
@@ -187,5 +188,5 @@ configure(subprojects - project(":parser") + project){
 
 sourcesJar {
     dependsOn compileJava
-    from "$buildDir/generated/sources/annotationProcessor/java/main"
+    from "build/generated/sources/annotationProcessor/java/main"
 }
