@@ -32,6 +32,7 @@ class ValueType {
     public String initBitsName;
     public String hashCodeName;
     public String equalsName;
+    public Map<String, Counter> flagsCount;
 
     public ValueType(ClassRef baseType, List<TypeVariableRef> typeVars, List<? extends TypeRef> interfaces) {
         typeVarNames = typeVars.stream()

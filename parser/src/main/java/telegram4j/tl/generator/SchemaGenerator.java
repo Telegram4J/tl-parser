@@ -738,6 +738,7 @@ public class SchemaGenerator extends AbstractProcessor {
         short flagsfCount = 0;
         short bitSetfCount = 0;
 
+        valType.flagsCount = new HashMap<>();
         valType.usedBits = new HashMap<>();
         for (Parameter p : tlType.parameters) {
             ValueAttribute valAttr = new ValueAttribute(p.formattedName());
@@ -763,6 +764,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
                 if (p.type.isBitFlag()) {
                     flagsfCount++;
+                    valType.flagsCount.computeIfAbsent(p.type.flagsName(), k -> new Counter()).increment();
                     valType.usedBits.computeIfAbsent(p.type.flagsName(), k -> new BitSet()).set(p.type.flagPos());
                     valAttr.flags.add(ValueAttribute.Flag.BIT_FLAG);
                 } else {
@@ -810,8 +812,8 @@ public class SchemaGenerator extends AbstractProcessor {
 
         if (primitivefCount == valType.generated.size())
             valType.flags.add(ValueType.Flag.CAN_OMIT_COPY_CONSTRUCTOR);
-        // TODO: don't generate bitset parameter if it has no bit flags
-        if (bitSetfCount != 0 && flagsfCount == 0)
+
+        if (bitSetfCount != 0 && flagsfCount == 0 && primitivefCount - bitSetfCount + reffCount == 0)
             valType.flags.add(ValueType.Flag.CAN_OMIT_OF_METHOD);
         if (reffCount > 0)
             valType.flags.add(ValueType.Flag.NEED_STUB_PARAM);

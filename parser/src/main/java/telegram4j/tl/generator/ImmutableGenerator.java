@@ -78,13 +78,26 @@ class ImmutableGenerator {
             // [ optional fields ]
 
             var sorted = type.generated.stream()
-                    .sorted(Comparator.comparingInt(d -> d.flags.contains(ValueAttribute.Flag.OPTIONAL) ? 1 : 0))
+                    .sorted(Comparator.comparingInt(d -> {
+                        if (d.flags.contains(ValueAttribute.Flag.BIT_SET)) {
+                            Counter c = type.flagsCount.get(d.name);
+                            if (c == null || c.value == 0) {
+                                return 2;
+                            }
+                        }
+                        return d.flags.contains(ValueAttribute.Flag.OPTIONAL) ? 1 : 0;
+                    }))
                     .collect(Collectors.toList());
 
-            for (int i = 0, n = sorted.size(); i < n; i++) {
-                ValueAttribute a = sorted.get(i);
+            boolean prevNotOpt = true;
+            for (ValueAttribute a : sorted) {
+                if (prevNotOpt && a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
+                    mandatoryConstructorBody.ln();
+                }
 
-                if (!a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
+                if (!prevNotOpt && a.flags.contains(ValueAttribute.Flag.BIT_SET)) {
+                    mandatoryConstructorBody.addStatement("$L = 0", a.name);
+                } else if (!a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
                     TypeRef listElement = unwrap(a.type, LIST);
                     TypeRef paramType = a.type;
                     if (listElement != a.type) // Iterable<? extends ListElement>
@@ -110,18 +123,18 @@ class ImmutableGenerator {
 
                     params.add(a.name);
                     mandatoryOf.addParameter(paramType, a.name);
-
-                    if (i + 1 < n && sorted.get(i + 1).flags.contains(ValueAttribute.Flag.OPTIONAL)) {
-                        mandatoryConstructorBody.ln();
-                    }
                 } else {
                     TypeRef unwrapped = unboxOptional(a, type);
                     mandatoryConstructorBody.addStatement("$L = $L", a.name, defaultValueFor(unwrapped));
                 }
+
+                prevNotOpt = !a.flags.contains(ValueAttribute.Flag.OPTIONAL);
             }
 
-            for (ValueAttribute a : type.generated) {
-                if (a.flags.contains(ValueAttribute.Flag.BIT_SET)) {
+            for (ValueAttribute a : sorted) {
+                Counter c;
+                if (a.flags.contains(ValueAttribute.Flag.BIT_SET) &&
+                    (c = type.flagsCount.get(a.name)) != null && c.value != 0) {
                     generateValueBitsMask(type, a, a.name, mandatoryOf);
                 }
             }
