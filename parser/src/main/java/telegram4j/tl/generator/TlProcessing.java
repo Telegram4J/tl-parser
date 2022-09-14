@@ -165,12 +165,12 @@ public class TlProcessing {
             if (this == o) return true;
             if (!(o instanceof TypeNameBase)) return false;
             TypeNameBase that = (TypeNameBase) o;
-            return packageName.equals(that.packageName) && rawType.equals(that.rawType);
+            return rawType.equals(that.rawType);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(packageName, rawType);
+            return rawType.hashCode() + 2;
         }
     }
 
@@ -235,20 +235,6 @@ public class TlProcessing {
         public boolean isVector() {
             return innerType != null && flagPos == -1;
         }
-
-        @Override
-        public boolean equals(@Nullable Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
-            if (!super.equals(o)) return false;
-            TypeName typeName = (TypeName) o;
-            return Objects.equals(innerType, typeName.innerType);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(super.hashCode(), innerType);
-        }
     }
 
     public static class Parameter {
@@ -266,11 +252,11 @@ public class TlProcessing {
             if (formattedName != null) {
                 return formattedName;
             }
-            return formattedName = SourceNames.formatFieldName(name, rawType0());
+            return formattedName = SourceNames.formatFieldName(name, rawType0().rawType);
         }
 
-        private String rawType0() {
-            return (type.innerType != null && type.isFlag() ? type.innerType : type).rawType;
+        private TypeNameBase rawType0() {
+            return type.innerType != null && type.isFlag() ? type.innerType : type;
         }
 
         @Override
@@ -278,12 +264,14 @@ public class TlProcessing {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
             Parameter parameter = (Parameter) o;
-            return name.equals(parameter.name) && type.equals(parameter.type);
+            return name.equals(parameter.name) &&
+                    type.isFlag() == parameter.type.isFlag() &&
+                    rawType0().rawType.equals(parameter.rawType0().rawType);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(name, type);
+            return Objects.hash(name, rawType0().rawType);
         }
     }
 }
