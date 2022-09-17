@@ -27,7 +27,7 @@ class SchemaUpdater {
     static ObjectMapper mapper = new ObjectMapper()
             .setDefaultPrettyPrinter(new CorrectPrettyPrinter());
 
-    static String pathPrefix = "./parser/src/main/resources/";
+    static String pathPrefix = "./src/main/resources/";
     static List<Tuple2<String, String>> schemes = List.of(
             Tuples.of("https://raw.githubusercontent.com/telegramdesktop/tdesktop/dev/Telegram/Resources/tl/api.tl", "api"));
 
