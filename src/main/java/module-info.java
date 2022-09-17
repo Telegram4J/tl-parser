@@ -4,7 +4,8 @@ module telegram4j.tl {
 	requires reactor.core;
 
 	requires telegram4j.tl.api;
-	requires telegram4j.tl.parser;
+
+	requires static telegram4j.tl.parser;
 
 	exports telegram4j.tl;
 	exports telegram4j.tl.account;
