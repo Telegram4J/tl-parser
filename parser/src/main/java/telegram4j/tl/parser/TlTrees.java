@@ -21,14 +21,13 @@ public class TlTrees {
 
     @Value.Immutable
     @JsonDeserialize(using = TypeDeserializer.class)
-    @JsonSerialize(using = TypeSerializer.class)
     public static abstract class Type {
 
         public abstract Kind kind();
 
-        public abstract String name();
-
         public abstract String id();
+
+        public abstract String name();
 
         public abstract List<Parameter> parameters();
 

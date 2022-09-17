@@ -1,14 +1,8 @@
 {
   "constructors": [
     {
-      "id": "1cb5c415",
-      "predicate": "vector",
-      "params": [],
-      "type": "Vector t"
-    },
-    {
-      "id": "5162463",
       "predicate": "resPQ",
+      "id": "5162463",
       "params": [
         {
           "name": "nonce",
@@ -30,8 +24,8 @@
       "type": "ResPQ"
     },
     {
-      "id": "a9f55f95",
       "predicate": "p_q_inner_data_dc",
+      "id": "a9f55f95",
       "params": [
         {
           "name": "pq",
@@ -65,8 +59,8 @@
       "type": "P_Q_inner_data"
     },
     {
-      "id": "56fddf88",
       "predicate": "p_q_inner_data_temp_dc",
+      "id": "56fddf88",
       "params": [
         {
           "name": "pq",
@@ -104,8 +98,8 @@
       "type": "P_Q_inner_data"
     },
     {
-      "id": "d0e8075c",
       "predicate": "server_DH_params_ok",
+      "id": "d0e8075c",
       "params": [
         {
           "name": "nonce",
@@ -123,8 +117,8 @@
       "type": "Server_DH_Params"
     },
     {
-      "id": "b5890dba",
       "predicate": "server_DH_inner_data",
+      "id": "b5890dba",
       "params": [
         {
           "name": "nonce",
@@ -154,8 +148,8 @@
       "type": "Server_DH_inner_data"
     },
     {
-      "id": "6643b654",
       "predicate": "client_DH_inner_data",
+      "id": "6643b654",
       "params": [
         {
           "name": "nonce",
@@ -177,8 +171,8 @@
       "type": "Client_DH_Inner_Data"
     },
     {
-      "id": "3bcbf734",
       "predicate": "dh_gen_ok",
+      "id": "3bcbf734",
       "params": [
         {
           "name": "nonce",
@@ -196,8 +190,8 @@
       "type": "Set_client_DH_params_answer"
     },
     {
-      "id": "46dc1fb9",
       "predicate": "dh_gen_retry",
+      "id": "46dc1fb9",
       "params": [
         {
           "name": "nonce",
@@ -215,8 +209,8 @@
       "type": "Set_client_DH_params_answer"
     },
     {
-      "id": "a69dae02",
       "predicate": "dh_gen_fail",
+      "id": "a69dae02",
       "params": [
         {
           "name": "nonce",
@@ -234,8 +228,8 @@
       "type": "Set_client_DH_params_answer"
     },
     {
-      "id": "75a3f765",
       "predicate": "bind_auth_key_inner",
+      "id": "75a3f765",
       "params": [
         {
           "name": "nonce",
@@ -261,8 +255,8 @@
       "type": "BindAuthKeyInner"
     },
     {
-      "id": "f35c6d01",
       "predicate": "rpc_result",
+      "id": "f35c6d01",
       "params": [
         {
           "name": "req_msg_id",
@@ -276,8 +270,8 @@
       "type": "RpcResult"
     },
     {
-      "id": "2144ca19",
       "predicate": "rpc_error",
+      "id": "2144ca19",
       "params": [
         {
           "name": "error_code",
@@ -293,18 +287,16 @@
     {
       "id": "5e2ad36e",
       "predicate": "rpc_answer_unknown",
-      "params": [],
       "type": "RpcDropAnswer"
     },
     {
       "id": "cd78e586",
       "predicate": "rpc_answer_dropped_running",
-      "params": [],
       "type": "RpcDropAnswer"
     },
     {
-      "id": "a43ad8b7",
       "predicate": "rpc_answer_dropped",
+      "id": "a43ad8b7",
       "params": [
         {
           "name": "msg_id",
@@ -322,8 +314,8 @@
       "type": "RpcDropAnswer"
     },
     {
-      "id": "949d9dc",
       "predicate": "future_salt",
+      "id": "949d9dc",
       "params": [
         {
           "name": "valid_since",
@@ -341,8 +333,8 @@
       "type": "FutureSalt"
     },
     {
-      "id": "ae500895",
       "predicate": "future_salts",
+      "id": "ae500895",
       "params": [
         {
           "name": "req_msg_id",
@@ -360,8 +352,8 @@
       "type": "FutureSalts"
     },
     {
-      "id": "347773c5",
       "predicate": "pong",
+      "id": "347773c5",
       "params": [
         {
           "name": "msg_id",
@@ -375,8 +367,8 @@
       "type": "Pong"
     },
     {
-      "id": "e22045fc",
       "predicate": "destroy_session_ok",
+      "id": "e22045fc",
       "params": [
         {
           "name": "session_id",
@@ -386,8 +378,8 @@
       "type": "DestroySessionRes"
     },
     {
-      "id": "62d350c9",
       "predicate": "destroy_session_none",
+      "id": "62d350c9",
       "params": [
         {
           "name": "session_id",
@@ -397,8 +389,8 @@
       "type": "DestroySessionRes"
     },
     {
-      "id": "9ec20908",
       "predicate": "new_session_created",
+      "id": "9ec20908",
       "params": [
         {
           "name": "first_msg_id",
@@ -416,8 +408,8 @@
       "type": "NewSession"
     },
     {
-      "id": "73f1f8dc",
       "predicate": "msg_container",
+      "id": "73f1f8dc",
       "params": [
         {
           "name": "messages",
@@ -427,8 +419,8 @@
       "type": "MessageContainer"
     },
     {
-      "id": "5bb8e511",
       "predicate": "message",
+      "id": "5bb8e511",
       "params": [
         {
           "name": "msg_id",
@@ -450,8 +442,8 @@
       "type": "Message"
     },
     {
-      "id": "e06046b2",
       "predicate": "msg_copy",
+      "id": "e06046b2",
       "params": [
         {
           "name": "orig_message",
@@ -461,8 +453,8 @@
       "type": "MessageCopy"
     },
     {
-      "id": "3072cfa1",
       "predicate": "gzip_packed",
+      "id": "3072cfa1",
       "params": [
         {
           "name": "packed_data",
@@ -472,8 +464,8 @@
       "type": "Object"
     },
     {
-      "id": "62d6b459",
       "predicate": "msgs_ack",
+      "id": "62d6b459",
       "params": [
         {
           "name": "msg_ids",
@@ -483,8 +475,8 @@
       "type": "MsgsAck"
     },
     {
-      "id": "a7eff811",
       "predicate": "bad_msg_notification",
+      "id": "a7eff811",
       "params": [
         {
           "name": "bad_msg_id",
@@ -502,8 +494,8 @@
       "type": "BadMsgNotification"
     },
     {
-      "id": "edab447b",
       "predicate": "bad_server_salt",
+      "id": "edab447b",
       "params": [
         {
           "name": "bad_msg_id",
@@ -525,8 +517,8 @@
       "type": "BadMsgNotification"
     },
     {
-      "id": "7d861a08",
       "predicate": "msg_resend_req",
+      "id": "7d861a08",
       "params": [
         {
           "name": "msg_ids",
@@ -536,8 +528,8 @@
       "type": "MsgResendReq"
     },
     {
-      "id": "da69fb52",
       "predicate": "msgs_state_req",
+      "id": "da69fb52",
       "params": [
         {
           "name": "msg_ids",
@@ -547,8 +539,8 @@
       "type": "MsgsStateReq"
     },
     {
-      "id": "4deb57d",
       "predicate": "msgs_state_info",
+      "id": "4deb57d",
       "params": [
         {
           "name": "req_msg_id",
@@ -562,8 +554,8 @@
       "type": "MsgsStateInfo"
     },
     {
-      "id": "8cc0d131",
       "predicate": "msgs_all_info",
+      "id": "8cc0d131",
       "params": [
         {
           "name": "msg_ids",
@@ -577,8 +569,8 @@
       "type": "MsgsAllInfo"
     },
     {
-      "id": "276d3ec6",
       "predicate": "msg_detailed_info",
+      "id": "276d3ec6",
       "params": [
         {
           "name": "msg_id",
@@ -600,8 +592,8 @@
       "type": "MsgDetailedInfo"
     },
     {
-      "id": "809db6df",
       "predicate": "msg_new_detailed_info",
+      "id": "809db6df",
       "params": [
         {
           "name": "answer_msg_id",
@@ -619,28 +611,25 @@
       "type": "MsgDetailedInfo"
     },
     {
-      "id": "f660e1d4",
       "predicate": "destroy_auth_key_ok",
-      "params": [],
+      "id": "f660e1d4",
       "type": "DestroyAuthKeyRes"
     },
     {
-      "id": "a9f2259",
       "predicate": "destroy_auth_key_none",
-      "params": [],
+      "id": "a9f2259",
       "type": "DestroyAuthKeyRes"
     },
     {
-      "id": "ea109b13",
       "predicate": "destroy_auth_key_fail",
-      "params": [],
+      "id": "ea109b13",
       "type": "DestroyAuthKeyRes"
     }
   ],
   "methods": [
     {
-      "id": "be7e8ef1",
       "method": "req_pq_multi",
+      "id": "be7e8ef1",
       "params": [
         {
           "name": "nonce",
@@ -650,8 +639,8 @@
       "type": "ResPQ"
     },
     {
-      "id": "d712e4be",
       "method": "req_DH_params",
+      "id": "d712e4be",
       "params": [
         {
           "name": "nonce",
@@ -681,8 +670,8 @@
       "type": "Server_DH_Params"
     },
     {
-      "id": "f5045f1f",
       "method": "set_client_DH_params",
+      "id": "f5045f1f",
       "params": [
         {
           "name": "nonce",
@@ -700,8 +689,8 @@
       "type": "Set_client_DH_params_answer"
     },
     {
-      "id": "58e4a740",
       "method": "rpc_drop_answer",
+      "id": "58e4a740",
       "params": [
         {
           "name": "req_msg_id",
@@ -711,8 +700,8 @@
       "type": "RpcDropAnswer"
     },
     {
-      "id": "b921bd04",
       "method": "get_future_salts",
+      "id": "b921bd04",
       "params": [
         {
           "name": "num",
@@ -722,8 +711,8 @@
       "type": "FutureSalts"
     },
     {
-      "id": "7abe77ec",
       "method": "ping",
+      "id": "7abe77ec",
       "params": [
         {
           "name": "ping_id",
@@ -733,8 +722,8 @@
       "type": "Pong"
     },
     {
-      "id": "f3427b8c",
       "method": "ping_delay_disconnect",
+      "id": "f3427b8c",
       "params": [
         {
           "name": "ping_id",
@@ -748,8 +737,8 @@
       "type": "Pong"
     },
     {
-      "id": "e7512126",
       "method": "destroy_session",
+      "id": "e7512126",
       "params": [
         {
           "name": "session_id",
@@ -759,8 +748,8 @@
       "type": "DestroySessionRes"
     },
     {
-      "id": "9299359f",
       "method": "http_wait",
+      "id": "9299359f",
       "params": [
         {
           "name": "max_delay",
@@ -778,9 +767,8 @@
       "type": "HttpWait"
     },
     {
-      "id": "d1435160",
       "method": "destroy_auth_key",
-      "params": [],
+      "id": "d1435160",
       "type": "DestroyAuthKeyRes"
     }
   ]

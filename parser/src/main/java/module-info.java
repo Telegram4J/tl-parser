@@ -4,6 +4,7 @@ module telegram4j.tl.parser {
     requires reactor.netty.http;
     requires reactor.extra;
     requires reactor.netty.core;
+    requires org.reactivestreams;
     requires io.netty.buffer;
     requires java.compiler;
 

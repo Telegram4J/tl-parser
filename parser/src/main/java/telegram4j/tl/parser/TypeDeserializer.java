@@ -20,18 +20,13 @@ class TypeDeserializer extends StdDeserializer<Type> {
     public Type deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
         JsonNode node = p.readValueAsTree();
         Type.Kind kind = node.has("predicate") ? Type.Kind.CONSTRUCTOR : Type.Kind.METHOD;
-        String name = node.required(kind == Type.Kind.CONSTRUCTOR ? "predicate" : "method").asText();
         String id = node.required("id").asText();
-        List<TlTrees.Parameter> params = ctxt.readTreeAsValue(node.required("params"), ctxt.getTypeFactory()
-                .constructCollectionType(List.class, Parameter.class));
+        String name = node.required(kind == Type.Kind.CONSTRUCTOR ? "predicate" : "method").asText();
+        List<TlTrees.Parameter> params = node.has("params") ?
+                ctxt.readTreeAsValue(node.get("params"), ctxt.getTypeFactory()
+                        .constructCollectionType(List.class, Parameter.class)) : List.of();
         String type = node.required("type").asText();
 
-        return ImmutableTlTrees.Type.builder()
-                .kind(kind)
-                .name(name)
-                .id(id)
-                .parameters(params)
-                .type(type)
-                .build();
+        return ImmutableTlTrees.Type.of(kind, id, name, params, type);
     }
 }

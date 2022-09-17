@@ -6,4 +6,4 @@
 Parses schemas in json format and generates classes and interfaces.
 Building this project requires JDK 11.
 
-**Current Layout:** 144
+**Current Layout:** 146

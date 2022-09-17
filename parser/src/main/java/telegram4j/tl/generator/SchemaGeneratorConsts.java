@@ -19,7 +19,7 @@ final class SchemaGeneratorConsts {
     private SchemaGeneratorConsts() {
     }
 
-    public static final int LAYER = 144;
+    public static final int LAYER = 146;
 
     static final Pattern FLAG_PATTERN = Pattern.compile("^(\\w+)\\.(\\d+)\\?(.+)$");
     static final Pattern VECTOR_PATTERN = Pattern.compile("^[vV]ector<%?([\\w.<>]+)>$");
@@ -58,8 +58,6 @@ final class SchemaGeneratorConsts {
         }
 
         static {
-            // region predicates
-
             addPredicate("PtsUpdate",
                     "UpdateDeleteMessages",
                     "UpdateDeleteChannelMessages",
