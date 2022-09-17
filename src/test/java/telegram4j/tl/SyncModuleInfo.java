@@ -46,9 +46,9 @@ public class SyncModuleInfo {
 
         md.append("module telegram4j.tl {\n");
         md.append("\trequires io.netty.buffer;\n");
-        md.append("\trequires com.fasterxml.jackson.databind;\n");
-        md.append("\trequires reactor.core;\n\n");
-        md.append("\trequires telegram4j.tl.api;\n\n");
+        md.append("\trequires reactor.core;\n");
+        md.append("\trequires com.fasterxml.jackson.databind;\n\n");
+        md.append("\trequires transitive telegram4j.tl.api;\n\n");
         md.append("\trequires static telegram4j.tl.parser;\n\n");
         for (String export : exports) {
             md.append("\texports ").append(export).append(";\n");

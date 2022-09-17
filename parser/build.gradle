@@ -1,15 +1,16 @@
 dependencies {
+    implementation platform("io.projectreactor:reactor-bom:$reactor_bom_version")
+
     compileOnly project(":encoding")
-    api project(":api")
+    implementation project(":api")
 
     compileOnly "org.immutables:value:$immutables_version"
+    compileOnly "javax.annotation:javax.annotation-api:$javax_annotation"
     annotationProcessor "org.immutables:value:$immutables_version"
 
-    api "io.projectreactor.addons:reactor-extra"
-
-    api "com.fasterxml.jackson.core:jackson-databind:$jackson_version"
-
-    compileOnly "javax.annotation:javax.annotation-api:$javax_annotation"
+    implementation "com.fasterxml.jackson.core:jackson-databind:$jackson_version"
+    implementation "io.projectreactor.addons:reactor-extra"
+    implementation "io.projectreactor.netty:reactor-netty"
 
     testImplementation "org.junit.jupiter:junit-jupiter-engine:$junit_version"
 }

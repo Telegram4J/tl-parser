@@ -1,9 +1,9 @@
 module telegram4j.tl {
 	requires io.netty.buffer;
-	requires com.fasterxml.jackson.databind;
 	requires reactor.core;
+	requires com.fasterxml.jackson.databind;
 
-	requires telegram4j.tl.api;
+	requires transitive telegram4j.tl.api;
 
 	requires static telegram4j.tl.parser;
 
