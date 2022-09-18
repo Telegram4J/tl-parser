@@ -1,3 +1,6 @@
+import com.fasterxml.jackson.databind.Module;
+import telegram4j.tl.json.TlModule;
+
 module telegram4j.tl {
 	requires io.netty.buffer;
 	requires reactor.core;
@@ -44,4 +47,6 @@ module telegram4j.tl {
 	exports telegram4j.tl.updates;
 	exports telegram4j.tl.upload;
 	exports telegram4j.tl.users;
+
+	provides Module with TlModule;
 }

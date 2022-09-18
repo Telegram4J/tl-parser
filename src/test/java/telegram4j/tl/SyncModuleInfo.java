@@ -42,20 +42,21 @@ public class SyncModuleInfo {
         Files.walkFileTree(procSrc, new PackagesCollector(procSrc, exports));
         Files.walkFileTree(rootSrc, new PackagesCollector(rootSrc, exports));
 
-        StringBuilder md = new StringBuilder();
-
-        md.append("module telegram4j.tl {\n");
-        md.append("\trequires io.netty.buffer;\n");
-        md.append("\trequires reactor.core;\n");
-        md.append("\trequires com.fasterxml.jackson.databind;\n\n");
-        md.append("\trequires transitive telegram4j.tl.api;\n\n");
-        md.append("\trequires static telegram4j.tl.parser;\n\n");
-        for (String export : exports) {
-            md.append("\texports ").append(export).append(";\n");
-        }
-        md.append("}\n");
-
         Path desc = Path.of("src/main/java/module-info.java");
-        Files.writeString(desc, md);
+        try (var w = Files.newBufferedWriter(desc)) {
+            w.append("import com.fasterxml.jackson.databind.Module;\n");
+            w.append("import telegram4j.tl.json.TlModule;\n\n");
+            w.append("module telegram4j.tl {\n");
+            w.append("\trequires io.netty.buffer;\n");
+            w.append("\trequires reactor.core;\n");
+            w.append("\trequires com.fasterxml.jackson.databind;\n\n");
+            w.append("\trequires transitive telegram4j.tl.api;\n\n");
+            w.append("\trequires static telegram4j.tl.parser;\n\n");
+            for (String export : exports) {
+                w.append("\texports ").append(export).append(";\n");
+            }
+            w.append("\tprovides Module with TlModule;\n");
+            w.append("}\n");
+        }
     }
 }
