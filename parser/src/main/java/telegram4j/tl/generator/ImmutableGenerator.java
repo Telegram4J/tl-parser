@@ -389,7 +389,8 @@ class ImmutableGenerator {
             // region toString
 
             if (i != 0) {
-                boolean isPrevStr = type.generated.get(i - 1).type == STRING;
+                ValueAttribute prev = type.generated.get(i - 1);
+                boolean isPrevStr = unboxOptional(prev, type) == STRING;
 
                 if (isPrevStr) {
                     toString.addCode("\"', ");
@@ -442,7 +443,13 @@ class ImmutableGenerator {
 
         hashCode.addStatement("return $L", type.hashCodeName);
 
-        toString.addCode("'}';").decIndent(2);
+        ValueAttribute last = type.generated.get(type.generated.size() - 1);
+        if (unboxOptional(last, type) == STRING) {
+            toString.addCode("\"'}\";");
+        } else {
+            toString.addCode("'}';");
+        }
+        toString.decIndent(2);
 
         if (singleton) {
             renderer.addMethod(boolean.class, "equals")

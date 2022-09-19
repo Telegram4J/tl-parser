@@ -113,29 +113,6 @@ class SerializationTest {
         assertEquals(TlSerializer.sizeOf(expected), 32);
     }
 
-    @Test
-    void objectMethods() {
-        Channel expected = Channel.builder()
-                .id(1)
-                .title("title")
-                .photo(ChatPhotoEmpty.instance())
-                .gigagroup(true)
-                .date(1)
-                .build();
-
-        Channel actual = Channel.builder()
-                .id(1)
-                .title("title")
-                .photo(ChatPhotoEmpty.instance())
-                .gigagroup(true)
-                .date(1)
-                .build();
-
-        assertEquals(expected.toString(), actual.toString());
-        assertEquals(expected, actual);
-        assertEquals(expected.hashCode(), actual.hashCode());
-    }
-
     static <T extends TlObject> T serialize(T obj) {
         ByteBuf serialized = TlSerializer.serialize(alloc, obj);
         try {

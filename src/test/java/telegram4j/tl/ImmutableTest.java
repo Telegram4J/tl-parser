@@ -25,4 +25,28 @@ class ImmutableTest {
         assertNotEquals(user.withFlags(BaseUser.BOT_MASK), user);
         assertNull(user.withFlags(BaseUser.BOT_MASK).botInfoVersion());
     }
+
+    @Test
+    void objectMethods() {
+
+        Channel expected = Channel.builder()
+                .id(1)
+                .title("title")
+                .photo(ChatPhotoEmpty.instance())
+                .gigagroup(true)
+                .date(1)
+                .build();
+
+        Channel actual = Channel.builder()
+                .id(1)
+                .title("title")
+                .photo(ChatPhotoEmpty.instance())
+                .gigagroup(true)
+                .date(1)
+                .build();
+
+        assertEquals(expected.toString(), actual.toString());
+        assertEquals(expected, actual);
+        assertEquals(expected.hashCode(), actual.hashCode());
+    }
 }
