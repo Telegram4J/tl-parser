@@ -312,7 +312,7 @@ public class TlModule extends Module {
                     continue;
                 }
 
-                JavaType act = p.getPrimaryType().hasGenericTypes()
+                JavaType act = p.getPrimaryType().isTypeOrSubTypeOf(TlObject.class)
                         ? provider.constructSpecializedType(p.getPrimaryType(), o.getClass())
                         : p.getPrimaryType();
 

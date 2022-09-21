@@ -55,6 +55,17 @@ class JsonSerializationTest {
                         .build())
                 .build();
         assertEquals(expBaseUser, serialize(expBaseUser));
+        var expUpdateNewMessage = UpdateNewMessage.builder()
+                .pts(2)
+                .message(BaseMessage.builder()
+                        .id(1234)
+                        .message("text text text text text")
+                        .date((int) System.currentTimeMillis())
+                        .peerId(ImmutablePeerChat.of(312312))
+                        .build())
+                .ptsCount(1)
+                .build();
+        assertEquals(expUpdateNewMessage, serialize(expUpdateNewMessage));
     }
 
     static <T> T serialize(T o, TypeReference<? extends T> ptype) throws Throwable {
