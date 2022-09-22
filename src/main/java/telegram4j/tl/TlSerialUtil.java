@@ -27,7 +27,7 @@ public final class TlSerialUtil {
 
     public static ByteBuf compressGzip(ByteBufAllocator allocator, int level, ByteBuf buf) {
         ByteBufOutputStream bufOut = new ByteBufOutputStream(allocator.buffer(buf.readableBytes()));
-        try (DeflaterOutputStream out = new CompressibleGZIPOutputStream(bufOut, level)) {
+        try (DeflaterOutputStream out = new ConfigurableGZIPOutputStream(bufOut, level)) {
             out.write(ByteBufUtil.getBytes(buf));
             out.finish();
             buf.release();
@@ -68,13 +68,6 @@ public final class TlSerialUtil {
         }
     }
 
-    public static int sumSizeExact(int base, ByteBuf... bufs) {
-        for (ByteBuf buf : bufs) {
-            base = Math.addExact(base, buf.readableBytes());
-        }
-        return base;
-    }
-
     static ByteBuf readInt128(ByteBuf buf) {
         return buf.readSlice(8 * 2);
     }
@@ -111,7 +104,7 @@ public final class TlSerialUtil {
         return sizeOfVector0(list, TlSerialUtil::sizeOf0);
     }
 
-    static int sizeOfBytesVector(List<ByteBuf> list) {
+    static int sizeOfBytesVector(List<? extends ByteBuf> list) {
         return sizeOfVector0(list, TlSerialUtil::sizeOf0);
     }
 
@@ -179,200 +172,84 @@ public final class TlSerialUtil {
     // serialization (returns new buffers)
 
     public static ByteBuf serializeString(ByteBufAllocator allocator, String value) {
-        return serializeBytes(allocator, Unpooled.wrappedBuffer(value.getBytes(StandardCharsets.UTF_8)));
+        int size = sizeOf0(value);
+        ByteBuf buf = allocator.buffer(size);
+        serializeString(buf, value);
+        return buf;
     }
 
-    public static ByteBuf serializeBytes(ByteBufAllocator allocator, ByteBuf bytes) {
-        int n = bytes.readableBytes();
-        int h = n >= 0xfe ? 4 : 1;
-        int offset = (h + n) % 4;
-        ByteBuf buf = allocator.buffer(h + n + 4 - offset);
-
-        if (n >= 0xfe) {
-            buf.writeByte(0xfe);
-            buf.writeMediumLE(n);
-        } else {
-            buf.writeByte(n);
-        }
-
-        buf.writeBytes(bytes, bytes.readerIndex(), n);
-        if (offset != 0) {
-            buf.writeZero(4 - offset);
-        }
-
+    public static ByteBuf serializeBytes(ByteBufAllocator allocator, ByteBuf value) {
+        int size = sizeOf0(value);
+        ByteBuf buf = allocator.buffer(size);
+        serializeBytes(buf, value);
         return buf;
     }
 
     public static ByteBuf serializeLongVector(ByteBufAllocator allocator, List<Long> vector) {
-        ByteBuf buf = allocator.buffer(8 + 8 * vector.size());
-        buf.writeIntLE(VECTOR_ID);
-        buf.writeIntLE(vector.size());
-        for (long l : vector) {
-            buf.writeLongLE(l);
-        }
+        int size = sizeOfLongVector(vector);
+        ByteBuf buf = allocator.buffer(size);
+        serializeLongVector(buf, vector);
         return buf;
     }
 
     public static ByteBuf serializeIntVector(ByteBufAllocator allocator, List<Integer> vector) {
-        ByteBuf buf = allocator.buffer(8 + 4 * vector.size());
-        buf.writeIntLE(VECTOR_ID);
-        buf.writeIntLE(vector.size());
-        for (int i : vector) {
-            buf.writeIntLE(i);
-        }
+        int size = sizeOfIntVector(vector);
+        ByteBuf buf = allocator.buffer(size);
+        serializeIntVector(buf, vector);
         return buf;
     }
 
     public static ByteBuf serializeStringVector(ByteBufAllocator allocator, List<String> vector) {
-        return serializeVector0(allocator, vector, e -> serializeString(allocator, e));
-    }
-
-    public static ByteBuf serializeBytesVector(ByteBufAllocator allocator, List<? extends ByteBuf> vector) {
-        return serializeVector0(allocator, vector, e -> serializeBytes(allocator, e));
-    }
-
-    public static ByteBuf serializeVector(ByteBufAllocator allocator, List<? extends TlObject> vector) {
-        return serializeVector0(allocator, vector, e -> TlSerializer.serialize(allocator, e));
-    }
-
-    public static ByteBuf serializeFlags(ByteBufAllocator allocator, @Nullable Object value) {
-        if (value == null) {
-            return Unpooled.EMPTY_BUFFER;
-        }
-        return serializeUnknown(allocator, value);
-    }
-
-    public static ByteBuf serializeUnknown(ByteBufAllocator allocator, Object value) {
-        if (value instanceof Integer) {
-            return allocator.buffer(Integer.BYTES).writeIntLE((int) value);
-        } else if (value instanceof Long) {
-            return allocator.buffer(Long.BYTES).writeLongLE((long) value);
-        } else if (value instanceof Boolean) {
-            return allocator.buffer(Integer.BYTES).writeIntLE((boolean) value ? BOOL_TRUE_ID : BOOL_FALSE_ID);
-        } else if (value instanceof Double) {
-            return allocator.buffer(Double.BYTES).writeDoubleLE((long) value);
-        } else if (value instanceof ByteBuf) {
-            return serializeBytes(allocator, (ByteBuf) value);
-        } else if (value instanceof String) {
-            return serializeString(allocator, (String) value);
-        } else if (value instanceof List) {
-            return serializeVector0(allocator, (List<?>) value, e -> serializeUnknown(allocator, e));
-        } else if (value instanceof TlObject) {
-            return TlSerializer.serialize(allocator, (TlObject) value);
-        } else if (value instanceof JsonNode) {
-            return serializeJsonNode(allocator, (JsonNode) value);
-        } else {
-            throw new IllegalArgumentException("Incorrect TL serializable type: " + value + " (" + value.getClass() + ")");
-        }
-    }
-
-    public static ByteBuf serializeJsonObjectValue(ByteBufAllocator allocator, String name, JsonNode value) {
-        ByteBuf nameb = serializeString(allocator, name);
-        ByteBuf valueb = serializeJsonNode(allocator, value);
-        try {
-            return allocator.buffer(sumSizeExact(4, nameb, valueb))
-                    .writeIntLE(JSON_OBJECT_VALUE_ID)
-                    .writeBytes(nameb)
-                    .writeBytes(valueb);
-        } finally {
-            nameb.release();
-            valueb.release();
-        }
-    }
-
-    public static ByteBuf serializeJsonNode(ByteBufAllocator allocator, JsonNode node) {
-        switch (node.getNodeType()) {
-            case NULL: return allocator.buffer(Integer.BYTES).writeIntLE(JSON_NULL_ID);
-            case STRING: {
-                ByteBuf str = serializeString(allocator, node.asText());
-                ByteBuf buf = allocator.buffer(4 + str.readableBytes());
-                buf.writeIntLE(JSON_STRING_ID);
-                buf.writeBytes(str);
-                str.release();
-
-                return buf;
-            }
-            case NUMBER: return allocator.buffer(12).writeIntLE(JSON_NUMBER_ID)
-                    .writeDoubleLE(node.asDouble());
-            case BOOLEAN: return allocator.buffer(8).writeIntLE(JSON_BOOL_ID)
-                    .writeIntLE(node.asBoolean() ? BOOL_TRUE_ID : BOOL_FALSE_ID);
-            case ARRAY: {
-                ByteBuf vector = serializeVector0(allocator, node.size(), node.elements(), e -> serializeJsonNode(allocator, e));
-                ByteBuf buf = allocator.buffer(4 + vector.readableBytes());
-                buf.writeIntLE(JSON_ARRAY_ID);
-                buf.writeBytes(vector);
-                vector.release();
-
-                return buf;
-            }
-            case OBJECT: {
-                ByteBuf vector = serializeVector0(allocator, node.size(), node.fields(), e ->
-                        serializeJsonObjectValue(allocator, e.getKey(), e.getValue()));
-                ByteBuf buf = allocator.buffer(4 + vector.readableBytes());
-                buf.writeIntLE(JSON_OBJECT_ID);
-                buf.writeBytes(vector);
-                vector.release();
-
-                return buf;
-            }
-            default: throw new IllegalStateException("Incorrect json node type: " + node.getNodeType());
-        }
-    }
-
-    static <T> ByteBuf serializeVector0(ByteBufAllocator allocator, int count, Iterator<T> it, Function<T, ByteBuf> serializer) {
-        ByteBuf[] bytes = new ByteBuf[count];
-        int size = 8;
-        for (int i = 0; i < count; i++) {
-            ByteBuf buf = serializer.apply(it.next());
-            size = Math.addExact(size, buf.readableBytes());
-            bytes[i] = buf;
-        }
-
+        int size = sizeOfStringVector(vector);
         ByteBuf buf = allocator.buffer(size);
-        buf.writeIntLE(VECTOR_ID);
-        buf.writeIntLE(count);
-        for (ByteBuf b : bytes) {
-            buf.writeBytes(b);
-            b.release();
-        }
+        serializeStringVector(buf, vector);
         return buf;
     }
 
-    static <T> ByteBuf serializeVector0(ByteBufAllocator allocator, List<T> vector, Function<T, ByteBuf> serializer) {
-        ByteBuf[] bytes = new ByteBuf[vector.size()];
-        int size = 8;
-        for (int i = 0; i < bytes.length; i++) {
-            ByteBuf buf = serializer.apply(vector.get(i));
-            size = Math.addExact(size, buf.readableBytes());
-            bytes[i] = buf;
-        }
-
+    public static ByteBuf serializeBytesVector(ByteBufAllocator allocator, List<? extends ByteBuf> vector) {
+        int size = sizeOfBytesVector(vector);
         ByteBuf buf = allocator.buffer(size);
-        buf.writeIntLE(VECTOR_ID);
-        buf.writeIntLE(vector.size());
-        for (ByteBuf b : bytes) {
-            buf.writeBytes(b);
-            b.release();
-        }
+        serializeBytesVector(buf, vector);
+        return buf;
+    }
+
+    public static ByteBuf serializeVector(ByteBufAllocator allocator, List<? extends TlObject> vector) {
+        int size = sizeOfVector(vector);
+        ByteBuf buf = allocator.buffer(size);
+        serializeVector(buf, vector);
+        return buf;
+    }
+
+    public static ByteBuf serializeJsonObjectValue(ByteBufAllocator allocator, String name, JsonNode value) {
+        int size = sizeOfJsonObjectValue(name, value);
+        ByteBuf buf = allocator.buffer(size);
+        serializeJsonObjectValue(buf, name, value);
+        return buf;
+    }
+
+    public static ByteBuf serializeJsonNode(ByteBufAllocator allocator, JsonNode node) {
+        int size = sizeOfJsonNode(node);
+        ByteBuf buf = allocator.buffer(size);
+        serializeJsonNode(buf, node);
         return buf;
     }
 
     // some zero-copy variants of serializers
 
-    static void serializeJsonObjectValue0(ByteBuf buf, String name, JsonNode value) {
+    public static void serializeJsonObjectValue(ByteBuf buf, String name, JsonNode value) {
         buf.writeIntLE(JSON_OBJECT_VALUE_ID);
-        serializeString0(buf, name);
-        serializeJsonNode0(buf, value);
+        serializeString(buf, name);
+        serializeJsonNode(buf, value);
     }
 
-    static void serializeJsonNode0(ByteBuf buf, JsonNode node) {
+    public static void serializeJsonNode(ByteBuf buf, JsonNode node) {
         switch (node.getNodeType()) {
             case NULL:
                 buf.writeIntLE(JSON_NULL_ID);
                 break;
             case STRING:
                 buf.writeIntLE(JSON_STRING_ID);
-                serializeString0(buf, node.asText());
+                serializeString(buf, node.asText());
                 break;
             case NUMBER:
                 buf.writeIntLE(JSON_NUMBER_ID);
@@ -384,18 +261,18 @@ public final class TlSerialUtil {
                 break;
             case ARRAY:
                 buf.writeIntLE(JSON_ARRAY_ID);
-                serializeVector0(buf, node.size(), node.elements(), TlSerialUtil::serializeJsonNode0);
+                serializeVector(buf, node.size(), node.elements(), TlSerialUtil::serializeJsonNode);
                 break;
             case OBJECT:
                 buf.writeIntLE(JSON_OBJECT_ID);
-                serializeVector0(buf, node.size(), node.fields(), (b, e) ->
-                        serializeJsonObjectValue0(b, e.getKey(), e.getValue()));
+                serializeVector(buf, node.size(), node.fields(), (b, e) ->
+                        serializeJsonObjectValue(b, e.getKey(), e.getValue()));
                 break;
             default: throw new IllegalStateException("Incorrect json node type: " + node.getNodeType());
         }
     }
 
-    static void serializeUnknown0(ByteBuf buf, Object value) {
+    public static void serializeUnknown(ByteBuf buf, Object value) {
         if (value instanceof Integer) {
             buf.writeIntLE((int) value);
         } else if (value instanceof Long) {
@@ -405,63 +282,47 @@ public final class TlSerialUtil {
         } else if (value instanceof Double) {
             buf.writeDoubleLE((long) value);
         } else if (value instanceof ByteBuf) {
-            serializeBytes0(buf, (ByteBuf) value);
+            serializeBytes(buf, (ByteBuf) value);
         } else if (value instanceof String) {
-            serializeString0(buf, (String) value);
+            serializeString(buf, (String) value);
         } else if (value instanceof List) {
-            serializeVector0(buf, (List<?>) value, TlSerialUtil::serializeUnknown0);
+            serializeVector(buf, (List<?>) value, TlSerialUtil::serializeUnknown);
         } else if (value instanceof TlObject) {
-            TlSerializer.serialize0(buf, (TlObject) value);
+            TlSerializer.serialize(buf, (TlObject) value);
         } else if (value instanceof JsonNode) {
-            serializeJsonNode0(buf, (JsonNode) value);
+            serializeJsonNode(buf, (JsonNode) value);
         } else {
             throw new IllegalArgumentException("Incorrect TL serializable type: " + value + " (" + value.getClass() + ")");
         }
     }
 
-    static void serializeFlags0(ByteBuf buf, @Nullable Object value) {
+    public static void serializeFlags(ByteBuf buf, @Nullable Object value) {
         if (value != null) {
-            serializeUnknown0(buf, value);
+            serializeUnknown(buf, value);
         }
     }
 
-    static void serializeStringVector0(ByteBuf buf, List<String> list) {
-        serializeVector0(buf, list, TlSerialUtil::serializeString0);
+    public static void serializeStringVector(ByteBuf buf, List<String> list) {
+        serializeVector(buf, list, TlSerialUtil::serializeString);
     }
 
-    static void serializeBytesVector0(ByteBuf buf, List<ByteBuf> list) {
-        serializeVector0(buf, list, TlSerialUtil::serializeBytes0);
+    public static void serializeBytesVector(ByteBuf buf, List<? extends ByteBuf> list) {
+        serializeVector(buf, list, TlSerialUtil::serializeBytes);
     }
 
-    static void serializeLongVector0(ByteBuf buf, List<Long> list) {
-        serializeVector0(buf, list, ByteBuf::writeLongLE);
+    public static void serializeLongVector(ByteBuf buf, List<Long> list) {
+        serializeVector(buf, list, ByteBuf::writeLongLE);
     }
 
-    static void serializeIntVector0(ByteBuf buf, List<Integer> list) {
-        serializeVector0(buf, list, ByteBuf::writeIntLE);
+    public static void serializeIntVector(ByteBuf buf, List<Integer> list) {
+        serializeVector(buf, list, ByteBuf::writeIntLE);
     }
 
-    static void serializeVector0(ByteBuf buf, List<? extends TlObject> list) {
-        serializeVector0(buf, list, TlSerializer::serialize0);
+    public static void serializeVector(ByteBuf buf, List<? extends TlObject> list) {
+        serializeVector(buf, list, TlSerializer::serialize);
     }
 
-    static <T> void serializeVector0(ByteBuf buf, int count, Iterator<T> it, BiConsumer<ByteBuf, T> func) {
-        buf.writeIntLE(VECTOR_ID);
-        buf.writeIntLE(count);
-        while (it.hasNext()) {
-            func.accept(buf, it.next());
-        }
-    }
-
-    static <T> void serializeVector0(ByteBuf buf, List<T> list, BiConsumer<ByteBuf, T> func) {
-        buf.writeIntLE(VECTOR_ID);
-        buf.writeIntLE(list.size());
-        for (T t : list) {
-            func.accept(buf, t);
-        }
-    }
-
-    static void serializeString0(ByteBuf buf, String str) {
+    public static void serializeString(ByteBuf buf, String str) {
         byte[] bytes = str.getBytes(StandardCharsets.UTF_8);
         int n = bytes.length;
         int h = n >= 0xfe ? 4 : 1;
@@ -480,7 +341,7 @@ public final class TlSerialUtil {
         }
     }
 
-    static void serializeBytes0(ByteBuf buf, ByteBuf bytes) {
+    public static void serializeBytes(ByteBuf buf, ByteBuf bytes) {
         int n = bytes.readableBytes();
         int h = n >= 0xfe ? 4 : 1;
         int offset = (h + n) % 4;
@@ -495,6 +356,22 @@ public final class TlSerialUtil {
         buf.writeBytes(bytes, bytes.readerIndex(), n);
         if (offset != 0) {
             buf.writeZero(4 - offset);
+        }
+    }
+
+    static <T> void serializeVector(ByteBuf buf, int count, Iterator<T> it, BiConsumer<ByteBuf, T> func) {
+        buf.writeIntLE(VECTOR_ID);
+        buf.writeIntLE(count);
+        while (it.hasNext()) {
+            func.accept(buf, it.next());
+        }
+    }
+
+    static <T> void serializeVector(ByteBuf buf, List<T> list, BiConsumer<ByteBuf, T> func) {
+        buf.writeIntLE(VECTOR_ID);
+        buf.writeIntLE(list.size());
+        for (T t : list) {
+            func.accept(buf, t);
         }
     }
 
@@ -517,7 +394,6 @@ public final class TlSerialUtil {
         return data;
     }
 
-    // optimized variant
     public static String deserializeString(ByteBuf buf) {
         int n = buf.readUnsignedByte();
         int h = 1;
@@ -639,10 +515,10 @@ public final class TlSerialUtil {
         return list;
     }
 
-    /** Internal gzip output stream implementation which allows to change compression level. */
-    static class CompressibleGZIPOutputStream extends GZIPOutputStream {
+    /* Internal gzip output stream implementation which allows to change compression level. */
+    static class ConfigurableGZIPOutputStream extends GZIPOutputStream {
 
-        public CompressibleGZIPOutputStream(OutputStream out, int level) throws IOException {
+        public ConfigurableGZIPOutputStream(OutputStream out, int level) throws IOException {
             super(out);
             def.setLevel(level);
         }

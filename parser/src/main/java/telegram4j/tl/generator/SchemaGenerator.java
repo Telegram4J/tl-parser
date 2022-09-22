@@ -41,8 +41,6 @@ import static telegram4j.tl.generator.Strings.screamilize;
 @SupportedAnnotationTypes("telegram4j.tl.generator.GenerateSchema")
 public class SchemaGenerator extends AbstractProcessor {
 
-    // TODO: add serialization for JsonVALUE in TlSerializer.serialize(...)
-
     private final Set<String> computed = new HashSet<>();
     private final Map<Integer, Set<String>> sizeOfGroups = new HashMap<>();
 
@@ -92,8 +90,8 @@ public class SchemaGenerator extends AbstractProcessor {
             .addParameter(TL_OBJECT, "payload")
             .beginControlFlow("switch (payload.identifier()) {");
 
-    private final MethodRenderer<TopLevelRenderer> serializeMethod = serializer.addMethod(BYTE_BUF, "serialize0")
-            .addModifiers(Modifier.STATIC)
+    private final MethodRenderer<TopLevelRenderer> serializeMethod = serializer.addMethod(BYTE_BUF, "serialize")
+            .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
             .addParameter(BYTE_BUF, "buf")
             .addParameter(TL_OBJECT, "payload")
             .beginControlFlow("switch (payload.identifier()) {");
@@ -259,7 +257,7 @@ public class SchemaGenerator extends AbstractProcessor {
                 .addParameter(TL_OBJECT, "payload")
                 .addStatement("int size = sizeOf(payload)")
                 .addStatement("$T buf = alloc.buffer(size)", BYTE_BUF)
-                .addStatement("return serialize0(buf, payload)")
+                .addStatement("return serialize(buf, payload)")
                 .complete();
 
         serializeMethod.complete();
@@ -1147,10 +1145,10 @@ public class SchemaGenerator extends AbstractProcessor {
             case "int256": // ^
             case "double": return "payload.$L()";
             case "Bool": return "payload.$L() ? BOOL_TRUE_ID : BOOL_FALSE_ID";
-            case "string": return "serializeString0(buf, payload.$L())";
-            case "bytes": return "serializeBytes0(buf, payload.$L())";
-            case "JSONValue": return "serializeJsonNode0(buf, payload.$L())";
-            case "Object": return "serializeUnknown0(buf, payload.$L())";
+            case "string": return "serializeString(buf, payload.$L())";
+            case "bytes": return "serializeBytes(buf, payload.$L())";
+            case "JSONValue": return "serializeJsonNode(buf, payload.$L())";
+            case "Object": return "serializeUnknown(buf, payload.$L())";
             default:
                 if (param.type.isVector()) {
                     String innerTypeRaw = param.type.innerType().rawType;
@@ -1163,11 +1161,11 @@ public class SchemaGenerator extends AbstractProcessor {
                             specific = Character.toUpperCase(innerTypeRaw.charAt(0)) + innerTypeRaw.substring(1);
                             break;
                     }
-                    return "serialize" + specific + "Vector0(buf, payload.$L())";
+                    return "serialize" + specific + "Vector(buf, payload.$L())";
                 } else if (param.type.isFlag()) {
-                    return "serializeFlags0(buf, payload.$L())";
+                    return "serializeFlags(buf, payload.$L())";
                 } else {
-                    return "serialize0(buf, payload.$L())";
+                    return "serialize(buf, payload.$L())";
                 }
         }
     }
