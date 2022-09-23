@@ -26,7 +26,7 @@ class ValueType {
     public EnumSet<Flag> flags = EnumSet.noneOf(ValueType.Flag.class);
     public String identifier;
     public TypeRef superType;
-    public Set<String> superTypeMethodsNames;
+    public List<String> superTypeMethodsNames;
     public short initBitsCount;
 
     public String initBitsName;

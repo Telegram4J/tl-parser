@@ -6,8 +6,6 @@ import telegram4j.tl.api.TlObject;
 
 public interface ChatPhotoFields extends TlObject {
 
-    int flags();
-
     boolean hasVideo();
 
     long photoId();

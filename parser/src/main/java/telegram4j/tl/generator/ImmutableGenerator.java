@@ -224,7 +224,6 @@ class ImmutableGenerator {
         var copyOf = renderer.addMethod(type.immutableType, "copyOf", Modifier.PUBLIC, Modifier.STATIC)
                 .addTypeVariables(type.typeVars)
                 .addParameter(type.baseType, "instance")
-                .addStatement("$T.requireNonNull(instance)", Objects.class)
                 .beginControlFlow("if (instance instanceof $T) {", type.immutableType.withTypeArguments(
                         Collections.nCopies(type.typeVars.size(), WildcardTypeRef.none())))
                 .addStatement("return ($T) instance", type.immutableType)
@@ -546,18 +545,16 @@ class ImmutableGenerator {
     }
 
     private void generateFrom(ValueType type, ClassRenderer<?> builder, CompletionDeferrer pending) {
-
-        boolean needUseSuperType = !type.superTypeMethodsNames.isEmpty();
-        TypeRef paramType = needUseSuperType ? type.superType : type.baseType;
-        var from = builder.addMethod(type.builderType, "from", Modifier.PUBLIC)
-                .addParameter(paramType, "instance");
-
-        byte optBits = 0;
-        Map<String, String> commonMethods = new HashMap<>();
+        short optBits = 0;
+        Map<String, Integer> commonMethods = new HashMap<>();
         Map<TypeRef, List<String>> typeToMethods = new HashMap<>();
 
         for (String name : type.superTypeMethodsNames) {
-            commonMethods.put(name, Integer.toHexString(1 << optBits++));
+            commonMethods.put(name, null);
+        }
+
+        for (ValueAttribute a : type.attributes) {
+            commonMethods.put(a.name, null);
         }
 
         for (TypeRef typeRef : type.interfaces) {
@@ -567,19 +564,15 @@ class ImmutableGenerator {
 
             for (Element e : t.getEnclosedElements()) {
                 String name = e.getSimpleName().toString();
-                if (e.getKind() != ElementKind.METHOD ||
-                    name.equals("identifier") ||
-                    e.getModifiers().contains(Modifier.STATIC) || // of()/instance()/builder()
-                    e.getModifiers().contains(Modifier.DEFAULT) && // bit flag
-                    e instanceof ExecutableElement &&
-                    ((ExecutableElement) e).getReturnType().getKind() == TypeKind.BOOLEAN) {
+                // TODO: this is an unreliable check. Therefore we should not declare flags() methods in supertypes
+                if (e.getKind() != ElementKind.METHOD || name.equals("identifier") ||
+                    e.getModifiers().contains(Modifier.STATIC)) { // of()/instance()/builder()
                     continue;
                 }
 
-                if (!commonMethods.containsKey(name)) {
-                    String mask = Integer.toHexString(1 << optBits++);
-
-                    commonMethods.put(name, mask);
+                Integer mask = commonMethods.get(name);
+                if (mask == null && commonMethods.containsKey(name)) {
+                    commonMethods.put(name, 1 << optBits++);
                 }
 
                 methods.add(name);
@@ -590,74 +583,126 @@ class ImmutableGenerator {
             }
         }
 
-        if (optBits > 0) {
-            from.addStatement("$T bits = 0", floorBitFlagsType(optBits));
-        }
+        boolean isPolymorphic = typeToMethods.size() + type.superTypeMethodsNames.size() > 0;
+        var from = builder.addMethod(
+                isPolymorphic ? PrimitiveTypeRef.VOID : type.builderType, "from");
+        if (isPolymorphic) {
+            if (optBits > Integer.SIZE) {
+                throw new IllegalStateException();
+            }
 
-        // - base type
-        // - super type (if it has common methods)
-        // - interfaces
+            from.addModifiers(Modifier.PRIVATE);
+            from.addParameter(ClassRef.OBJECT, "instance");
+            from.addStatement("$T.requireNonNull(instance)", Objects.class);
+            if (optBits > 0) {
+                from.addStatement("$T bits = 0", floorBitFlagsType(optBits));
+            }
 
-        String c;
-        if (needUseSuperType) {
+            // - interfaces
+            // - base type or super type
+            boolean first = true;
+            int firstMask = 0;
+            for (var e : typeToMethods.entrySet()) {
+                pending.add(builder.addMethod(type.builderType, "from", Modifier.PUBLIC)
+                        .addParameter(e.getKey(), "instance")
+                        .addStatement("from((Object) instance)")
+                        .addStatement("return this"));
+
+                from.beginControlFlow("if (instance instanceof $T) {", e.getKey());
+                from.addStatement("$1T c = ($1T) instance", e.getKey());
+
+                for (String s : e.getValue()) {
+                    Integer mask = commonMethods.get(s);
+                    if (mask != null && !first) {
+                        from.beginControlFlow("if ((bits & 0x$L) == 0) {", Integer.toHexString(mask));
+                    }
+
+                    from.addStatement("$1L(c.$1L())", s);
+
+                    if (mask != null) {
+                        if (!first) {
+                            from.addStatement("bits |= 0x$L", Integer.toHexString(mask));
+                            from.endControlFlow();
+                        } else {
+                            firstMask |= mask;
+                        }
+                    }
+                }
+
+                if (first) {
+                    first = false;
+                    if (firstMask > 0) {
+                        from.addStatement("bits = 0x$L", Integer.toHexString(firstMask));
+                    }
+                }
+                from.endControlFlow();
+            }
+
+            pending.add(builder.addMethod(type.builderType, "from", Modifier.PUBLIC)
+                    .addParameter(type.baseType, "instance")
+                    .addStatement("from((Object) instance)")
+                    .addStatement("return this"));
+
             from.beginControlFlow("if (instance instanceof $T) {",
                     type.baseType.withTypeArguments(Collections.nCopies(
                             type.typeVars.size(), WildcardTypeRef.none())));
             from.addStatement("$1T c = ($1T) instance", type.baseType);
 
-            c = "c";
+            for (ValueAttribute a : type.generated) {
+                Integer mask = commonMethods.get(a.name);
+                if (mask != null) {
+                    from.beginControlFlow("if ((bits & 0x$L) == 0) {", Integer.toHexString(mask));
+                }
+
+                from.addStatement("$1L(c.$1L())", a.name);
+
+                if (mask != null) {
+                    from.addStatement("bits |= 0x$L", Integer.toHexString(mask));
+                    from.endControlFlow();
+                }
+            }
+
+            if (!type.superTypeMethodsNames.isEmpty()) {
+                pending.add(builder.addMethod(type.builderType, "from", Modifier.PUBLIC)
+                        .addParameter(type.superType, "instance")
+                        .addStatement("from((Object) instance)")
+                        .addStatement("return this"));
+
+                from.nextControlFlow("} else if (instance instanceof $T) {", type.superType);
+                from.addStatement("$1T c = ($1T) instance", type.superType);
+
+                for (String s : type.superTypeMethodsNames) {
+                    Integer mask = commonMethods.get(s);
+                    if (mask != null && !first) {
+                        from.beginControlFlow("if ((bits & 0x$L) == 0) {", Integer.toHexString(mask));
+                    }
+
+                    from.addStatement("$1L(c.$1L())", s);
+
+                    if (mask != null) {
+                        if (!first) {
+                            from.addStatement("bits |= 0x$L", Integer.toHexString(mask));
+                            from.endControlFlow();
+                        } else {
+                            firstMask |= mask;
+                        }
+                    }
+                }
+
+                if (first && firstMask > 0) {
+                    from.addStatement("bits = 0x$L", Integer.toHexString(firstMask));
+                }
+            }
+            from.endControlFlow();
         } else {
-            c = "instance";
-        }
+            from.addModifiers(Modifier.PUBLIC);
+            from.addParameter(type.baseType, "instance");
 
-        for (ValueAttribute a : type.generated) {
-            from.addStatement("$1L($2L.$1L())", a.name, c);
-        }
-
-        if (optBits > 0) {
-            from.addStatement("bits |= 0x$L", Integer.toHexString(0xffffffff >>> -optBits));
-        }
-
-        if (needUseSuperType) {
-            from.endControlFlow();
-
-            for (String name : type.superTypeMethodsNames) {
-                String mask = commonMethods.get(name);
-                if (mask != null) {
-                    from.beginControlFlow("if ((bits & 0x$L) == 0) {", mask);
-                }
-
-                from.addStatement("$1L(instance.$1L())", name);
-
-                if (mask != null) {
-                    from.addStatement("bits |= 0x$L", mask);
-                    from.endControlFlow();
-                }
+            for (ValueAttribute a : type.generated) {
+                from.addStatement("$1L(instance.$1L())", a.name);
             }
+            from.addStatement("return this");
         }
-
-        for (var e : typeToMethods.entrySet()) {
-            from.beginControlFlow("if (instance instanceof $T) {", e.getKey());
-            from.addStatement("$1T c = ($1T) instance", e.getKey());
-
-            for (String s : e.getValue()) {
-                String mask = commonMethods.get(s);
-                if (mask != null) {
-                    from.beginControlFlow("if ((bits & 0x$L) == 0) {", mask);
-                }
-
-                from.addStatement("$1L(c.$1L())", s);
-
-                if (mask != null) {
-                    from.addStatement("bits |= 0x$L", mask);
-                    from.endControlFlow();
-                }
-            }
-
-            from.endControlFlow();
-        }
-
-        from.addStatement("return this");
 
         pending.add(from);
     }

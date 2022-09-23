@@ -68,7 +68,6 @@ public class SchemaGenerator extends AbstractProcessor {
 
     private final TopLevelRenderer tlInfo = ClassRenderer.create(ClassRef.of(BASE_PACKAGE, "TlInfo"), ClassRenderer.Kind.CLASS)
             .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
-            .addConstructor(Modifier.PRIVATE).complete()
             .addField(int.class, "LAYER", Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
                     .initializer(Integer.toString(LAYER))
                     .complete();
@@ -270,6 +269,8 @@ public class SchemaGenerator extends AbstractProcessor {
         deserializeMethod.complete();
 
         fileService.writeTo(deserializer);
+
+        tlInfo.addConstructor(Modifier.PRIVATE).complete();
 
         tlTypeOf.addStatement("default: throw new IllegalArgumentException($S + id)", "Incorrect TlObject identifier: 0x");
         tlTypeOf.endControlFlow();
@@ -789,15 +790,15 @@ public class SchemaGenerator extends AbstractProcessor {
                 : List.<Type>of();
 
         if (types.size() > 1) {
-            valType.superTypeMethodsNames = types.stream()
+            valType.superTypeMethodsNames = List.copyOf(types.stream()
                     .flatMap(e -> e.parameters.stream())
-                    .filter(e -> !e.type.isBitFlag())
+                    .filter(e -> !e.type.rawType.equals("#"))
                     .filter(p -> types.stream()
                             .allMatch(t -> t.parameters.contains(p)))
                     .map(Parameter::formattedName)
-                    .collect(Collectors.toCollection(LinkedHashSet::new));
+                    .collect(Collectors.toCollection(LinkedHashSet::new)));
         } else {
-            valType.superTypeMethodsNames = Set.of();
+            valType.superTypeMethodsNames = List.of();
         }
 
         valType.initBitsName = initBitsName.get();
