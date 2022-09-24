@@ -1,9 +1,13 @@
 dependencies {
     implementation project(":api")
 
+    implementation "io.netty:netty-buffer:$netty_version"
+    implementation "io.projectreactor:reactor-core:$reactor_version"
+
     api "org.immutables:encode:$immutables_version"
 
-    compileOnly "javax.annotation:javax.annotation-api:$javax_annotation"
     compileOnly "org.immutables:value:$immutables_version"
     annotationProcessor "org.immutables:value:$immutables_version"
 }
+
+description = 'Immutables encoding for TL support'

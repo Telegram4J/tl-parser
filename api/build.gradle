@@ -1,0 +1,6 @@
+dependencies {
+    implementation "io.netty:netty-buffer:$netty_version"
+    implementation "io.projectreactor:reactor-core:$reactor_version"
+}
+
+description = 'Base interfaces for Telegram API'
