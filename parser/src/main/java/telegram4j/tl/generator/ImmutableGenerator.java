@@ -6,8 +6,10 @@ import reactor.util.annotation.Nullable;
 import telegram4j.tl.api.TlEncodingUtil;
 import telegram4j.tl.generator.renderer.*;
 
-import javax.lang.model.element.*;
-import javax.lang.model.type.TypeKind;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.Modifier;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -795,6 +797,10 @@ class ImmutableGenerator {
                 withMethod.addStatement("int $L = $T.mask($L, $L, $L != null)",
                         newValue.apply(a.flagsName), UTILITY, a.flagsName, a.flagMask, newValueVar);
 
+                boolean canUnbox = listElement.safeUnbox() != listElement;
+                if (canUnbox) {
+                    listElement = listElement.safeUnbox();
+                }
                 var withVarargsMethod = renderer.addMethod(type.immutableType, name)
                         .addModifiers(Modifier.PUBLIC)
                         .addParameter(AnnotatedTypeRef.create(listElement, Nullable.class), paramName, true)
@@ -804,6 +810,9 @@ class ImmutableGenerator {
                     withVarargsMethod.addStatement("var $2L = $3L != null ? $6T.stream($3L)$B" +
                                     ".map($4T::copyAsUnpooled)$B.collect($5T.toUnmodifiableList()) : null",
                             a.type, newValueVar, paramName, UTILITY, Collectors.class, Arrays.class);
+                } else if (canUnbox) {
+                    withVarargsMethod.addStatement("var $1L = $3L != null ? : $2T.stream($3L)$B.boxed()$B.collect($4T.toUnmodifiableList()) : null",
+                            newValueVar, Arrays.class, paramName, Collectors.class);
                 } else {
                     withVarargsMethod.addStatement("var $1L = $2L != null ? $3T.of($2L) : null", newValueVar, paramName, LIST);
                 }
@@ -829,6 +838,10 @@ class ImmutableGenerator {
 
                 withMethod.addStatement("if ($L == $L) return this", localName, newValueVar);
 
+                boolean canUnbox = listElement.safeUnbox() != listElement;
+                if (canUnbox) {
+                    listElement = listElement.safeUnbox();
+                }
                 var withVarargsMethod = renderer.addMethod(type.immutableType, name)
                         .addModifiers(Modifier.PUBLIC)
                         .addParameter(listElement, paramName, true)
@@ -837,6 +850,9 @@ class ImmutableGenerator {
                 if (listElement == BYTE_BUF) {
                     withVarargsMethod.addStatement("var $1L = $2T.stream($3L)$B.map($4T::copyAsUnpooled)$B.collect($5T.toUnmodifiableList())",
                             newValueVar, Arrays.class, paramName, UTILITY, Collectors.class);
+                } else if (canUnbox) {
+                    withVarargsMethod.addStatement("var $L = $T.stream($L)$B.boxed()$B.collect($T.toUnmodifiableList())",
+                            newValueVar, Arrays.class, paramName, Collectors.class);
                 } else {
                     withVarargsMethod.addStatement("var $L = $T.of($L)", newValueVar, LIST, paramName);
                 }
@@ -993,6 +1009,10 @@ class ImmutableGenerator {
         TypeRef listElement = unwrap(a.type, LIST);
         TypeRef iterableType = ParameterizedTypeRef.of(ITERABLE, expandBounds(listElement));
         boolean opt = a.flags.contains(ValueAttribute.Flag.OPTIONAL);
+        boolean canUnbox = listElement.safeUnbox() != listElement;
+        if (canUnbox) {
+            listElement = listElement.safeUnbox();
+        }
 
         // add methods
 
@@ -1001,10 +1021,13 @@ class ImmutableGenerator {
 
         var add = pending.add(builder.addMethod(type.builderType, a.names().add)
                 .addModifiers(Modifier.PUBLIC)
-                .addParameter(listElement, "value")
-                .addStatement("$T.requireNonNull(value)", Objects.class)
-                .beginControlFlow("if ($L == null) {", localNameSingular)
-                .addStatement("$L = new $T<>()", localNameSingular, ArrayList.class));
+                .addParameter(listElement, "value"));
+        if (!canUnbox) {
+            add.addStatement("$T.requireNonNull(value)", Objects.class);
+        }
+
+        add.beginControlFlow("if ($L == null) {", localNameSingular);
+        add.addStatement("$L = new $T<>()", localNameSingular, ArrayList.class);
 
         if (opt) {
             add.addStatement("$L |= $L", a.flagsName, a.flagMask);
@@ -1023,8 +1046,13 @@ class ImmutableGenerator {
                 .addParameter(iterableType, "values"));
 
         String copyTransform = listElement == BYTE_BUF ? "$3T::copyAsUnpooled" : "$4T::requireNonNull";
-        addv.addStatement("$1T copy = $2T.stream(values)$B.map(" + copyTransform + ")$B.collect($5T.toList())",
-                a.type, Arrays.class, UTILITY, Objects.class, Collectors.class);
+        if (!canUnbox) {
+            addv.addStatement("$1T copy = $2T.stream(values)$B.map(" + copyTransform + ")$B.collect($5T.toList())",
+                    a.type, Arrays.class, UTILITY, Objects.class, Collectors.class);
+        } else {
+            addv.addStatement("$T copy = $T.stream(values)$B.boxed()$B.collect($T.toList())",
+                    a.type, Arrays.class, Collectors.class);
+        }
         addv.beginControlFlow("if ($L == null) {", localName);
         addv.addStatement("$L = copy", localName);
         if (opt) {
