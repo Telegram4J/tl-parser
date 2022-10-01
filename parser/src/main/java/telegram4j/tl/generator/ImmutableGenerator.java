@@ -811,7 +811,7 @@ class ImmutableGenerator {
                                     ".map($4T::copyAsUnpooled)$B.collect($5T.toUnmodifiableList()) : null",
                             a.type, newValueVar, paramName, UTILITY, Collectors.class, Arrays.class);
                 } else if (canUnbox) {
-                    withVarargsMethod.addStatement("var $1L = $3L != null ? : $2T.stream($3L)$B.boxed()$B.collect($4T.toUnmodifiableList()) : null",
+                    withVarargsMethod.addStatement("var $1L = $3L != null ? $2T.stream($3L)$B.boxed()$B.collect($4T.toUnmodifiableList()) : null",
                             newValueVar, Arrays.class, paramName, Collectors.class);
                 } else {
                     withVarargsMethod.addStatement("var $1L = $2L != null ? $3T.of($2L) : null", newValueVar, paramName, LIST);
