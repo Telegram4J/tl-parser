@@ -18,6 +18,8 @@ public interface BaseSendMessageRequest extends TlMethod<Updates> {
 
     boolean noforwards();
 
+    boolean updateStickersetsOrder();
+
     InputPeer peer();
 
     @Nullable

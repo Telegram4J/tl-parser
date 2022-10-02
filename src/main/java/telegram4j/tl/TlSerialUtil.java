@@ -12,6 +12,8 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.function.*;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.GZIPInputStream;
@@ -495,24 +497,20 @@ public final class TlSerialUtil {
     static List<Object> deserializeUnknownVector(ByteBuf buf) {
         // vector id skipped.
         int size = buf.readIntLE();
-        List<Object> list = new ArrayList<>(size);
         boolean longVec = size * Long.BYTES == buf.readableBytes();
         boolean intVec = size * Integer.BYTES == buf.readableBytes();
 
-        for (int i = 0; i < size; i++) {
-            Object val;
-
-            if (longVec) {
-                val = buf.readLongLE();
-            } else if (intVec) {
-                val = buf.readIntLE();
-            } else {
-                val = TlDeserializer.deserialize(buf);
-            }
-
-            list.add(val);
-        }
-        return list;
+        return IntStream.range(0, size)
+                .mapToObj(o -> {
+                    if (longVec) {
+                        return (Long) buf.readLongLE();
+                    } else if (intVec) {
+                        return (Integer) buf.readIntLE();
+                    } else {
+                        return TlDeserializer.deserialize(buf);
+                    }
+                })
+                .collect(Collectors.toUnmodifiableList());
     }
 
     /* Internal gzip output stream implementation which allows to change compression level. */
