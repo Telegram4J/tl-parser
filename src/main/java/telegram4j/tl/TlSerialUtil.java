@@ -501,11 +501,11 @@ public final class TlSerialUtil {
         boolean intVec = size * Integer.BYTES == buf.readableBytes();
 
         return IntStream.range(0, size)
-                .mapToObj(o -> {
+                .<Object>mapToObj(o -> {
                     if (longVec) {
-                        return (Long) buf.readLongLE();
+                        return buf.readLongLE();
                     } else if (intVec) {
-                        return (Integer) buf.readIntLE();
+                        return buf.readIntLE();
                     } else {
                         return TlDeserializer.deserialize(buf);
                     }
