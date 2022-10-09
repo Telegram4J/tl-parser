@@ -7,10 +7,10 @@ plugins {
 
 ext {
     // used only for parser module
-    reactor_bom_version = '2020.0.22'
+    reactor_bom_version = '2020.0.23'
 
-    netty_version = '4.1.79.Final'
-    reactor_version = '3.4.22'
+    netty_version = '4.1.81.Final'
+    reactor_version = '3.4.23'
 
     jackson_version = '2.13.4'
     immutables_version = '2.9.0'
