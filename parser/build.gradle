@@ -1,7 +1,6 @@
 dependencies {
     implementation platform("io.projectreactor:reactor-bom:$reactor_bom_version")
 
-    compileOnly project(":encoding")
     implementation project(":api")
 
     compileOnly "org.immutables:value:$immutables_version"
