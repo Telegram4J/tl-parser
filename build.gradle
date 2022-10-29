@@ -7,10 +7,10 @@ plugins {
 
 ext {
     // used only for parser module
-    reactor_bom_version = '2020.0.23'
+    reactor_bom_version = '2020.0.24'
 
-    netty_version = '4.1.81.Final'
-    reactor_version = '3.4.23'
+    netty_version = '4.1.84.Final'
+    reactor_version = '3.4.24'
 
     jackson_version = '2.13.4'
     immutables_version = '2.9.0'
@@ -71,6 +71,13 @@ allprojects {
             tags = ["apiNote:a:API Note:",
                     "implSpec:a:Implementation Requirements:",
                     "implNote:a:Implementation Note:"]
+
+            links = [
+                    "https://projectreactor.io/docs/core/release/api/",
+                    "https://fasterxml.github.io/jackson-databind/javadoc/2.13/",
+                    "https://www.reactive-streams.org/reactive-streams-1.0.3-javadoc/",
+                    "https://netty.io/4.1/api/"
+            ]
         }
     }
 

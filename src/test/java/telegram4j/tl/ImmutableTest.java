@@ -1,5 +1,6 @@
 package telegram4j.tl;
 
+import io.netty.buffer.Unpooled;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -24,6 +25,13 @@ class ImmutableTest {
         assertSame(user.withFlags(BaseUser.ACCESS_HASH_MASK), user);
         assertNotEquals(user.withFlags(BaseUser.BOT_MASK), user);
         assertNull(user.withFlags(BaseUser.BOT_MASK).botInfoVersion());
+        var bicpsrp = ImmutableBaseInputCheckPasswordSRP.builder()
+                .a(Unpooled.EMPTY_BUFFER)
+                .m1(Unpooled.copyInt(1, 2, 3))
+                .srpId(123)
+                .build();
+        // FIXME: this is not exactly an error, it is a consequence of what we return .duplicate()
+        assertNotSame(bicpsrp.withA(Unpooled.EMPTY_BUFFER), bicpsrp);
     }
 
     @Test

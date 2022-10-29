@@ -20,6 +20,7 @@ class ValueAttribute {
     public int flagPos = -1;
     @Nullable
     public String jsonName;
+    public short maxSize = -1; // size restriction in bytes; used only for int256 and int128
 
     @Nullable
     private Names names;

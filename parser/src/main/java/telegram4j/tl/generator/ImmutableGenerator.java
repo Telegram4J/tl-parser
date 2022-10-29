@@ -134,6 +134,15 @@ class ImmutableGenerator {
             }
 
             for (ValueAttribute a : sorted) {
+                if (a.type == BYTE_BUF && a.maxSize != -1) {
+                    mandatoryOf.beginControlFlow("if ($L.readableBytes() != $L) {", a.name, a.maxSize);
+                    mandatoryOf.addStatement("throw new IllegalArgumentException($S + $L.readableBytes() + $S)",
+                            "size of value ", a.name, " != " + a.maxSize);
+                    mandatoryOf.endControlFlow();
+                }
+            }
+
+            for (ValueAttribute a : sorted) {
                 Counter c;
                 if (a.flags.contains(ValueAttribute.Flag.BIT_SET) &&
                     (c = type.flagsCount.get(a.name)) != null && c.value != 0) {
@@ -901,7 +910,15 @@ class ImmutableGenerator {
         } else {
             withMethod.addStatement("$T.requireNonNull($L)", Objects.class, paramName);
 
-            if (a.type == STRING) { // Its implementation of the equals() method is fast enough
+            // Its implementation of the equals() method is fast enough
+            if (a.type == STRING) {
+                withMethod.addStatement("if ($L.equals($L)) return this", localName, paramName);
+            } else if (a.type == BYTE_BUF && a.maxSize != -1) {
+                withMethod.beginControlFlow("if ($L.readableBytes() != $L) {", paramName, a.maxSize);
+                withMethod.addStatement("throw new IllegalArgumentException($S + $L.readableBytes() + $S)",
+                        "size of value ", paramName, " != " + a.maxSize);
+                withMethod.endControlFlow();
+
                 withMethod.addStatement("if ($L.equals($L)) return this", localName, paramName);
             } else {
                 withMethod.addStatement("if ($L == $L) return this", localName, paramName);
@@ -909,6 +926,7 @@ class ImmutableGenerator {
 
             if (a.type == BYTE_BUF) {
                 transformed = true;
+
                 withMethod.addStatement("$T $L = $T.copyAsUnpooled($L)", BYTE_BUF, newValueVar, UTILITY, paramName);
             }
         }
@@ -992,6 +1010,13 @@ class ImmutableGenerator {
             setter.addParameter(a.type, a.name);
 
             if (a.type == BYTE_BUF) {
+                if (a.maxSize != -1) {
+                    setter.beginControlFlow("if ($L.readableBytes() != $L) {", a.name, a.maxSize);
+                    setter.addStatement("throw new IllegalArgumentException($S + $L.readableBytes() + $S)",
+                            "size of value ", a.name, " != " + a.maxSize);
+                    setter.endControlFlow();
+                }
+
                 setter.addStatement("this.$1L = $2T.copyAsUnpooled($1L)", a.name, UTILITY);
             } else {
                 setter.addStatement("this.$1L = $2T.requireNonNull($1L)", a.name, Objects.class);

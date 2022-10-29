@@ -426,8 +426,9 @@ public class SchemaGenerator extends AbstractProcessor {
                     if (sizeMethod != null) {
                         methodSerializer.addStatement(ser, param.formattedName());
                     } else {
-                        if (param.type.rawType.equals("int128") ||
-                                param.type.rawType.equals("int256")) {
+                        // writeBytes(ByteBuf) changes reader and writer indexes which may break semantic
+                        // But our implementation always return .duplicate() of byte buffer
+                        if (param.type.rawType.equals("int128") || param.type.rawType.equals("int256")) {
                             methodSerializer.addStatement("$1T $2L = payload.$2L()", BYTE_BUF, param.formattedName());
                             methodSerializer.addStatement("buf.writeBytes($1L, $1L.readerIndex(), $1L.readableBytes())", param.formattedName());
                         } else {
@@ -648,9 +649,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     if (sizeMethod != null) {
                         typeSerializer.addStatement(ser, param.formattedName());
                     } else {
-                        if (param.type.rawType.equals("int128") ||
-                            param.type.rawType.equals("int256")) {
-                            // the problem is that writeBytes(ByteBuf) changes reader and writer indexes, which is bad for us
+                        if (param.type.rawType.equals("int128") || param.type.rawType.equals("int256")) {
                             typeSerializer.addStatement("$1T $2L = payload.$2L()", BYTE_BUF, param.formattedName());
                             typeSerializer.addStatement("buf.writeBytes($1L, $1L.readerIndex(), $1L.readableBytes())",
                                     param.formattedName());
@@ -754,6 +753,12 @@ public class SchemaGenerator extends AbstractProcessor {
                 } else {
                     reffCount++;
                 }
+            }
+
+            if (p.type.rawType.equals("int128")) {
+                valAttr.maxSize = 16;
+            } else if (p.type.rawType.equals("int256")) {
+                valAttr.maxSize = 32;
             }
 
             if (p.type.isFlag()) {
