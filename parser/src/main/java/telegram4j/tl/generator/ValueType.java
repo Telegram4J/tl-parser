@@ -19,7 +19,7 @@ class ValueType {
     public final List<TypeVariableRef> typeVarNames;
     public final List<? extends TypeRef> interfaces;
 
-    public Map<String, BitSet> usedBits;
+    public Map<String, BitSetInfo> bitSets = new HashMap<>();
 
     public List<ValueAttribute> attributes;
     public List<ValueAttribute> generated; // list without boolean bit flags
@@ -32,7 +32,6 @@ class ValueType {
     public String initBitsName;
     public String hashCodeName;
     public String equalsName;
-    public Map<String, Counter> flagsCount;
 
     public ValueType(ClassRef baseType, List<TypeVariableRef> typeVars, List<? extends TypeRef> interfaces) {
         typeVarNames = typeVars.stream()
@@ -52,5 +51,12 @@ class ValueType {
         NEED_STUB_PARAM,
         CAN_OMIT_COPY_CONSTRUCTOR,
         CAN_OMIT_OF_METHOD
+    }
+
+    static class BitSetInfo {
+        public StringJoiner valuesMask = new StringJoiner(" |$W ");
+        public short bitFlagsCount;
+        // pos->count
+        public Map<Integer, Counter> bitUsage = new HashMap<>();
     }
 }

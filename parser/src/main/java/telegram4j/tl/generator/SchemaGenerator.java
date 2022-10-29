@@ -736,8 +736,6 @@ public class SchemaGenerator extends AbstractProcessor {
         short flagsfCount = 0;
         short bitSetfCount = 0;
 
-        valType.flagsCount = new HashMap<>();
-        valType.usedBits = new HashMap<>();
         for (Parameter p : tlType.parameters) {
             ValueAttribute valAttr = new ValueAttribute(p.formattedName());
             valAttr.jsonName = SourceNames.jacksonName(p.name);
@@ -766,13 +764,15 @@ public class SchemaGenerator extends AbstractProcessor {
                 valAttr.flagMask = bitMask.apply(valAttr.name, Naming.As.SCREMALIZED);
                 valAttr.flagPos = p.type.flagPos();
 
+                var bitSet = valType.bitSets.computeIfAbsent(valAttr.flagsName, k -> new ValueType.BitSetInfo());
                 if (p.type.isBitFlag()) {
                     flagsfCount++;
-                    valType.flagsCount.computeIfAbsent(p.type.flagsName(), k -> new Counter()).increment();
-                    valType.usedBits.computeIfAbsent(p.type.flagsName(), k -> new BitSet()).set(p.type.flagPos());
+                    bitSet.bitFlagsCount++;
                     valAttr.flags.add(ValueAttribute.Flag.BIT_FLAG);
                 } else {
                     valAttr.flags.add(ValueAttribute.Flag.OPTIONAL);
+                    bitSet.valuesMask.add(valAttr.flagMask);
+                    bitSet.bitUsage.computeIfAbsent(valAttr.flagPos, k -> new Counter()).value++;
                 }
             } else if (!p.type.rawType.equals("#")) {
                 valType.initBitsCount++;
