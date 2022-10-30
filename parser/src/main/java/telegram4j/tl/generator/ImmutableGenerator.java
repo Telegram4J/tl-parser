@@ -1021,7 +1021,11 @@ class ImmutableGenerator {
         } else if (a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
             setter.addParameter(AnnotatedTypeRef.create(a.type, Nullable.class), a.name);
 
-            setter.addStatement("this.$1L = $1L", a.name);
+            if (a.type == BYTE_BUF) {
+                setter.addStatement("this.$1L = $1L != null ? $2T.copyAsUnpooled($1L) : null", a.name, UTILITY);
+            } else {
+                setter.addStatement("this.$1L = $1L", a.name);
+            }
             setter.addStatement("$1L = $4T.mask($1L, $2L, $3L != null)", a.flagsName, a.flagMask, a.name, UTILITY);
         } else if (a.type instanceof PrimitiveTypeRef) {
             setter.addParameter(a.type, a.name);
