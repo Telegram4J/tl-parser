@@ -3,6 +3,8 @@ package telegram4j.tl.generator;
 import com.fasterxml.jackson.annotation.JsonSetter;
 import io.netty.buffer.ByteBufUtil;
 import reactor.util.annotation.Nullable;
+import reactor.util.function.Tuple2;
+import reactor.util.function.Tuples;
 import telegram4j.tl.api.TlEncodingUtil;
 import telegram4j.tl.generator.renderer.*;
 
@@ -532,12 +534,12 @@ class ImmutableGenerator {
             build.endControlFlow();
         }
 
-        Map<String, List<ValueAttribute>> dualBits = new LinkedHashMap<>();
+        Map<Tuple2<String, Integer>, List<ValueAttribute>> dualBits = new LinkedHashMap<>();
         for (ValueAttribute a : type.generated) {
             if (a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
                 var bitSet = type.bitSets.get(a.flagsName);
                 if (bitSet.bitUsage.get(a.flagPos).value > 1) {
-                    dualBits.computeIfAbsent(a.flagsName, k -> new ArrayList<>()).add(a);
+                    dualBits.computeIfAbsent(Tuples.of(a.flagsName(), a.flagPos), k -> new ArrayList<>()).add(a);
                 }
             }
         }
