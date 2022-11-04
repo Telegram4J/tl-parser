@@ -83,15 +83,15 @@ public final class TlSerialUtil {
     static int sizeOf0(String str) {
         int n = ByteBufUtil.utf8Bytes(str);
         int h = n >= 0xfe ? 4 : 1;
-        int offset = (h + n) % 4;
-        return h + n + 4 - offset;
+        int rem = (h + n) % 4;
+        return h + n + (rem != 0 ? 4 - rem : 0);
     }
 
     static int sizeOf0(ByteBuf buf) {
         int n = buf.readableBytes();
         int h = n >= 0xfe ? 4 : 1;
-        int offset = (h + n) % 4;
-        return h + n + 4 - offset;
+        int rem = (h + n) % 4;
+        return h + n + (rem != 0 ? 4 - rem : 0);
     }
 
     static int sizeOfIntVector(List<Integer> list) {
