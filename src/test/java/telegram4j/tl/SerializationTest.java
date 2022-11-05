@@ -104,13 +104,14 @@ class SerializationTest {
         Channel expected = Channel.builder()
                 // ident. - 4
                 // flags - 4
+                // flags2 - 4
                 .id(1) // 8
                 .title("title") // 8
                 .photo(ChatPhotoEmpty.instance()) // 4
                 .date(1) // 4
                 .build();
 
-        assertEquals(TlSerializer.sizeOf(expected), 32);
+        assertEquals(TlSerializer.sizeOf(expected), 36);
     }
 
     static <T extends TlObject> T serialize(T obj) {
