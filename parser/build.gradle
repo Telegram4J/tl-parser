@@ -1,6 +1,4 @@
 dependencies {
-    implementation platform("io.projectreactor:reactor-bom:$reactor_bom_version")
-
     implementation project(":api")
 
     compileOnly "org.immutables:value:$immutables_version"
@@ -8,6 +6,7 @@ dependencies {
 
     implementation "com.fasterxml.jackson.core:jackson-databind:$jackson_version"
     implementation "io.projectreactor.addons:reactor-extra"
+    implementation "io.projectreactor.netty:reactor-netty-core"
     implementation "io.projectreactor.netty:reactor-netty"
 
     testImplementation "org.junit.jupiter:junit-jupiter-engine:$junit_version"

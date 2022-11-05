@@ -9,11 +9,8 @@ ext {
     // used only for parser module
     reactor_bom_version = '2020.0.24'
 
-    netty_version = '4.1.84.Final'
-    reactor_version = '3.4.24'
-
     jackson_version = '2.13.4'
-    immutables_version = '2.9.0'
+    immutables_version = '2.9.2'
     jsr305_version = '3.0.2'
     junit_version = '5.9.0'
 
@@ -24,9 +21,8 @@ ext {
 dependencies {
     api project(":api")
 
-    implementation "io.netty:netty-buffer:$netty_version"
-    implementation "io.projectreactor:reactor-core:$reactor_version"
     implementation "com.fasterxml.jackson.core:jackson-databind:$jackson_version"
+    implementation "io.projectreactor.netty:reactor-netty-core"
 
     compileOnly project(":parser")
     annotationProcessor project(":parser")
@@ -47,6 +43,8 @@ allprojects {
     }
 
     dependencies {
+        implementation platform("io.projectreactor:reactor-bom:$reactor_bom_version")
+
         compileOnly "com.google.code.findbugs:jsr305:$jsr305_version"
     }
 
