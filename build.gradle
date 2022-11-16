@@ -9,7 +9,7 @@ ext {
     // used only for parser module
     reactor_bom_version = '2020.0.24'
 
-    jackson_version = '2.13.4'
+    jackson_version = '2.14.0'
     immutables_version = '2.9.2'
     jsr305_version = '3.0.2'
     junit_version = '5.9.0'
