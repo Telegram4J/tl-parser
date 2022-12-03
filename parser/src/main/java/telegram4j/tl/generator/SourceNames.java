@@ -46,6 +46,7 @@ public final class SourceNames {
                 case "public":
                 case "final":
                 case "private":
+                case "short":
                     if (!"true".equals(type)) {
                         throw new IllegalStateException("Non-flag parameter with java keyword name, type: " + type);
                     }
