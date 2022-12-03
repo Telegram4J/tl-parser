@@ -3832,7 +3832,7 @@
     },
     {
       "predicate": "messages.channelMessages",
-      "id": "64479808",
+      "id": "c776ba4e",
       "params": [
         {
           "name": "flags",
@@ -3857,6 +3857,10 @@
         {
           "name": "messages",
           "type": "Vector<Message>"
+        },
+        {
+          "name": "topics",
+          "type": "Vector<ForumTopic>"
         },
         {
           "name": "chats",
@@ -6006,7 +6010,30 @@
     },
     {
       "predicate": "updateChannelPinnedTopic",
-      "id": "f694b0ae",
+      "id": "192efbe3",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "pinned",
+          "type": "flags.0?true"
+        },
+        {
+          "name": "channel_id",
+          "type": "long"
+        },
+        {
+          "name": "topic_id",
+          "type": "int"
+        }
+      ],
+      "type": "Update"
+    },
+    {
+      "predicate": "updateChannelPinnedTopics",
+      "id": "fe198602",
       "params": [
         {
           "name": "flags",
@@ -6017,8 +6044,8 @@
           "type": "long"
         },
         {
-          "name": "topic_id",
-          "type": "flags.0?int"
+          "name": "order",
+          "type": "flags.0?Vector<int>"
         }
       ],
       "type": "Update"
@@ -19242,6 +19269,10 @@
           "type": "flags.3?true"
         },
         {
+          "name": "short",
+          "type": "flags.5?true"
+        },
+        {
           "name": "id",
           "type": "int"
         },
@@ -26280,6 +26311,29 @@
         }
       ],
       "type": "messages.AffectedHistory"
+    },
+    {
+      "method": "channels.reorderPinnedForumTopics",
+      "id": "2950a18f",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "force",
+          "type": "flags.0?true"
+        },
+        {
+          "name": "channel",
+          "type": "InputChannel"
+        },
+        {
+          "name": "order",
+          "type": "Vector<int>"
+        }
+      ],
+      "type": "Updates"
     },
     {
       "method": "bots.sendCustomRequest",
