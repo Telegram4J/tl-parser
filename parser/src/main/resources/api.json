@@ -1594,6 +1594,10 @@
           "type": "flags2.0?true"
         },
         {
+          "name": "antispam",
+          "type": "flags2.1?true"
+        },
+        {
           "name": "id",
           "type": "long"
         },
@@ -2675,11 +2679,19 @@
     },
     {
       "predicate": "messageActionSetMessagesTTL",
-      "id": "aa1afbfd",
+      "id": "3c134d7b",
       "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
         {
           "name": "period",
           "type": "int"
+        },
+        {
+          "name": "auto_setting_from",
+          "type": "flags.0?long"
         }
       ],
       "type": "MessageAction"
@@ -2785,7 +2797,7 @@
     },
     {
       "predicate": "messageActionTopicEdit",
-      "id": "b18a431c",
+      "id": "c0944820",
       "params": [
         {
           "name": "flags",
@@ -2802,13 +2814,17 @@
         {
           "name": "closed",
           "type": "flags.2?Bool"
+        },
+        {
+          "name": "hidden",
+          "type": "flags.3?Bool"
         }
       ],
       "type": "MessageAction"
     },
     {
       "predicate": "dialog",
-      "id": "a8edd0f5",
+      "id": "d58a08c6",
       "params": [
         {
           "name": "flags",
@@ -2865,6 +2881,10 @@
         {
           "name": "folder_id",
           "type": "flags.4?int"
+        },
+        {
+          "name": "ttl_period",
+          "type": "flags.5?int"
         }
       ],
       "type": "Dialog"
@@ -10659,6 +10679,11 @@
       "type": "auth.CodeType"
     },
     {
+      "predicate": "auth.codeTypeFragmentSms",
+      "id": "6ed998c",
+      "type": "auth.CodeType"
+    },
+    {
       "predicate": "auth.sentCodeTypeApp",
       "id": "3dbb5986",
       "params": [
@@ -10763,6 +10788,21 @@
         {
           "name": "google_signin_allowed",
           "type": "flags.1?true"
+        }
+      ],
+      "type": "auth.SentCodeType"
+    },
+    {
+      "predicate": "auth.sentCodeTypeFragmentSms",
+      "id": "d9565c39",
+      "params": [
+        {
+          "name": "url",
+          "type": "string"
+        },
+        {
+          "name": "length",
+          "type": "int"
         }
       ],
       "type": "auth.SentCodeType"
@@ -13800,6 +13840,17 @@
         {
           "name": "new_topic",
           "type": "flags.1?ForumTopic"
+        }
+      ],
+      "type": "ChannelAdminLogEventAction"
+    },
+    {
+      "predicate": "channelAdminLogEventActionToggleAntiSpam",
+      "id": "64f36dfc",
+      "params": [
+        {
+          "name": "new_value",
+          "type": "Bool"
         }
       ],
       "type": "ChannelAdminLogEventAction"
@@ -19273,6 +19324,10 @@
           "type": "flags.5?true"
         },
         {
+          "name": "hidden",
+          "type": "flags.6?true"
+        },
+        {
           "name": "id",
           "type": "int"
         },
@@ -19369,6 +19424,32 @@
         }
       ],
       "type": "messages.ForumTopics"
+    },
+    {
+      "predicate": "defaultHistoryTTL",
+      "id": "43b46b20",
+      "params": [
+        {
+          "name": "period",
+          "type": "int"
+        }
+      ],
+      "type": "DefaultHistoryTTL"
+    },
+    {
+      "predicate": "exportedContactToken",
+      "id": "41bf109b",
+      "params": [
+        {
+          "name": "url",
+          "type": "string"
+        },
+        {
+          "name": "expires",
+          "type": "int"
+        }
+      ],
+      "type": "ExportedContactToken"
     }
   ],
   "methods": [
@@ -19791,6 +19872,25 @@
         }
       ],
       "type": "Bool"
+    },
+    {
+      "method": "auth.importWebTokenAuthorization",
+      "id": "2db873a9",
+      "params": [
+        {
+          "name": "api_id",
+          "type": "int"
+        },
+        {
+          "name": "api_hash",
+          "type": "string"
+        },
+        {
+          "name": "web_auth_token",
+          "type": "string"
+        }
+      ],
+      "type": "auth.Authorization"
     },
     {
       "method": "account.registerDevice",
@@ -21291,6 +21391,22 @@
       "type": "contacts.ResolvedPeer"
     },
     {
+      "method": "contacts.exportContactToken",
+      "id": "f8654027",
+      "type": "ExportedContactToken"
+    },
+    {
+      "method": "contacts.importContactToken",
+      "id": "13005788",
+      "params": [
+        {
+          "name": "token",
+          "type": "string"
+        }
+      ],
+      "type": "User"
+    },
+    {
       "method": "messages.getMessages",
       "id": "63c66506",
       "params": [
@@ -21891,8 +22007,12 @@
     },
     {
       "method": "messages.createChat",
-      "id": "9cb126e",
+      "id": "34a818",
       "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
         {
           "name": "users",
           "type": "Vector<InputUser>"
@@ -21900,6 +22020,10 @@
         {
           "name": "title",
           "type": "string"
+        },
+        {
+          "name": "ttl_period",
+          "type": "flags.0?int"
         }
       ],
       "type": "Updates"
@@ -24936,6 +25060,22 @@
       "type": "Updates"
     },
     {
+      "method": "messages.setDefaultHistoryTTL",
+      "id": "9eb51445",
+      "params": [
+        {
+          "name": "period",
+          "type": "int"
+        }
+      ],
+      "type": "Bool"
+    },
+    {
+      "method": "messages.getDefaultHistoryTTL",
+      "id": "658b7188",
+      "type": "DefaultHistoryTTL"
+    },
+    {
       "method": "updates.getState",
       "id": "edd4882a",
       "type": "updates.State"
@@ -25565,7 +25705,7 @@
     },
     {
       "method": "channels.createChannel",
-      "id": "3d5fb10f",
+      "id": "91006707",
       "params": [
         {
           "name": "flags",
@@ -25598,6 +25738,10 @@
         {
           "name": "address",
           "type": "flags.2?string"
+        },
+        {
+          "name": "ttl_period",
+          "type": "flags.4?int"
         }
       ],
       "type": "Updates"
@@ -26249,7 +26393,7 @@
     },
     {
       "method": "channels.editForumTopic",
-      "id": "6c883e2d",
+      "id": "f4dfa185",
       "params": [
         {
           "name": "flags",
@@ -26274,6 +26418,10 @@
         {
           "name": "closed",
           "type": "flags.2?Bool"
+        },
+        {
+          "name": "hidden",
+          "type": "flags.3?Bool"
         }
       ],
       "type": "Updates"
@@ -26334,6 +26482,36 @@
         }
       ],
       "type": "Updates"
+    },
+    {
+      "method": "channels.toggleAntiSpam",
+      "id": "68f3e4eb",
+      "params": [
+        {
+          "name": "channel",
+          "type": "InputChannel"
+        },
+        {
+          "name": "enabled",
+          "type": "Bool"
+        }
+      ],
+      "type": "Updates"
+    },
+    {
+      "method": "channels.reportAntiSpamFalsePositive",
+      "id": "a850a693",
+      "params": [
+        {
+          "name": "channel",
+          "type": "InputChannel"
+        },
+        {
+          "name": "msg_id",
+          "type": "int"
+        }
+      ],
+      "type": "Bool"
     },
     {
       "method": "bots.sendCustomRequest",
