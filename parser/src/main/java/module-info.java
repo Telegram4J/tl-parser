@@ -13,5 +13,4 @@ module telegram4j.tl.parser {
     requires static org.immutables.value;
 
     exports telegram4j.tl.generator;
-    exports telegram4j.tl.generator.renderer;
 }

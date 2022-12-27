@@ -1,21 +1,11 @@
 package telegram4j.tl.generator;
 
-import telegram4j.tl.api.TlObject;
-
-import java.lang.annotation.*;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 @Target(ElementType.PACKAGE)
 @Retention(RetentionPolicy.SOURCE)
 public @interface GenerateSchema {
-
-    @interface Configuration {
-
-        String name();
-
-        String packagePrefix() default "";
-
-        Class<?> superType() default TlObject.class;
-    }
-
-    Configuration[] value();
 }

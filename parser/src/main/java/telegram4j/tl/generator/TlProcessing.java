@@ -1,17 +1,17 @@
 package telegram4j.tl.generator;
 
 import reactor.util.annotation.Nullable;
-import telegram4j.tl.generator.renderer.TypeRef;
+import telegram4j.tl.generator.renderer.ClassRef;
 import telegram4j.tl.parser.TlTrees;
 import telegram4j.tl.parser.TlTrees.Type.Kind;
 
-import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.AnnotationValue;
-import javax.lang.model.type.TypeMirror;
-import java.util.*;
+import java.util.List;
+import java.util.Objects;
+import java.util.StringJoiner;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 
+import static telegram4j.tl.generator.SchemaGeneratorConsts.BASE_PACKAGE;
 import static telegram4j.tl.generator.SchemaGeneratorConsts.METHOD_PACKAGE_PREFIX;
 import static telegram4j.tl.generator.SourceNames.normalizeName;
 
@@ -21,7 +21,7 @@ public class TlProcessing {
 
     public static String parsePackageName(Configuration config, String rawType, boolean method) {
         StringJoiner pckg = new StringJoiner(".");
-        pckg.add(config.basePackageName);
+        pckg.add(BASE_PACKAGE);
 
         if (method) {
             pckg.add(METHOD_PACKAGE_PREFIX);
@@ -42,73 +42,15 @@ public class TlProcessing {
     // objects
 
     public static class Configuration {
-        public final String basePackageName;
         public final String name;
         @Nullable
         public final String packagePrefix;
-        public final TypeRef superType;
+        public final ClassRef superType;
 
-        private Configuration(String basePackageName, String name,
-                              @Nullable String packagePrefix, @Nullable TypeRef superType) {
-            this.basePackageName = basePackageName;
+        Configuration(String name, @Nullable String packagePrefix, @Nullable ClassRef superType) {
             this.name = name;
             this.packagePrefix = packagePrefix;
             this.superType = superType;
-        }
-
-        private static Map<String, ? extends AnnotationValue> asMap(AnnotationMirror mirror) {
-            return mirror.getElementValues().entrySet().stream()
-                    .collect(Collectors.toMap(e -> e.getKey().getSimpleName().toString(), Map.Entry::getValue));
-        }
-
-        public static Configuration[] parse(String basePackageName, AnnotationMirror ann) {
-            var attrs = asMap(ann);
-
-            var value = Optional.ofNullable(attrs.get("value"))
-                    .map(AnnotationValue::getValue)
-                    .map(Configuration::<List<AnnotationMirror>>cast)
-                    .map(l -> l.stream().map(Configuration::asMap).collect(Collectors.toList()))
-                    .orElseThrow();
-
-            Configuration[] configs = new Configuration[value.size()];
-            for (int i = 0; i < configs.length; i++) {
-                var config = value.get(i);
-
-                String name = Optional.ofNullable(config.get("name"))
-                        .map(AnnotationValue::getValue)
-                        .map(Configuration::<String>cast)
-                        .orElse(null);
-
-                String packagePrefix = Optional.ofNullable(config.get("packagePrefix"))
-                        .map(AnnotationValue::getValue)
-                        .map(Configuration::<String>cast)
-                        .orElse(null);
-
-                TypeRef superType = Optional.ofNullable(config.get("superType"))
-                        .map(AnnotationValue::getValue)
-                        .map(Configuration::<TypeMirror>cast)
-                        .map(TypeRef::from)
-                        .orElse(null);
-
-                configs[i] = new Configuration(basePackageName, name, packagePrefix, superType);
-            }
-
-            return configs;
-        }
-
-        @SuppressWarnings("unchecked")
-        private static <T> T cast(Object o) {
-            return (T) o;
-        }
-
-        @Override
-        public String toString() {
-            return "Configuration{" +
-                    "basePackageName='" + basePackageName + '\'' +
-                    ", name='" + name + '\'' +
-                    ", packagePrefix='" + packagePrefix + '\'' +
-                    ", superType=" + superType +
-                    '}';
         }
     }
 

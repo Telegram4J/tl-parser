@@ -2,12 +2,15 @@ package telegram4j.tl.generator;
 
 import io.netty.buffer.ByteBuf;
 import reactor.util.function.Tuple2;
+import telegram4j.tl.api.MTProtoObject;
+import telegram4j.tl.api.TlEncodingUtil;
 import telegram4j.tl.api.TlMethod;
 import telegram4j.tl.api.TlObject;
 import telegram4j.tl.generator.renderer.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
@@ -32,12 +35,6 @@ final class SchemaGeneratorConsts {
     static final String METHOD_PACKAGE_PREFIX = "request";
     static final String TEMPLATE_PACKAGE_INFO = "package-info.template";
     static final String BASE_PACKAGE = "telegram4j.tl";
-
-    static final TypeVariableRef genericTypeRef = TypeVariableRef.of("T");
-    static final TypeVariableRef genericResultTypeRef = TypeVariableRef.of("R");
-    // <TlMethod<? extends R>>
-    static final TypeRef wildcardMethodType = ParameterizedTypeRef.of(
-            TlMethod.class, WildcardTypeRef.subtypeOf(genericResultTypeRef));
 
     static class Supertypes {
         static final List<Tuple2<Predicate<String>, ClassRef>> predicates = new ArrayList<>();
@@ -116,7 +113,21 @@ final class SchemaGeneratorConsts {
     static final ClassRef ITERABLE = ClassRef.of(Iterable.class);
     static final ClassRef STRING = ClassRef.of(String.class);
     static final ClassRef BYTE_BUF = ClassRef.of(ByteBuf.class);
-    static final ClassRef TL_OBJECT = ClassRef.of(TlObject .class);
+    static final ClassRef TL_OBJECT = ClassRef.of(TlObject.class);
+    static final ClassRef TL_METHOD = ClassRef.of(TlMethod.class);
+    static final ClassRef UTILITY = ClassRef.of(TlEncodingUtil.class);
+    static final ClassRef OBJECTS = ClassRef.of(Objects.class);
+
+    static final TypeVariableRef genericTypeRef = TypeVariableRef.of("T");
+    static final TypeVariableRef genericResultTypeRef = TypeVariableRef.of("R");
+    // <TlMethod<? extends R>>
+    static final TypeRef wildcardMethodType = ParameterizedTypeRef.of(
+            TL_METHOD, WildcardTypeRef.subtypeOf(genericResultTypeRef));
+
+    static final TlProcessing.Configuration[] configs = {
+        new TlProcessing.Configuration("api", null, TL_OBJECT),
+        new TlProcessing.Configuration("mtproto", "mtproto", ClassRef.of(MTProtoObject.class))
+    };
 
     // names style
 

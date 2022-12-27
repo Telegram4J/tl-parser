@@ -8,7 +8,6 @@ import reactor.core.Exceptions;
 import reactor.util.annotation.Nullable;
 import reactor.util.function.Tuple2;
 import reactor.util.function.Tuples;
-import telegram4j.tl.api.TlMethod;
 import telegram4j.tl.generator.TlProcessing.Configuration;
 import telegram4j.tl.generator.TlProcessing.Parameter;
 import telegram4j.tl.generator.TlProcessing.Type;
@@ -135,16 +134,6 @@ public class SchemaGenerator extends AbstractProcessor {
             currentElement = (PackageElement) roundEnv
                     .getElementsAnnotatedWith(GenerateSchema.class)
                     .iterator().next();
-
-            String basePackageName = getBasePackageName();
-
-            String annName = GenerateSchema.class.getCanonicalName();
-            var ann = currentElement.getAnnotationMirrors().stream()
-                    .filter(e -> e.getAnnotationType().toString().equals(annName))
-                    .findFirst()
-                    .orElseThrow();
-
-            var configs = Configuration.parse(basePackageName, ann);
 
             schemas = new ArrayList<>(configs.length);
             typeTree = new HashMap<>(configs.length);
@@ -305,7 +294,7 @@ public class SchemaGenerator extends AbstractProcessor {
                 renderer.addTypeVariables(genericResultTypeRef, genericTypeRef.withBounds(wildcardMethodType));
             }
 
-            TypeRef returnType = ParameterizedTypeRef.of(TlMethod.class, mapType(method.type).safeBox());
+            TypeRef returnType = ParameterizedTypeRef.of(TL_METHOD, mapType(method.type).safeBox());
 
             var interfaces = additionalSuperTypes(name);
             renderer.addInterfaces(interfaces);
@@ -382,7 +371,7 @@ public class SchemaGenerator extends AbstractProcessor {
                 ClassRef typeRaw = ClassRef.of(method.name.packageName, name);
                 TypeRef payloadType = generic
                         ? ParameterizedTypeRef.of(typeRaw,
-                        WildcardTypeRef.none(), ParameterizedTypeRef.of(TlMethod.class, WildcardTypeRef.none()))
+                        WildcardTypeRef.none(), ParameterizedTypeRef.of(TL_METHOD, WildcardTypeRef.none()))
                         : typeRaw;
 
                 String serializeMethodName = uniqueMethodName("serialize", name, () ->
@@ -470,7 +459,7 @@ public class SchemaGenerator extends AbstractProcessor {
             }
 
             TypeRef superType = config.superType != null
-                    ? config.superType : ParameterizedTypeRef.of(TlMethod.class, WildcardTypeRef.none());
+                    ? config.superType : ParameterizedTypeRef.of(TL_METHOD, WildcardTypeRef.none());
 
             var typeRefs = generic ? List.of(genericResultTypeRef,
                     genericTypeRef.withBounds(wildcardMethodType)) : List.<TypeVariableRef>of();
@@ -500,7 +489,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
             boolean multiple = currTypeTree.getOrDefault(typeName.qualifiedName(), List.of()).size() > 1;
 
-            // add Base* prefix to prevent matching with type name, e.g. SecureValueError
+            // add Base* prefix to prevent matching with type name
             if (type.equals(name) && multiple) {
                 name = "Base" + name;
             } else if (!multiple && !type.equals("Object")) { // use type name if this object type is singleton and type isn't equals Object
@@ -990,8 +979,6 @@ public class SchemaGenerator extends AbstractProcessor {
 
     private void preparePackages() {
         try {
-
-            String processingPackageName = getBasePackageName();
             String template = processingEnv.getFiler().getResource(StandardLocation.ANNOTATION_PROCESSOR_PATH,
                             "", TEMPLATE_PACKAGE_INFO).getCharContent(true)
                     .toString();
@@ -999,7 +986,7 @@ public class SchemaGenerator extends AbstractProcessor {
             var packages = typeTree.values().stream()
                     .flatMap(e -> e.keySet().stream())
                     .map(SourceNames::parentPackageName)
-                    .filter(s -> !s.equals(processingPackageName))
+                    .filter(s -> !s.equals(BASE_PACKAGE))
                     .collect(Collectors.toSet());
 
             for (var t : schemas) {
@@ -1057,10 +1044,6 @@ public class SchemaGenerator extends AbstractProcessor {
 
                 return ClassRef.of(type.packageName, type.normalized());
         }
-    }
-
-    private String getBasePackageName() {
-        return currentElement.getQualifiedName().toString();
     }
 
     private String extractEnumName(String type) {

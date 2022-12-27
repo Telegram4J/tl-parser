@@ -5,7 +5,6 @@ import io.netty.buffer.ByteBufUtil;
 import reactor.util.annotation.Nullable;
 import reactor.util.function.Tuple2;
 import reactor.util.function.Tuples;
-import telegram4j.tl.api.TlEncodingUtil;
 import telegram4j.tl.generator.renderer.*;
 
 import javax.lang.model.element.Element;
@@ -22,8 +21,6 @@ import static telegram4j.tl.generator.SchemaGeneratorConsts.Style.newValue;
 import static telegram4j.tl.generator.SchemaGeneratorConsts.Style.with;
 
 class ImmutableGenerator {
-
-    private static final ClassRef UTILITY = ClassRef.of(TlEncodingUtil.class);
 
     private final FileService fileService;
     private final Elements elements;
@@ -122,7 +119,7 @@ class ImmutableGenerator {
                     } else if (a.type == BYTE_BUF) {
                         mandatoryConstructorBody.addStatement("this.$1L = $2T.copyAsUnpooled($1L)", a.name, UTILITY);
                     } else {
-                        mandatoryConstructorBody.addStatement("this.$1L = $2T.requireNonNull($1L)", a.name, Objects.class);
+                        mandatoryConstructorBody.addStatement("this.$1L = $2T.requireNonNull($1L)", a.name, OBJECTS);
                     }
 
                     params.add(a.name);
@@ -365,7 +362,7 @@ class ImmutableGenerator {
             } else if (unwrapped == PrimitiveTypeRef.LONG) {
                 hashCode.addStatement("$1L += ($1L << 5) + Long.hashCode($2L)", type.hashCodeName, a.name);
             } else if (a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
-                hashCode.addStatement("$1L += ($1L << 5) + $2T.hashCode($3L)", type.hashCodeName, Objects.class, a.name);
+                hashCode.addStatement("$1L += ($1L << 5) + $2T.hashCode($3L)", type.hashCodeName, OBJECTS, a.name);
             } else {
                 hashCode.addStatement("$1L += ($1L << 5) + $2L.hashCode()", type.hashCodeName, a.name);
             }
@@ -379,7 +376,7 @@ class ImmutableGenerator {
             }
 
             if (a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
-                equals0.addCode("$T.equals($2L(), $3L.$2L())", Objects.class, a.name, type.equalsName);
+                equals0.addCode("$T.equals($2L(), $3L.$2L())", OBJECTS, a.name, type.equalsName);
             } else if (unwrapped == PrimitiveTypeRef.DOUBLE) {
                 equals0.addCode("Double.doubleToLongBits($1L) == Double.doubleToLongBits($2L.$1L())", a.name, type.equalsName);
             } else if (unwrapped instanceof PrimitiveTypeRef) {
@@ -629,7 +626,7 @@ class ImmutableGenerator {
 
             from.addModifiers(Modifier.PRIVATE);
             from.addParameter(ClassRef.OBJECT, "instance");
-            from.addStatement("$T.requireNonNull(instance)", Objects.class);
+            from.addStatement("$T.requireNonNull(instance)", OBJECTS);
             if (optBits > 0) {
                 from.addStatement("$T bits = 0", floorBitFlagsType(optBits));
             }
@@ -867,7 +864,7 @@ class ImmutableGenerator {
 
                 pending.add(withVarargsMethod);
             } else {
-                withMethod.addStatement("$T.requireNonNull($L)", Objects.class, paramName);
+                withMethod.addStatement("$T.requireNonNull($L)", OBJECTS, paramName);
                 withMethod.addStatement("if ($L == $L) return this", localName, paramName);
 
                 if (listElement == BYTE_BUF) {
@@ -887,7 +884,7 @@ class ImmutableGenerator {
                 var withVarargsMethod = renderer.addMethod(type.immutableType, name)
                         .addModifiers(Modifier.PUBLIC)
                         .addParameter(listElement, paramName, true)
-                        .addStatement("$T.requireNonNull($L)", Objects.class, paramName);
+                        .addStatement("$T.requireNonNull($L)", OBJECTS, paramName);
 
                 if (listElement == BYTE_BUF) {
                     withVarargsMethod.addStatement("var $1L = $2T.stream($3L)$B.map($4T::copyAsUnpooled)$B.collect($5T.toUnmodifiableList())",
@@ -906,11 +903,10 @@ class ImmutableGenerator {
                 pending.add(withVarargsMethod);
             }
         } else if (a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
-            assert bitSet != null;
             TypeRef unboxed = a.type.safeUnbox();
 
             if (unboxed instanceof PrimitiveTypeRef && bitSet.bitUsage.get(a.flagPos).value > 1) {
-                withMethod.addStatement("if ($T.equals($L, $L)) return this", Objects.class, localName, paramName);
+                withMethod.addStatement("if ($T.equals($L, $L)) return this", OBJECTS, localName, paramName);
             } else if (unboxed instanceof PrimitiveTypeRef) {
                 transformed = true;
 
@@ -925,7 +921,7 @@ class ImmutableGenerator {
                 withMethod.addStatement("if ($L == $L) return this", localName, paramName);
                 withMethod.addStatement("$1T $2L = $4L != null ? $3T.copyAsUnpooled($4L) : null", BYTE_BUF, newValueVar, UTILITY, paramName);
             } else if (unboxed == STRING) {
-                withMethod.addStatement("if ($T.equals($L, $L)) return this", Objects.class, localName, paramName);
+                withMethod.addStatement("if ($T.equals($L, $L)) return this", OBJECTS, localName, paramName);
             } else {
                 withMethod.addStatement("if ($L == $L) return this", localName, paramName);
             }
@@ -941,7 +937,7 @@ class ImmutableGenerator {
 
             withMethod.addStatement("if ($L == $L) return this", localName, paramName);
         } else {
-            withMethod.addStatement("$T.requireNonNull($L)", Objects.class, paramName);
+            withMethod.addStatement("$T.requireNonNull($L)", OBJECTS, paramName);
 
             // Its implementation of the equals() method is fast enough
             if (a.type == STRING) {
@@ -1053,7 +1049,7 @@ class ImmutableGenerator {
 
                 setter.addStatement("this.$1L = $2T.copyAsUnpooled($1L)", a.name, UTILITY);
             } else {
-                setter.addStatement("this.$1L = $2T.requireNonNull($1L)", a.name, Objects.class);
+                setter.addStatement("this.$1L = $2T.requireNonNull($1L)", a.name, OBJECTS);
             }
             setter.addStatement("this.initBits &= ~$L", a.names().initBit);
         }
@@ -1082,7 +1078,7 @@ class ImmutableGenerator {
                 .addModifiers(Modifier.PUBLIC)
                 .addParameter(listElement, "value"));
         if (!canUnbox) {
-            add.addStatement("$T.requireNonNull(value)", Objects.class);
+            add.addStatement("$T.requireNonNull(value)", OBJECTS);
         }
 
         add.beginControlFlow("if ($L == null) {", localNameSingular);
@@ -1107,7 +1103,7 @@ class ImmutableGenerator {
         String copyTransform = listElement == BYTE_BUF ? "$3T::copyAsUnpooled" : "$4T::requireNonNull";
         if (!canUnbox) {
             addv.addStatement("$1T copy = $2T.stream(values)$B.map(" + copyTransform + ")$B.collect($5T.toList())",
-                    a.type, Arrays.class, UTILITY, Objects.class, Collectors.class);
+                    a.type, Arrays.class, UTILITY, OBJECTS, Collectors.class);
         } else {
             addv.addStatement("$T copy = $T.stream(values)$B.boxed()$B.collect($T.toList())",
                     a.type, Arrays.class, Collectors.class);
@@ -1124,7 +1120,7 @@ class ImmutableGenerator {
         addv.endControlFlow();
 
         addAll.addStatement("$1T copy = $2T.stream(values.spliterator(), false)$B.map(" + copyTransform + ")$B.collect($5T.toList())",
-                a.type, StreamSupport.class, UTILITY, Objects.class, Collectors.class);
+                a.type, StreamSupport.class, UTILITY, OBJECTS, Collectors.class);
         addAll.beginControlFlow("if ($L == null) {", localName);
         addAll.addStatement("$L = copy", localName);
         if (opt) {
@@ -1157,11 +1153,11 @@ class ImmutableGenerator {
                     .addStatement("$L &= ~$L", a.flagsName, a.flagMask)
                     .addStatement("return this")
                     .endControlFlow()
-                    .addStatement("$1L = " + copyCode, localName, StreamSupport.class, UTILITY, Collectors.class, Objects.class)
+                    .addStatement("$1L = " + copyCode, localName, StreamSupport.class, UTILITY, Collectors.class, OBJECTS)
                     .addStatement("$L |= $L", a.flagsName, a.flagMask);
         } else {
             setter.addParameter(iterableType, "values")
-                    .addStatement("$1L = " + copyCode, localName, StreamSupport.class, UTILITY, Collectors.class, Objects.class)
+                    .addStatement("$1L = " + copyCode, localName, StreamSupport.class, UTILITY, Collectors.class, OBJECTS)
                     .addStatement("$L &= ~$L", type.initBitsName, a.names().initBit);
         }
     }
