@@ -252,6 +252,10 @@
           "type": "#"
         },
         {
+          "name": "spoiler",
+          "type": "flags.2?true"
+        },
+        {
           "name": "file",
           "type": "InputFile"
         },
@@ -273,6 +277,10 @@
         {
           "name": "flags",
           "type": "#"
+        },
+        {
+          "name": "spoiler",
+          "type": "flags.1?true"
         },
         {
           "name": "id",
@@ -336,6 +344,10 @@
           "type": "flags.4?true"
         },
         {
+          "name": "spoiler",
+          "type": "flags.5?true"
+        },
+        {
           "name": "file",
           "type": "InputFile"
         },
@@ -369,6 +381,10 @@
         {
           "name": "flags",
           "type": "#"
+        },
+        {
+          "name": "spoiler",
+          "type": "flags.2?true"
         },
         {
           "name": "id",
@@ -425,6 +441,10 @@
           "type": "#"
         },
         {
+          "name": "spoiler",
+          "type": "flags.1?true"
+        },
+        {
           "name": "url",
           "type": "string"
         },
@@ -442,6 +462,10 @@
         {
           "name": "flags",
           "type": "#"
+        },
+        {
+          "name": "spoiler",
+          "type": "flags.1?true"
         },
         {
           "name": "url",
@@ -1131,6 +1155,10 @@
           "type": "flags.0?true"
         },
         {
+          "name": "personal",
+          "type": "flags.2?true"
+        },
+        {
           "name": "photo_id",
           "type": "long"
         },
@@ -1596,6 +1624,10 @@
         {
           "name": "antispam",
           "type": "flags2.1?true"
+        },
+        {
+          "name": "participants_hidden",
+          "type": "flags2.2?true"
         },
         {
           "name": "id",
@@ -2086,6 +2118,10 @@
           "type": "#"
         },
         {
+          "name": "spoiler",
+          "type": "flags.3?true"
+        },
+        {
           "name": "photo",
           "type": "flags.0?Photo"
         },
@@ -2150,6 +2186,10 @@
         {
           "name": "nopremium",
           "type": "flags.3?true"
+        },
+        {
+          "name": "spoiler",
+          "type": "flags.4?true"
         },
         {
           "name": "document",
@@ -2820,6 +2860,22 @@
           "type": "flags.3?Bool"
         }
       ],
+      "type": "MessageAction"
+    },
+    {
+      "predicate": "messageActionSuggestProfilePhoto",
+      "id": "57de635e",
+      "params": [
+        {
+          "name": "photo",
+          "type": "Photo"
+        }
+      ],
+      "type": "MessageAction"
+    },
+    {
+      "predicate": "messageActionAttachMenuBotAllowed",
+      "id": "e7e75f97",
       "type": "MessageAction"
     },
     {
@@ -3500,7 +3556,7 @@
     },
     {
       "predicate": "userFull",
-      "id": "c4b1fc3f",
+      "id": "f8d32aed",
       "params": [
         {
           "name": "flags",
@@ -3547,8 +3603,16 @@
           "type": "PeerSettings"
         },
         {
+          "name": "personal_photo",
+          "type": "flags.21?Photo"
+        },
+        {
           "name": "profile_photo",
           "type": "flags.2?Photo"
+        },
+        {
+          "name": "fallback_photo",
+          "type": "flags.22?Photo"
         },
         {
           "name": "notify_settings",
@@ -4195,29 +4259,6 @@
         {
           "name": "usernames",
           "type": "Vector<Username>"
-        }
-      ],
-      "type": "Update"
-    },
-    {
-      "predicate": "updateUserPhoto",
-      "id": "f227868c",
-      "params": [
-        {
-          "name": "user_id",
-          "type": "long"
-        },
-        {
-          "name": "date",
-          "type": "int"
-        },
-        {
-          "name": "photo",
-          "type": "UserProfilePhoto"
-        },
-        {
-          "name": "previous",
-          "type": "Bool"
         }
       ],
       "type": "Update"
@@ -6066,6 +6107,17 @@
         {
           "name": "order",
           "type": "flags.0?Vector<int>"
+        }
+      ],
+      "type": "Update"
+    },
+    {
+      "predicate": "updateUser",
+      "id": "20529438",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "long"
         }
       ],
       "type": "Update"
@@ -7946,6 +7998,10 @@
           "type": "flags.0?true"
         },
         {
+          "name": "text_color",
+          "type": "flags.1?true"
+        },
+        {
           "name": "alt",
           "type": "string"
         },
@@ -9074,6 +9130,10 @@
         {
           "name": "selective",
           "type": "flags.2?true"
+        },
+        {
+          "name": "persistent",
+          "type": "flags.4?true"
         },
         {
           "name": "rows",
@@ -11240,6 +11300,17 @@
         {
           "name": "documents",
           "type": "Vector<Document>"
+        }
+      ],
+      "type": "StickerSetCovered"
+    },
+    {
+      "predicate": "stickerSetNoCovered",
+      "id": "77b15d1c",
+      "params": [
+        {
+          "name": "set",
+          "type": "StickerSet"
         }
       ],
       "type": "StickerSetCovered"
@@ -18550,6 +18621,10 @@
           "type": "flags.1?true"
         },
         {
+          "name": "request_write_access",
+          "type": "flags.2?true"
+        },
+        {
           "name": "bot_id",
           "type": "long"
         },
@@ -24747,8 +24822,16 @@
     },
     {
       "method": "messages.toggleBotInAttachMenu",
-      "id": "1aee33af",
+      "id": "69f59d69",
       "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "write_allowed",
+          "type": "flags.0?true"
+        },
         {
           "name": "bot",
           "type": "InputUser"
@@ -25140,8 +25223,16 @@
     },
     {
       "method": "photos.updateProfilePhoto",
-      "id": "72d4742c",
+      "id": "1c3d5956",
       "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "fallback",
+          "type": "flags.0?true"
+        },
         {
           "name": "id",
           "type": "InputPhoto"
@@ -25156,6 +25247,10 @@
         {
           "name": "flags",
           "type": "#"
+        },
+        {
+          "name": "fallback",
+          "type": "flags.3?true"
         },
         {
           "name": "file",
@@ -25205,6 +25300,41 @@
         }
       ],
       "type": "photos.Photos"
+    },
+    {
+      "method": "photos.uploadContactProfilePhoto",
+      "id": "b91a83bf",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "suggest",
+          "type": "flags.3?true"
+        },
+        {
+          "name": "save",
+          "type": "flags.4?true"
+        },
+        {
+          "name": "user_id",
+          "type": "InputUser"
+        },
+        {
+          "name": "file",
+          "type": "flags.0?InputFile"
+        },
+        {
+          "name": "video",
+          "type": "flags.1?InputFile"
+        },
+        {
+          "name": "video_start_ts",
+          "type": "flags.2?double"
+        }
+      ],
+      "type": "photos.Photo"
     },
     {
       "method": "upload.saveFilePart",
@@ -26512,6 +26642,21 @@
         }
       ],
       "type": "Bool"
+    },
+    {
+      "method": "channels.toggleParticipantsHidden",
+      "id": "6a6e7854",
+      "params": [
+        {
+          "name": "channel",
+          "type": "InputChannel"
+        },
+        {
+          "name": "enabled",
+          "type": "Bool"
+        }
+      ],
+      "type": "Updates"
     },
     {
       "method": "bots.sendCustomRequest",
