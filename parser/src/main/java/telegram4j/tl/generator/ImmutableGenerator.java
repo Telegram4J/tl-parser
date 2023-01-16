@@ -150,7 +150,12 @@ class ImmutableGenerator {
             }
 
             if (singleton) {
-                mandatoryOf.addStatement("return canonize(new $T(" + params + "))", type.immutableType);
+                String bitSets = type.generated.stream()
+                        .filter(a -> a.flags.contains(ValueAttribute.Flag.BIT_SET))
+                        .map(a -> a.name + " == 0")
+                        .collect(Collectors.joining(" && "));
+
+                mandatoryOf.addStatement("return $L ? INSTANCE : new $T(" + params + ")", bitSets, type.immutableType);
             } else {
                 mandatoryOf.addStatement("return new $T(" + params + ")", type.immutableType);
             }
@@ -218,11 +223,6 @@ class ImmutableGenerator {
         // region static methods
 
         if (singleton) { // unhandled possible generics
-            renderer.addMethod(type.immutableType, "canonize", Modifier.PRIVATE, Modifier.STATIC)
-                    .addParameter(type.immutableType, "instance")
-                    .addStatement("return INSTANCE.equalsTo(instance) ? INSTANCE : instance")
-                    .complete();
-
             renderer.addMethod(type.immutableType, "of", Modifier.PUBLIC, Modifier.STATIC)
                     .addStatement("return INSTANCE")
                     .complete();
@@ -313,22 +313,15 @@ class ImmutableGenerator {
 
         var unknownTypeParams = type.baseType.withTypeArguments(
                 Collections.nCopies(type.typeVars.size(), WildcardTypeRef.none()));
-        MethodRenderer<TopLevelRenderer> equals0;
-        if (singleton) {
-            equals0 = renderer.addMethod(boolean.class, "equalsTo")
-                    .addModifiers(Modifier.PRIVATE)
-                    .addParameter(type.baseType, type.equalsName);
-        } else {
-            equals0 = renderer.addMethod(boolean.class, "equals")
-                    .addAnnotation(Override.class)
-                    .addModifiers(Modifier.PUBLIC)
-                    .addParameter(ClassRef.OBJECT, "o")
-                    .addStatement("if (this == o) return true")
-                    .addStatement("if (!(o instanceof $T)) return false", unknownTypeParams)
-                    .addStatement("$1T $2L = ($1T) o", unknownTypeParams, type.equalsName)
-                    .addCode("return ID == $L.identifier() &&", type.equalsName)
-                    .incIndent(2).ln();
-        }
+        MethodRenderer<TopLevelRenderer> equals0 = renderer.addMethod(boolean.class, "equals")
+                .addAnnotation(Override.class)
+                .addModifiers(Modifier.PUBLIC)
+                .addParameter(ClassRef.OBJECT, "o")
+                .addStatement("if (this == o) return true")
+                .addStatement("if (!(o instanceof $T)) return false", unknownTypeParams)
+                .addStatement("$1T $2L = ($1T) o", unknownTypeParams, type.equalsName)
+                .addCode("return ID == $L.identifier() &&", type.equalsName)
+                .incIndent(2).ln();
 
         var hashCode = renderer.addMethod(int.class, "hashCode")
                 .addAnnotation(Override.class)
@@ -371,10 +364,6 @@ class ImmutableGenerator {
 
             // region equals
 
-            if (i == 0 && singleton) {
-                equals0.addCode("return ");
-            }
-
             if (a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
                 equals0.addCode("$T.equals($2L(), $3L.$2L())", OBJECTS, a.name, type.equalsName);
             } else if (unwrapped == PrimitiveTypeRef.DOUBLE) {
@@ -387,10 +376,6 @@ class ImmutableGenerator {
 
             if (i != n - 1) {
                 equals0.addCode(" &&").ln();
-            }
-
-            if (i == 0 && singleton) {
-                equals0.incIndent(2);
             }
 
             // endregion
@@ -460,17 +445,6 @@ class ImmutableGenerator {
         }
         toString.decIndent(2);
 
-        if (singleton) {
-            renderer.addMethod(boolean.class, "equals")
-                    .addAnnotation(Override.class)
-                    .addModifiers(Modifier.PUBLIC)
-                    .addParameter(ClassRef.OBJECT, "o")
-                    .addStatement("if (this == o) return true")
-                    .addStatement("if (!(o instanceof $T)) return false", unknownTypeParams)
-                    .addStatement("$1T $2L = ($1T) o", unknownTypeParams, type.equalsName)
-                    .addStatement("return ID == $1L.identifier() && equalsTo($1L)", type.equalsName)
-                    .complete();
-        }
         equals0.complete();
         hashCode.complete();
         toString.complete();
@@ -562,7 +536,12 @@ class ImmutableGenerator {
         }
 
         if (singleton) {
-            build.addStatement("return canonize(new $T(this))", type.immutableType);
+            String bitSets = type.generated.stream()
+                    .filter(a -> a.flags.contains(ValueAttribute.Flag.BIT_SET))
+                    .map(a -> a.name + " == 0")
+                    .collect(Collectors.joining(" && "));
+
+            build.addStatement("return $L ? INSTANCE : new $T(this)", bitSets, type.immutableType);
         } else {
             build.addStatement("return new $T(this)", type.immutableType);
         }
@@ -744,8 +723,25 @@ class ImmutableGenerator {
                                         MethodRenderer<?> renderer, String paramName,
                                         String newValueVar) {
         renderer.addCode("return ");
+
         if (type.flags.contains(ValueType.Flag.SINGLETON)) {
-            renderer.addCode("canonize(");
+            StringJoiner j = new StringJoiner(" && ");
+            for (ValueAttribute b : type.generated) {
+                if (b.flags.contains(ValueAttribute.Flag.BIT_SET)) {
+                    String s;
+                    if (a == b) {
+                        s = newValueVar;
+                    } else if (b.name.equals(a.flagsName)) {
+                        s = newValue.apply(b.name);
+                    } else {
+                        s = qualify(b, paramName);
+                    }
+
+                    j.add(s + " == 0");
+                }
+            }
+
+            renderer.addCode("$L ? INSTANCE : ", j);
         }
 
         renderer.addCode("new $T(", type.immutableType);
@@ -757,10 +753,10 @@ class ImmutableGenerator {
             ValueAttribute b = type.generated.get(i);
 
             String s;
-            if (a == b) { // update param
+            if (a == b) {
                 s = newValueVar;
-            } else if (a.flags.contains(ValueAttribute.Flag.OPTIONAL) && b.name.equals(a.flagsName)) {
-                s = newValue.apply(a.flagsName); // update flags
+            } else if (b.name.equals(a.flagsName)) {
+                s = newValue.apply(b.name);
             } else {
                 s = qualify(b, paramName);
             }
@@ -769,11 +765,7 @@ class ImmutableGenerator {
             renderer.addCode(c + "$L", s);
         }
 
-        renderer.addCode(')');
-        if (type.flags.contains(ValueType.Flag.SINGLETON)) {
-            renderer.addCode(')');
-        }
-        renderer.addCode(';');
+        renderer.addCode(");");
     }
 
     private void generateWither(ValueType type, ValueAttribute a,
