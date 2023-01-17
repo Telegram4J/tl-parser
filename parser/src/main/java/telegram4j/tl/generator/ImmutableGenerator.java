@@ -102,7 +102,7 @@ class ImmutableGenerator {
                     TypeRef listElement = unwrap(a.type, LIST);
                     TypeRef paramType = a.type;
                     if (listElement != a.type) // Iterable<? extends ListElement>
-                        paramType = ParameterizedTypeRef.of(ITERABLE, expandBounds(listElement));
+                        paramType = ParameterizedTypeRef.of(ITERABLE, applyCovariantVariance(listElement));
 
                     mandatoryConstructor.addParameter(paramType, a.name);
 
@@ -313,7 +313,7 @@ class ImmutableGenerator {
 
         var unknownTypeParams = type.baseType.withTypeArguments(
                 Collections.nCopies(type.typeVars.size(), WildcardTypeRef.none()));
-        MethodRenderer<TopLevelRenderer> equals0 = renderer.addMethod(boolean.class, "equals")
+        var equals0 = renderer.addMethod(boolean.class, "equals")
                 .addAnnotation(Override.class)
                 .addModifiers(Modifier.PUBLIC)
                 .addParameter(ClassRef.OBJECT, "o")
@@ -334,6 +334,32 @@ class ImmutableGenerator {
                 .addModifiers(Modifier.PUBLIC)
                 .addCode("return \"$L#$L{\" +", type.baseType.rawType.name, type.identifier)
                 .incIndent(2).ln();
+
+        var sortedAttrsForEquals = new ArrayList<>(type.generated);
+        sortedAttrsForEquals.sort(Comparator.comparingInt(ImmutableGenerator::equalsPropertySort));
+
+        // region equals
+
+        for (int i = 0, n = sortedAttrsForEquals.size(); i < n; i++) {
+            var a = sortedAttrsForEquals.get(i);
+
+            TypeRef unwrapped = unboxOptional(a, type);
+            if (a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
+                equals0.addCode("$T.equals($2L(), $3L.$2L())", OBJECTS, a.name, type.equalsName);
+            } else if (unwrapped == PrimitiveTypeRef.DOUBLE) {
+                equals0.addCode("Double.doubleToLongBits($1L) == Double.doubleToLongBits($2L.$1L())", a.name, type.equalsName);
+            } else if (unwrapped instanceof PrimitiveTypeRef) {
+                equals0.addCode("$1L == $2L.$1L()", a.name, type.equalsName);
+            } else {
+                equals0.addCode("$1L.equals($2L.$1L())", a.name, type.equalsName);
+            }
+
+            if (i != n - 1) {
+                equals0.addCode(" &&").ln();
+            }
+        }
+
+        // endregion
 
         for (int i = 0, n = type.generated.size(); i < n; i++) {
             ValueAttribute a = type.generated.get(i);
@@ -358,24 +384,6 @@ class ImmutableGenerator {
                 hashCode.addStatement("$1L += ($1L << 5) + $2T.hashCode($3L)", type.hashCodeName, OBJECTS, a.name);
             } else {
                 hashCode.addStatement("$1L += ($1L << 5) + $2L.hashCode()", type.hashCodeName, a.name);
-            }
-
-            // endregion
-
-            // region equals
-
-            if (a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
-                equals0.addCode("$T.equals($2L(), $3L.$2L())", OBJECTS, a.name, type.equalsName);
-            } else if (unwrapped == PrimitiveTypeRef.DOUBLE) {
-                equals0.addCode("Double.doubleToLongBits($1L) == Double.doubleToLongBits($2L.$1L())", a.name, type.equalsName);
-            } else if (unwrapped instanceof PrimitiveTypeRef) {
-                equals0.addCode("$1L == $2L.$1L()", a.name, type.equalsName);
-            } else {
-                equals0.addCode("$1L.equals($2L.$1L())", a.name, type.equalsName);
-            }
-
-            if (i != n - 1) {
-                equals0.addCode(" &&").ln();
             }
 
             // endregion
@@ -433,8 +441,6 @@ class ImmutableGenerator {
             // endregion
         }
 
-        equals0.decIndent(2).addCode(';');
-
         hashCode.addStatement("return $L", type.hashCodeName);
 
         ValueAttribute last = type.generated.get(type.generated.size() - 1);
@@ -445,7 +451,7 @@ class ImmutableGenerator {
         }
         toString.decIndent(2);
 
-        equals0.complete();
+        equals0.decIndent(2).addCode(';').complete();
         hashCode.complete();
         toString.complete();
 
@@ -783,7 +789,7 @@ class ImmutableGenerator {
 
         TypeRef paramType = a.type;
         if (listElement != a.type) // Iterable<? extends ListElement>
-            paramType = ParameterizedTypeRef.of(ITERABLE, expandBounds(listElement));
+            paramType = ParameterizedTypeRef.of(ITERABLE, applyCovariantVariance(listElement));
         if (a.flags.contains(ValueAttribute.Flag.OPTIONAL)) // @Nullable ParamType
             paramType = AnnotatedTypeRef.create(paramType, Nullable.class);
 
@@ -1024,11 +1030,10 @@ class ImmutableGenerator {
 
             setter.addStatement("this.$1L = $1L", a.name);
 
-            // bitset fields is implicitly optional
             if (!a.flags.contains(ValueAttribute.Flag.BIT_SET)) {
                 setter.addStatement("this.initBits &= ~$L", a.names().initBit);
             }
-        } else { // reference type
+        } else { // any reference type
             setter.addParameter(a.type, a.name);
 
             if (a.type == BYTE_BUF) {
@@ -1054,7 +1059,7 @@ class ImmutableGenerator {
                                      ClassRenderer<?> builder, CompletionDeferrer pending) {
 
         TypeRef listElement = unwrap(a.type, LIST);
-        TypeRef iterableType = ParameterizedTypeRef.of(ITERABLE, expandBounds(listElement));
+        TypeRef iterableType = ParameterizedTypeRef.of(ITERABLE, applyCovariantVariance(listElement));
         boolean opt = a.flags.contains(ValueAttribute.Flag.OPTIONAL);
         boolean canUnbox = listElement.safeUnbox() != listElement;
         if (canUnbox) {
@@ -1154,9 +1159,31 @@ class ImmutableGenerator {
         }
     }
 
+    private static int equalsPropertySort(ValueAttribute a) {
+        TypeRef element;
+        if (a.type instanceof PrimitiveTypeRef) {
+            return Integer.MIN_VALUE;
+        } else if (a.type.safeUnbox() instanceof PrimitiveTypeRef) { // boxed primitives
+            return Integer.MIN_VALUE + 1;
+        } else if (a.type == STRING) {
+            return Integer.MIN_VALUE + 2;
+        } else if (a.type == BYTE_BUF) {
+            return Integer.MIN_VALUE + 4;
+        } else if (a.type == ClassRef.OBJECT || a.type instanceof TypeVariableRef) { // Object or T
+            return Integer.MIN_VALUE + 7;
+        } else if ((element = unwrap(a.type, LIST)) == a.type) { // any reference type
+            return Integer.MIN_VALUE + 3;
+        } else {
+            if (element.safeUnbox() instanceof PrimitiveTypeRef) {
+                return Integer.MIN_VALUE + 5;
+            }
+            return Integer.MIN_VALUE + 6;
+        }
+    }
+
     // utilities
 
-    private TypeRef expandBounds(TypeRef type) {
+    private TypeRef applyCovariantVariance(TypeRef type) {
         if (type == STRING || type.safeUnbox() instanceof PrimitiveTypeRef) {
             return type;
         }
