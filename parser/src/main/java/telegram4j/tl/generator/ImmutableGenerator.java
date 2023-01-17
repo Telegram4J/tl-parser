@@ -170,7 +170,7 @@ class ImmutableGenerator {
                 .addParameter(type.builderType, "builder");
 
         for (ValueAttribute a : type.generated) {
-            StringBuilder format = new StringBuilder("this.$1L = ");
+            StringBuilder format = new StringBuilder("$1L = ");
             TypeRef listElement = unwrap(a.type, LIST);
             Counter ctr;
             boolean isOptOrPrimitiveUnwr = a.flags.contains(ValueAttribute.Flag.OPTIONAL) &&
@@ -197,6 +197,7 @@ class ImmutableGenerator {
 
         // constructor for with* methods
 
+        // preconditions:
         // - no reference fields
         // - no optional fields
         if (!type.flags.contains(ValueType.Flag.CAN_OMIT_COPY_CONSTRUCTOR)) {
@@ -205,6 +206,7 @@ class ImmutableGenerator {
 
             // have a reference fields, need to stub.
             // This is necessary because this constructor does not contain null checks
+            // and does not copy lists
             if (type.flags.contains(ValueType.Flag.NEED_STUB_PARAM)) {
                 allConstructor.addParameter(Void.class, "synthetic0");
             }
