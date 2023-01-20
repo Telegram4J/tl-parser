@@ -40,7 +40,7 @@ import static telegram4j.tl.generator.Strings.screamilize;
 @SupportedAnnotationTypes("telegram4j.tl.generator.GenerateSchema")
 public class SchemaGenerator extends AbstractProcessor {
 
-    private final Set<String> computed = new HashSet<>();
+    private final Set<String> computedEnums = new HashSet<>();
     private final Map<Integer, Set<String>> sizeOfGroups = new HashMap<>();
 
     private ImmutableGenerator immutableGenerator;
@@ -63,7 +63,7 @@ public class SchemaGenerator extends AbstractProcessor {
     private final Set<String> computedSizeOfs = new HashSet<>();
     private final Set<String> computedDeserializers = new HashSet<>();
 
-    private final List<String> emptyObjectsIds = new ArrayList<>(200); // and also enums
+    private final List<String> emptyObjectsIds = new ArrayList<>(200);
 
     private final TopLevelRenderer tlInfo = ClassRenderer.create(ClassRef.of(BASE_PACKAGE, "TlInfo"), ClassRenderer.Kind.CLASS)
             .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
@@ -310,9 +310,10 @@ public class SchemaGenerator extends AbstractProcessor {
 
             boolean singleton = true;
             for (Parameter p : method.parameters) {
-                if (!p.type.rawType.equals("#") && !p.type.isFlag()) singleton = false;
                 if (p.type.isFlag()) {
                     generateBitPosAndMask(p, renderer);
+                } else {
+                    singleton = false;
                 }
             }
 
@@ -461,8 +462,9 @@ public class SchemaGenerator extends AbstractProcessor {
             TypeRef superType = config.superType != null
                     ? config.superType : ParameterizedTypeRef.of(TL_METHOD, WildcardTypeRef.none());
 
-            var typeRefs = generic ? List.of(genericResultTypeRef,
-                    genericTypeRef.withBounds(wildcardMethodType)) : List.<TypeVariableRef>of();
+            var typeRefs = generic
+                    ? List.of(genericResultTypeRef, genericTypeRef.withBounds(wildcardMethodType))
+                    : List.<TypeVariableRef>of();
 
             immutableGenerator.process(prepareType(method, renderer.name, singleton, typeRefs,
                     interfaces, superType));
@@ -482,8 +484,7 @@ public class SchemaGenerator extends AbstractProcessor {
             String packageName = constructor.type.packageName;
 
             ClassRef typeName = ClassRef.of(packageName, type);
-            // Ignore constructor if its type is enum
-            if (computed.contains(typeName.qualifiedName())) {
+            if (computedEnums.contains(typeName.qualifiedName())) {
                 continue;
             }
 
@@ -518,16 +519,17 @@ public class SchemaGenerator extends AbstractProcessor {
                     .complete();
 
             boolean singleton = true;
-            int flagsCount = 0;
+            boolean onlyBitSets = true;
             for (Parameter p : constructor.parameters) {
-                if (p.type.rawType.equals("#")) flagsCount++;
-                if (!p.type.rawType.equals("#") && !p.type.isFlag()) singleton = false;
                 if (p.type.isFlag()) {
                     generateBitPosAndMask(p, renderer);
                 }
-            }
 
-            int flagsRemaining = flagsCount;
+                if (!p.type.isBitSet() && !p.type.isBitFlag()) {
+                    onlyBitSets = false;
+                    singleton = false;
+                }
+            }
 
             if (!isEmptyObject) {
                 renderer.addMethod(immutableType.nested("Builder"), "builder", Modifier.PUBLIC, Modifier.STATIC)
@@ -589,17 +591,21 @@ public class SchemaGenerator extends AbstractProcessor {
                                 Modifier.PRIVATE, Modifier.STATIC)
                         .addParameter(BYTE_BUF, "payload");
 
-                boolean firstIsFlag = constructor.parameters.get(0).type.rawType.equals("#");
-                if (firstIsFlag) {
-                    typeDeserializer.addStatement("int $L = payload.readIntLE()", constructor.parameters.get(0).formattedName());
+                if (!onlyBitSets) {
+                    for (int i = 0, n = constructor.parameters.size(); i < n; i++) {
+                        Parameter param = constructor.parameters.get(i);
+                        if (param.type.isBitSet()) {
+                            Parameter prev;
+                            if (i == 0 || (prev = constructor.parameters.get(i - 1)).type.isBitFlag() || prev.type.isBitSet()) {
+                                typeDeserializer.addStatement("int $L = payload.readIntLE()", param.formattedName());
+                            } else {
+                                typeDeserializer.addStatement("int $L", param.formattedName());
+                            }
+                        }
+                    }
                 }
 
-                boolean needSeparation = flagsCount > 1 || flagsCount == 1 && !firstIsFlag;
-                if (needSeparation) {
-                    typeDeserializer.addCode("var builder = $T.builder()", immutableType).incIndent().ln();
-                } else {
-                    typeDeserializer.addCode("return $T.builder()", immutableType).incIndent().ln();
-                }
+                typeDeserializer.addCode("return $T.builder()", immutableType).incIndent().ln();
 
                 var typeSerializer = serializer.addMethod(BYTE_BUF, serializeMethodName,
                                 Modifier.PRIVATE, Modifier.STATIC)
@@ -648,32 +654,21 @@ public class SchemaGenerator extends AbstractProcessor {
                         }
                     }
 
-                    String deser = deserializeMethod(name, param);
-                    if (param.type.rawType.equals("#")) { // TODO: dont write into the separate variable if type have only bit-flags
-                        flagsRemaining--;
-
-                        if (i == 0 || flagsCount > 1 && flagsRemaining > 0) {
+                    if (param.type.isBitSet()) {
+                        Parameter prev;
+                        if (onlyBitSets) {
+                            typeDeserializer.addCode(".$1L(payload.readIntLE())", param.formattedName());
+                        } else if (i == 0 || (prev = constructor.parameters.get(i - 1)).type.isBitFlag() || prev.type.isBitSet()) {
                             typeDeserializer.addCode(".$1L($1L)", param.formattedName());
                         } else {
-                            typeDeserializer.addStatement("int $L = payload.readIntLE()", param.formattedName());
-
-                            if (flagsRemaining == 0) {
-                                typeDeserializer.addCode("return builder.$1L($1L)", param.formattedName()).incIndent();
-                            } else {
-                                typeDeserializer.addCode("builder.$1L($1L)", param.formattedName());
-                            }
+                            typeDeserializer.addCode(".$1L($1L = payload.readIntLE())", param.formattedName());
                         }
                     } else {
+                        String deser = deserializeMethod(name, param);
                         typeDeserializer.addCode(".$L(" + deser + ")", param.formattedName());
                     }
 
-                    if (flagsRemaining != 0 && needSeparation &&
-                            constructor.parameters.subList(i, constructor.parameters.size()).stream()
-                                    .anyMatch(p -> p.type.rawType.equals("#"))) {
-                        typeDeserializer.decIndent().addCode(';').ln();
-                    } else {
-                        typeDeserializer.ln();
-                    }
+                    typeDeserializer.ln();
                 }
 
                 typeSerializer.addStatement("return buf").complete();
@@ -763,7 +758,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     bitSet.valuesMask.add(valAttr.flagMask);
                     bitSet.bitUsage.computeIfAbsent(valAttr.flagPos, k -> new Counter()).value++;
                 }
-            } else if (!p.type.rawType.equals("#")) {
+            } else if (!p.type.isBitSet()) {
                 valType.initBitsCount++;
             } else {
                 bitSetfCount++;
@@ -786,7 +781,7 @@ public class SchemaGenerator extends AbstractProcessor {
         if (types.size() > 1) {
             valType.superTypeMethodsNames = List.copyOf(types.stream()
                     .flatMap(e -> e.parameters.stream())
-                    .filter(e -> !e.type.rawType.equals("#"))
+                    .filter(e -> !e.type.isBitSet())
                     .filter(p -> types.stream()
                             .allMatch(t -> t.parameters.contains(p)))
                     .map(Parameter::formattedName)
@@ -845,7 +840,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
                 var ofMethodCode = renderer.createCode().incIndent(3);
 
-                computed.add(qualifiedName);
+                computedEnums.add(qualifiedName);
                 var types = currTypeTree.get(qualifiedName);
                 for (int i = 0; i < types.size(); i++) {
                     Type constructor = types.get(i);
@@ -1054,7 +1049,7 @@ public class SchemaGenerator extends AbstractProcessor {
     }
 
     private String deserializeMethod(String typeName, Parameter param) {
-        if (param.type.rawType.equals("#")) {
+        if (param.type.isBitSet()) {
             return param.formattedName();
         }
 

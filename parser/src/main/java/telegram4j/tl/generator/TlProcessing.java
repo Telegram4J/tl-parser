@@ -177,6 +177,10 @@ public class TlProcessing {
         public boolean isVector() {
             return innerType != null && flagPos == -1;
         }
+
+        public boolean isBitSet() {
+            return rawType.equals("#");
+        }
     }
 
     public static class Parameter {
