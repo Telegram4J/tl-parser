@@ -10,6 +10,7 @@ module telegram4j.tl {
 
 	exports telegram4j.tl;
 	exports telegram4j.tl.account;
+	exports telegram4j.tl.api;
 	exports telegram4j.tl.auth;
 	exports telegram4j.tl.channels;
 	exports telegram4j.tl.contacts;
@@ -45,6 +46,5 @@ module telegram4j.tl {
 	exports telegram4j.tl.updates;
 	exports telegram4j.tl.upload;
 	exports telegram4j.tl.users;
-
 	provides Module with TlModule;
 }
