@@ -519,14 +519,12 @@ public class SchemaGenerator extends AbstractProcessor {
                     .complete();
 
             boolean singleton = true;
-            boolean onlyBitSets = true;
             for (Parameter p : constructor.parameters) {
                 if (p.type.isFlag()) {
                     generateBitPosAndMask(p, renderer);
                 }
 
                 if (!p.type.isBitSet() && !p.type.isBitFlag()) {
-                    onlyBitSets = false;
                     singleton = false;
                 }
             }
@@ -591,7 +589,7 @@ public class SchemaGenerator extends AbstractProcessor {
                                 Modifier.PRIVATE, Modifier.STATIC)
                         .addParameter(BYTE_BUF, "payload");
 
-                if (!onlyBitSets) {
+                if (!singleton) {
                     for (int i = 0, n = constructor.parameters.size(); i < n; i++) {
                         Parameter param = constructor.parameters.get(i);
                         if (param.type.isBitSet()) {
@@ -656,7 +654,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
                     if (param.type.isBitSet()) {
                         Parameter prev;
-                        if (onlyBitSets) {
+                        if (singleton) {
                             typeDeserializer.addCode(".$1L(payload.readIntLE())", param.formattedName());
                         } else if (i == 0 || (prev = constructor.parameters.get(i - 1)).type.isBitFlag() || prev.type.isBitSet()) {
                             typeDeserializer.addCode(".$1L($1L)", param.formattedName());

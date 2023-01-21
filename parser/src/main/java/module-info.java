@@ -8,8 +8,6 @@ module telegram4j.tl.parser {
     requires io.netty.buffer;
     requires java.compiler;
 
-    requires telegram4j.tl.api;
-
     requires static org.immutables.value;
 
     exports telegram4j.tl.generator;

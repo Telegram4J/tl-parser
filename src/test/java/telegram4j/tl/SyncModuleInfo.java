@@ -50,7 +50,6 @@ public class SyncModuleInfo {
             w.append("\trequires io.netty.buffer;\n");
             w.append("\trequires reactor.core;\n");
             w.append("\trequires com.fasterxml.jackson.databind;\n\n");
-            w.append("\trequires transitive telegram4j.tl.api;\n\n");
             w.append("\trequires static telegram4j.tl.parser;\n\n");
             for (String export : exports) {
                 w.append("\texports ").append(export).append(";\n");

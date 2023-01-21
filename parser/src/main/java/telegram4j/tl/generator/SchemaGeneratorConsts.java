@@ -2,10 +2,6 @@ package telegram4j.tl.generator;
 
 import io.netty.buffer.ByteBuf;
 import reactor.util.function.Tuple2;
-import telegram4j.tl.api.MTProtoObject;
-import telegram4j.tl.api.TlEncodingUtil;
-import telegram4j.tl.api.TlMethod;
-import telegram4j.tl.api.TlObject;
 import telegram4j.tl.generator.renderer.*;
 
 import java.util.ArrayList;
@@ -113,9 +109,9 @@ final class SchemaGeneratorConsts {
     static final ClassRef ITERABLE = ClassRef.of(Iterable.class);
     static final ClassRef STRING = ClassRef.of(String.class);
     static final ClassRef BYTE_BUF = ClassRef.of(ByteBuf.class);
-    static final ClassRef TL_OBJECT = ClassRef.of(TlObject.class);
-    static final ClassRef TL_METHOD = ClassRef.of(TlMethod.class);
-    static final ClassRef UTILITY = ClassRef.of(TlEncodingUtil.class);
+    static final ClassRef TL_OBJECT = ClassRef.of("telegram4j.tl.api", "TlObject");
+    static final ClassRef TL_METHOD = ClassRef.of("telegram4j.tl.api", "TlMethod");
+    static final ClassRef UTILITY = ClassRef.of("telegram4j.tl.api", "TlEncodingUtil");
     static final ClassRef OBJECTS = ClassRef.of(Objects.class);
 
     static final TypeVariableRef genericTypeRef = TypeVariableRef.of("T");
@@ -126,7 +122,7 @@ final class SchemaGeneratorConsts {
 
     static final TlProcessing.Configuration[] configs = {
         new TlProcessing.Configuration("api", null, TL_OBJECT),
-        new TlProcessing.Configuration("mtproto", "mtproto", ClassRef.of(MTProtoObject.class))
+        new TlProcessing.Configuration("mtproto", "mtproto", ClassRef.of("telegram4j.tl.api", "MTProtoObject"))
     };
 
     // names style

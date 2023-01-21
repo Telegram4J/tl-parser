@@ -19,8 +19,6 @@ ext {
 }
 
 dependencies {
-    api project(":api")
-
     implementation "com.fasterxml.jackson.core:jackson-databind:$jackson_version"
     implementation "io.projectreactor.netty:reactor-netty-core"
 
@@ -99,12 +97,12 @@ allprojects {
     }
 }
 
-description = 'Telegram API entity domain'
-
 sourcesJar {
     dependsOn compileJava
     from "build/generated/sources/annotationProcessor/java/main"
 }
+
+description = 'Telegram API entity domain'
 
 configure(allprojects - project(":parser")) {
     apply plugin: 'maven-publish'
