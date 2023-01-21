@@ -312,7 +312,7 @@ public class SchemaGenerator extends AbstractProcessor {
             for (Parameter p : method.parameters) {
                 if (p.type.isFlag()) {
                     generateBitPosAndMask(p, renderer);
-                } else {
+                } else if (!p.type.isBitSet()) {
                     singleton = false;
                 }
             }
@@ -525,7 +525,7 @@ public class SchemaGenerator extends AbstractProcessor {
             for (Parameter p : constructor.parameters) {
                 if (p.type.isFlag()) {
                     generateBitPosAndMask(p, renderer);
-                } else {
+                } else if (!p.type.isBitSet()) {
                     singleton = false;
                 }
 
