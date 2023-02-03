@@ -29,7 +29,7 @@ class SchemaUpdater {
 
     static String pathPrefix = "./src/main/resources/";
     static List<Tuple2<String, String>> schemes = List.of(
-            Tuples.of("https://raw.githubusercontent.com/telegramdesktop/tdesktop/dev/Telegram/Resources/tl/api.tl", "telegram4j/tl/api"));
+            Tuples.of("https://raw.githubusercontent.com/telegramdesktop/tdesktop/dev/Telegram/Resources/tl/api.tl", "api"));
 
     public static void main(String[] args) {
         HttpClient client = HttpClient.create();
