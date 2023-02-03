@@ -612,7 +612,7 @@
     },
     {
       "predicate": "inputChatUploadedPhoto",
-      "id": "c642724e",
+      "id": "bdcdaec0",
       "params": [
         {
           "name": "flags",
@@ -629,6 +629,10 @@
         {
           "name": "video_start_ts",
           "type": "flags.2?double"
+        },
+        {
+          "name": "video_emoji_markup",
+          "type": "flags.3?VideoSize"
         }
       ],
       "type": "InputChatPhoto"
@@ -1507,6 +1511,10 @@
           "type": "flags.8?true"
         },
         {
+          "name": "translations_disabled",
+          "type": "flags.19?true"
+        },
+        {
           "name": "id",
           "type": "long"
         },
@@ -1628,6 +1636,10 @@
         {
           "name": "participants_hidden",
           "type": "flags2.2?true"
+        },
+        {
+          "name": "translations_disabled",
+          "type": "flags2.3?true"
         },
         {
           "name": "id",
@@ -2879,6 +2891,21 @@
       "type": "MessageAction"
     },
     {
+      "predicate": "messageActionRequestedPeer",
+      "id": "fe77345d",
+      "params": [
+        {
+          "name": "button_id",
+          "type": "int"
+        },
+        {
+          "name": "peer",
+          "type": "Peer"
+        }
+      ],
+      "type": "MessageAction"
+    },
+    {
       "predicate": "dialog",
       "id": "d58a08c6",
       "params": [
@@ -3212,8 +3239,19 @@
       "type": "auth.SentCode"
     },
     {
+      "predicate": "auth.sentCodeSuccess",
+      "id": "2390fe44",
+      "params": [
+        {
+          "name": "authorization",
+          "type": "auth.Authorization"
+        }
+      ],
+      "type": "auth.SentCode"
+    },
+    {
       "predicate": "auth.authorization",
-      "id": "33fb7bb8",
+      "id": "2ea2c0d4",
       "params": [
         {
           "name": "flags",
@@ -3230,6 +3268,10 @@
         {
           "name": "tmp_sessions",
           "type": "flags.0?int"
+        },
+        {
+          "name": "future_auth_token",
+          "type": "flags.2?bytes"
         },
         {
           "name": "user",
@@ -3589,6 +3631,10 @@
         {
           "name": "voice_messages_forbidden",
           "type": "flags.20?true"
+        },
+        {
+          "name": "translations_disabled",
+          "type": "flags.23?true"
         },
         {
           "name": "id",
@@ -6120,6 +6166,11 @@
           "type": "long"
         }
       ],
+      "type": "Update"
+    },
+    {
+      "predicate": "updateAutoSaveSettings",
+      "id": "ec05b097",
       "type": "Update"
     },
     {
@@ -9063,6 +9114,25 @@
       "type": "KeyboardButton"
     },
     {
+      "predicate": "keyboardButtonRequestPeer",
+      "id": "d0b468c",
+      "params": [
+        {
+          "name": "text",
+          "type": "string"
+        },
+        {
+          "name": "button_id",
+          "type": "int"
+        },
+        {
+          "name": "peer_type",
+          "type": "RequestPeerType"
+        }
+      ],
+      "type": "KeyboardButton"
+    },
+    {
       "predicate": "keyboardButtonRow",
       "id": "77608b83",
       "params": [
@@ -10859,6 +10929,33 @@
         {
           "name": "url",
           "type": "string"
+        },
+        {
+          "name": "length",
+          "type": "int"
+        }
+      ],
+      "type": "auth.SentCodeType"
+    },
+    {
+      "predicate": "auth.sentCodeTypeFirebaseSms",
+      "id": "e57b1432",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "nonce",
+          "type": "flags.0?bytes"
+        },
+        {
+          "name": "receipt",
+          "type": "flags.1?string"
+        },
+        {
+          "name": "push_timeout",
+          "type": "flags.1?int"
         },
         {
           "name": "length",
@@ -15788,6 +15885,34 @@
           "type": "flags.18?true"
         },
         {
+          "name": "send_photos",
+          "type": "flags.19?true"
+        },
+        {
+          "name": "send_videos",
+          "type": "flags.20?true"
+        },
+        {
+          "name": "send_roundvideos",
+          "type": "flags.21?true"
+        },
+        {
+          "name": "send_audios",
+          "type": "flags.22?true"
+        },
+        {
+          "name": "send_voices",
+          "type": "flags.23?true"
+        },
+        {
+          "name": "send_docs",
+          "type": "flags.24?true"
+        },
+        {
+          "name": "send_plain",
+          "type": "flags.25?true"
+        },
+        {
           "name": "until_date",
           "type": "int"
         }
@@ -15853,7 +15978,7 @@
     },
     {
       "predicate": "codeSettings",
-      "id": "8a6469c2",
+      "id": "ad253d78",
       "params": [
         {
           "name": "flags",
@@ -15876,8 +16001,20 @@
           "type": "flags.5?true"
         },
         {
+          "name": "allow_firebase",
+          "type": "flags.7?true"
+        },
+        {
           "name": "logout_tokens",
           "type": "flags.6?Vector<bytes>"
+        },
+        {
+          "name": "token",
+          "type": "flags.8?string"
+        },
+        {
+          "name": "app_sandbox",
+          "type": "flags.8?Bool"
         }
       ],
       "type": "CodeSettings"
@@ -17002,6 +17139,40 @@
         {
           "name": "video_start_ts",
           "type": "flags.0?double"
+        }
+      ],
+      "type": "VideoSize"
+    },
+    {
+      "predicate": "videoSizeEmojiMarkup",
+      "id": "f85c413c",
+      "params": [
+        {
+          "name": "emoji_id",
+          "type": "long"
+        },
+        {
+          "name": "background_colors",
+          "type": "Vector<int>"
+        }
+      ],
+      "type": "VideoSize"
+    },
+    {
+      "predicate": "videoSizeStickerMarkup",
+      "id": "da082fe",
+      "params": [
+        {
+          "name": "stickerset",
+          "type": "InputStickerSet"
+        },
+        {
+          "name": "sticker_id",
+          "type": "long"
+        },
+        {
+          "name": "background_colors",
+          "type": "Vector<int>"
         }
       ],
       "type": "VideoSize"
@@ -18479,22 +18650,6 @@
       "type": "messages.AvailableReactions"
     },
     {
-      "predicate": "messages.translateNoResult",
-      "id": "67ca4737",
-      "type": "messages.TranslatedText"
-    },
-    {
-      "predicate": "messages.translateResultText",
-      "id": "a214f7d0",
-      "params": [
-        {
-          "name": "text",
-          "type": "string"
-        }
-      ],
-      "type": "messages.TranslatedText"
-    },
-    {
       "predicate": "messagePeerReaction",
       "id": "b156fe9c",
       "params": [
@@ -18947,6 +19102,10 @@
         {
           "name": "restore",
           "type": "flags.0?true"
+        },
+        {
+          "name": "upgrade",
+          "type": "flags.1?true"
         }
       ],
       "type": "InputStorePaymentPurpose"
@@ -19231,7 +19390,7 @@
     },
     {
       "predicate": "premiumSubscriptionOption",
-      "id": "b6f11ebe",
+      "id": "5f2d1df2",
       "params": [
         {
           "name": "flags",
@@ -19244,6 +19403,10 @@
         {
           "name": "can_purchase_upgrade",
           "type": "flags.2?true"
+        },
+        {
+          "name": "transaction",
+          "type": "flags.3?string"
         },
         {
           "name": "months",
@@ -19525,6 +19688,241 @@
         }
       ],
       "type": "ExportedContactToken"
+    },
+    {
+      "predicate": "requestPeerTypeUser",
+      "id": "5f3b8a00",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "bot",
+          "type": "flags.0?Bool"
+        },
+        {
+          "name": "premium",
+          "type": "flags.1?Bool"
+        }
+      ],
+      "type": "RequestPeerType"
+    },
+    {
+      "predicate": "requestPeerTypeChat",
+      "id": "c9f06e1b",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "creator",
+          "type": "flags.0?true"
+        },
+        {
+          "name": "bot_participant",
+          "type": "flags.5?true"
+        },
+        {
+          "name": "has_username",
+          "type": "flags.3?Bool"
+        },
+        {
+          "name": "forum",
+          "type": "flags.4?Bool"
+        },
+        {
+          "name": "user_admin_rights",
+          "type": "flags.1?ChatAdminRights"
+        },
+        {
+          "name": "bot_admin_rights",
+          "type": "flags.2?ChatAdminRights"
+        }
+      ],
+      "type": "RequestPeerType"
+    },
+    {
+      "predicate": "requestPeerTypeBroadcast",
+      "id": "339bef6c",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "creator",
+          "type": "flags.0?true"
+        },
+        {
+          "name": "has_username",
+          "type": "flags.3?Bool"
+        },
+        {
+          "name": "user_admin_rights",
+          "type": "flags.1?ChatAdminRights"
+        },
+        {
+          "name": "bot_admin_rights",
+          "type": "flags.2?ChatAdminRights"
+        }
+      ],
+      "type": "RequestPeerType"
+    },
+    {
+      "predicate": "emojiListNotModified",
+      "id": "481eadfa",
+      "type": "EmojiList"
+    },
+    {
+      "predicate": "emojiList",
+      "id": "7a1e11d1",
+      "params": [
+        {
+          "name": "hash",
+          "type": "long"
+        },
+        {
+          "name": "document_id",
+          "type": "Vector<long>"
+        }
+      ],
+      "type": "EmojiList"
+    },
+    {
+      "predicate": "emojiGroup",
+      "id": "7a9abda9",
+      "params": [
+        {
+          "name": "title",
+          "type": "string"
+        },
+        {
+          "name": "icon_emoji_id",
+          "type": "long"
+        },
+        {
+          "name": "emoticons",
+          "type": "Vector<string>"
+        }
+      ],
+      "type": "EmojiGroup"
+    },
+    {
+      "predicate": "messages.emojiGroupsNotModified",
+      "id": "6fb4ad87",
+      "type": "messages.EmojiGroups"
+    },
+    {
+      "predicate": "messages.emojiGroups",
+      "id": "881fb94b",
+      "params": [
+        {
+          "name": "hash",
+          "type": "int"
+        },
+        {
+          "name": "groups",
+          "type": "Vector<EmojiGroup>"
+        }
+      ],
+      "type": "messages.EmojiGroups"
+    },
+    {
+      "predicate": "textWithEntities",
+      "id": "751f3146",
+      "params": [
+        {
+          "name": "text",
+          "type": "string"
+        },
+        {
+          "name": "entities",
+          "type": "Vector<MessageEntity>"
+        }
+      ],
+      "type": "TextWithEntities"
+    },
+    {
+      "predicate": "messages.translateResult",
+      "id": "33db32f8",
+      "params": [
+        {
+          "name": "result",
+          "type": "Vector<TextWithEntities>"
+        }
+      ],
+      "type": "messages.TranslatedText"
+    },
+    {
+      "predicate": "autoSaveSettings",
+      "id": "c84834ce",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "photos",
+          "type": "flags.0?true"
+        },
+        {
+          "name": "videos",
+          "type": "flags.1?true"
+        },
+        {
+          "name": "video_max_size",
+          "type": "flags.2?long"
+        }
+      ],
+      "type": "AutoSaveSettings"
+    },
+    {
+      "predicate": "autoSaveException",
+      "id": "81602d47",
+      "params": [
+        {
+          "name": "peer",
+          "type": "Peer"
+        },
+        {
+          "name": "settings",
+          "type": "AutoSaveSettings"
+        }
+      ],
+      "type": "AutoSaveException"
+    },
+    {
+      "predicate": "account.autoSaveSettings",
+      "id": "4c3e069d",
+      "params": [
+        {
+          "name": "users_settings",
+          "type": "AutoSaveSettings"
+        },
+        {
+          "name": "chats_settings",
+          "type": "AutoSaveSettings"
+        },
+        {
+          "name": "broadcasts_settings",
+          "type": "AutoSaveSettings"
+        },
+        {
+          "name": "exceptions",
+          "type": "Vector<AutoSaveException>"
+        },
+        {
+          "name": "chats",
+          "type": "Vector<Chat>"
+        },
+        {
+          "name": "users",
+          "type": "Vector<User>"
+        }
+      ],
+      "type": "account.AutoSaveSettings"
     }
   ],
   "methods": [
@@ -19966,6 +20364,33 @@
         }
       ],
       "type": "auth.Authorization"
+    },
+    {
+      "method": "auth.requestFirebaseSms",
+      "id": "89464b50",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "phone_number",
+          "type": "string"
+        },
+        {
+          "name": "phone_code_hash",
+          "type": "string"
+        },
+        {
+          "name": "safety_net_token",
+          "type": "flags.0?string"
+        },
+        {
+          "name": "ios_push_secret",
+          "type": "flags.1?string"
+        }
+      ],
+      "type": "Bool"
     },
     {
       "method": "account.registerDevice",
@@ -21109,6 +21534,69 @@
           "type": "Bool"
         }
       ],
+      "type": "Bool"
+    },
+    {
+      "method": "account.getDefaultProfilePhotoEmojis",
+      "id": "e2750328",
+      "params": [
+        {
+          "name": "hash",
+          "type": "long"
+        }
+      ],
+      "type": "EmojiList"
+    },
+    {
+      "method": "account.getDefaultGroupPhotoEmojis",
+      "id": "915860ae",
+      "params": [
+        {
+          "name": "hash",
+          "type": "long"
+        }
+      ],
+      "type": "EmojiList"
+    },
+    {
+      "method": "account.getAutoSaveSettings",
+      "id": "adcbbcda",
+      "type": "account.AutoSaveSettings"
+    },
+    {
+      "method": "account.saveAutoSaveSettings",
+      "id": "d69b8361",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "users",
+          "type": "flags.0?true"
+        },
+        {
+          "name": "chats",
+          "type": "flags.1?true"
+        },
+        {
+          "name": "broadcasts",
+          "type": "flags.2?true"
+        },
+        {
+          "name": "peer",
+          "type": "flags.3?InputPeer"
+        },
+        {
+          "name": "settings",
+          "type": "AutoSaveSettings"
+        }
+      ],
+      "type": "Bool"
+    },
+    {
+      "method": "account.deleteAutoSaveExceptions",
+      "id": "53bc0020",
       "type": "Bool"
     },
     {
@@ -24692,7 +25180,7 @@
     },
     {
       "method": "messages.translateText",
-      "id": "24ce6dee",
+      "id": "63183030",
       "params": [
         {
           "name": "flags",
@@ -24703,16 +25191,12 @@
           "type": "flags.0?InputPeer"
         },
         {
-          "name": "msg_id",
-          "type": "flags.0?int"
+          "name": "id",
+          "type": "flags.0?Vector<int>"
         },
         {
           "name": "text",
-          "type": "flags.1?string"
-        },
-        {
-          "name": "from_lang",
-          "type": "flags.2?string"
+          "type": "flags.1?Vector<TextWithEntities>"
         },
         {
           "name": "to_lang",
@@ -25159,6 +25643,96 @@
       "type": "DefaultHistoryTTL"
     },
     {
+      "method": "messages.sendBotRequestedPeer",
+      "id": "fe38d01b",
+      "params": [
+        {
+          "name": "peer",
+          "type": "InputPeer"
+        },
+        {
+          "name": "msg_id",
+          "type": "int"
+        },
+        {
+          "name": "button_id",
+          "type": "int"
+        },
+        {
+          "name": "requested_peer",
+          "type": "InputPeer"
+        }
+      ],
+      "type": "Updates"
+    },
+    {
+      "method": "messages.getEmojiGroups",
+      "id": "7488ce5b",
+      "params": [
+        {
+          "name": "hash",
+          "type": "int"
+        }
+      ],
+      "type": "messages.EmojiGroups"
+    },
+    {
+      "method": "messages.getEmojiStatusGroups",
+      "id": "2ecd56cd",
+      "params": [
+        {
+          "name": "hash",
+          "type": "int"
+        }
+      ],
+      "type": "messages.EmojiGroups"
+    },
+    {
+      "method": "messages.getEmojiProfilePhotoGroups",
+      "id": "21a548f3",
+      "params": [
+        {
+          "name": "hash",
+          "type": "int"
+        }
+      ],
+      "type": "messages.EmojiGroups"
+    },
+    {
+      "method": "messages.searchCustomEmoji",
+      "id": "2c11c0d7",
+      "params": [
+        {
+          "name": "emoticon",
+          "type": "string"
+        },
+        {
+          "name": "hash",
+          "type": "long"
+        }
+      ],
+      "type": "EmojiList"
+    },
+    {
+      "method": "messages.togglePeerTranslations",
+      "id": "e47cb579",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "disabled",
+          "type": "flags.0?true"
+        },
+        {
+          "name": "peer",
+          "type": "InputPeer"
+        }
+      ],
+      "type": "Bool"
+    },
+    {
       "method": "updates.getState",
       "id": "edd4882a",
       "type": "updates.State"
@@ -25242,7 +25816,7 @@
     },
     {
       "method": "photos.uploadProfilePhoto",
-      "id": "89f30f69",
+      "id": "93c9a51",
       "params": [
         {
           "name": "flags",
@@ -25263,6 +25837,10 @@
         {
           "name": "video_start_ts",
           "type": "flags.2?double"
+        },
+        {
+          "name": "video_emoji_markup",
+          "type": "flags.4?VideoSize"
         }
       ],
       "type": "photos.Photo"
@@ -25303,7 +25881,7 @@
     },
     {
       "method": "photos.uploadContactProfilePhoto",
-      "id": "b91a83bf",
+      "id": "e14c4a71",
       "params": [
         {
           "name": "flags",
@@ -25332,6 +25910,10 @@
         {
           "name": "video_start_ts",
           "type": "flags.2?double"
+        },
+        {
+          "name": "video_emoji_markup",
+          "type": "flags.5?VideoSize"
         }
       ],
       "type": "photos.Photo"
@@ -25852,6 +26434,10 @@
         {
           "name": "for_import",
           "type": "flags.3?true"
+        },
+        {
+          "name": "forum",
+          "type": "flags.5?true"
         },
         {
           "name": "title",

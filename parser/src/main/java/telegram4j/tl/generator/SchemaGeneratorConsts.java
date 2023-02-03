@@ -18,7 +18,7 @@ final class SchemaGeneratorConsts {
     private SchemaGeneratorConsts() {
     }
 
-    public static final int LAYER = 151;
+    public static final int LAYER = 152;
 
     static final Pattern FLAG_PATTERN = Pattern.compile("^(\\w+)\\.(\\d+)\\?(.+)$");
     static final Pattern VECTOR_PATTERN = Pattern.compile("^[vV]ector<%?([\\w.<>]+)>$");

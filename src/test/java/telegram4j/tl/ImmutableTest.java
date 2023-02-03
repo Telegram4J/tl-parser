@@ -41,19 +41,19 @@ class ImmutableTest {
                 .withPeer(InputPeerEmpty.instance());
         // FIXME: expected behavior, but tg servers will return protocol errors
         // Need to find a way to correctly validate these attributes in with* methods
-        assertNull(tr.msgId());
+        assertNull(tr.id());
     }
 
     @Test
     void dualBitInit() {
         assertThrowsExactly(IllegalStateException.class, () -> TranslateText.builder()
-                .msgId(1)
+                .addId(1)
                 // forgot to set .peer() attribute
                 .toLang("en")
                 .build());
         TranslateText.builder()
                 .peer(InputPeerEmpty.instance())
-                .msgId(1)
+                .addId(1)
                 .toLang("en")
                 .build();
     }
