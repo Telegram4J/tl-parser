@@ -4,4 +4,4 @@
 ![Build Status](https://github.com/Telegram4J/tl-parser/actions/workflows/build.yml/badge.svg?branch=master)
 
 Parses schemas in json format and generates classes and interfaces.
-Building this project requires JDK 11.
+Building this project requires JDK 17.

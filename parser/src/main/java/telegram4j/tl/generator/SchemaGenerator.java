@@ -36,7 +36,7 @@ import static telegram4j.tl.generator.SourceNames.parentPackageName;
 import static telegram4j.tl.generator.Strings.camelize;
 import static telegram4j.tl.generator.Strings.screamilize;
 
-@SupportedSourceVersion(SourceVersion.RELEASE_11)
+@SupportedSourceVersion(SourceVersion.RELEASE_17)
 @SupportedAnnotationTypes("telegram4j.tl.generator.GenerateSchema")
 public class SchemaGenerator extends AbstractProcessor {
 
