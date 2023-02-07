@@ -1,5 +1,6 @@
 package telegram4j.tl.generator.renderer;
 
+import reactor.util.annotation.Nullable;
 import telegram4j.tl.generator.Preconditions;
 
 import javax.lang.model.element.TypeParameterElement;
@@ -8,7 +9,7 @@ import java.lang.reflect.Type;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-public class ArrayRef implements TypeRef {
+public final class ArrayRef implements TypeRef {
     public final TypeRef component;
     public final short dimensions;
 
@@ -18,9 +19,7 @@ public class ArrayRef implements TypeRef {
     }
 
     public static ArrayRef of(Type component, short dimensions) {
-        if (component instanceof ArrayRef) {
-            ArrayRef c = (ArrayRef) component;
-
+        if (component instanceof ArrayRef c) {
             dimensions = (short) Math.addExact(c.dimensions, dimensions);
             component = c.component;
         }
@@ -30,16 +29,18 @@ public class ArrayRef implements TypeRef {
     }
 
     @Override
-    public boolean equals(Object o) {
+    public boolean equals(@Nullable Object o) {
         if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        ArrayRef arrayRef = (ArrayRef) o;
-        return dimensions == arrayRef.dimensions && component.equals(arrayRef.component);
+        if (!(o instanceof ArrayRef a)) return false;
+        return dimensions == a.dimensions && component.equals(a.component);
     }
 
     @Override
     public int hashCode() {
-        return component.hashCode() ^ dimensions;
+        int h = 5381;
+        h += (h << 5) + component.hashCode();
+        h += (h << 5) + dimensions;
+        return h;
     }
 
     @Override

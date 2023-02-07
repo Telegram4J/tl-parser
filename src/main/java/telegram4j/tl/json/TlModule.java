@@ -33,6 +33,7 @@ public class TlModule extends Module {
 
     @Override
     public Version version() {
+        // TODO: parse from module descriptor
         return new Version(0, 1, 2, null, null, null);
     }
 
@@ -253,9 +254,9 @@ public class TlModule extends Module {
             }
             // Errors and "plain" IOExceptions to be passed as is
             ClassUtil.throwIfError(t);
-            if (t instanceof IOException) {
+            if (t instanceof IOException e) {
                 // Since we have no more information to add, let's not actually wrap..
-                throw (IOException) t;
+                throw e;
             }
             if (ctxt == null) { // only to please LGTM...
                 throw new IllegalArgumentException(t.getMessage(), t);

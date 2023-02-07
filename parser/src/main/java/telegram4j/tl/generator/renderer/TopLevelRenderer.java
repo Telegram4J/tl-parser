@@ -23,13 +23,9 @@ public class TopLevelRenderer extends BaseClassRenderer<CharSequence> {
     private void addType0(TypeRef type) {
         if (type instanceof PrimitiveTypeRef || type.equals(name)) return;
 
-        if (type instanceof ArrayRef) {
-            ArrayRef a = (ArrayRef) type;
-
+        if (type instanceof ArrayRef a) {
             addType0(a.component);
-        } else if (type instanceof ClassRef) {
-            ClassRef c = (ClassRef) type;
-
+        } else if (type instanceof ClassRef c) {
             String simpleName = c.name;
 
             if (c.name.equals(name.name) && !c.packageName.equals(name.packageName) ||
@@ -43,26 +39,19 @@ public class TopLevelRenderer extends BaseClassRenderer<CharSequence> {
                 // TODO handle collisions via enclosing class name
                 imports.add(c.qualifiedName());
             }
-        } else if (type instanceof ParameterizedTypeRef) {
-            ParameterizedTypeRef p = (ParameterizedTypeRef) type;
-
+        } else if (type instanceof ParameterizedTypeRef p) {
             addType0(p.rawType);
             for (TypeRef typeArgument : p.typeArguments) {
                 addType0(typeArgument);
             }
-        } else if (type instanceof TypeVariableRef) {
-            TypeVariableRef t = (TypeVariableRef) type;
-
+        } else if (type instanceof TypeVariableRef t) {
             for (TypeRef bound : t.bounds) {
                 addType0(bound);
             }
-        } else if (type instanceof WildcardTypeRef) {
-            WildcardTypeRef w = (WildcardTypeRef) type;
+        } else if (type instanceof WildcardTypeRef w) {
             if (w.upperBound != null) addType0(w.upperBound);
             if (w.lowerBound != null) addType0(w.lowerBound);
-        } else if (type instanceof AnnotatedTypeRef) {
-            AnnotatedTypeRef a = (AnnotatedTypeRef) type;
-
+        } else if (type instanceof AnnotatedTypeRef a) {
             addType0(a.type);
             for (TypeRef ann : a.annotations) {
                 addType0(ann);
@@ -79,8 +68,7 @@ public class TopLevelRenderer extends BaseClassRenderer<CharSequence> {
             return;
         }
 
-        if (type instanceof ArrayRef) {
-            ArrayRef a = (ArrayRef) type;
+        if (type instanceof ArrayRef a) {
 
             resolve(out, a.component, false);
 
@@ -89,8 +77,7 @@ public class TopLevelRenderer extends BaseClassRenderer<CharSequence> {
                     : "[]".repeat(a.dimensions);
 
             out.append(arraySuffix);
-        } else if (type instanceof ClassRef) {
-            ClassRef c = (ClassRef) type;
+        } else if (type instanceof ClassRef c) {
             String simpleName = c.name;
 
             if (c.name.equals(name.name) && !c.packageName.equals(name.packageName)) {
@@ -112,8 +99,7 @@ public class TopLevelRenderer extends BaseClassRenderer<CharSequence> {
             }
 
             out.append(simpleName).append(varargsSuffix);
-        } else if (type instanceof ParameterizedTypeRef) {
-            ParameterizedTypeRef p = (ParameterizedTypeRef) type;
+        } else if (type instanceof ParameterizedTypeRef p) {
 
             resolve(out, p.rawType, false);
             if (!p.typeArguments.isEmpty()) {
@@ -129,8 +115,7 @@ public class TopLevelRenderer extends BaseClassRenderer<CharSequence> {
             }
 
             out.append(varargsSuffix);
-        } else if (type instanceof AnnotatedTypeRef) {
-            AnnotatedTypeRef a = (AnnotatedTypeRef) type;
+        } else if (type instanceof AnnotatedTypeRef a) {
 
             for (ClassRef annotation : a.annotations) {
                 out.append('@');
@@ -139,8 +124,7 @@ public class TopLevelRenderer extends BaseClassRenderer<CharSequence> {
             }
 
             resolve(out, a.type, varargs);
-        } else if (type instanceof TypeVariableRef) {
-            TypeVariableRef t = (TypeVariableRef) type;
+        } else if (type instanceof TypeVariableRef t) {
 
             out.append(t.name);
             if (!t.bounds.isEmpty()) {
@@ -158,8 +142,7 @@ public class TopLevelRenderer extends BaseClassRenderer<CharSequence> {
                 }
                 out.append('>');
             }
-        } else if (type instanceof WildcardTypeRef) {
-            WildcardTypeRef w = (WildcardTypeRef) type;
+        } else if (type instanceof WildcardTypeRef w) {
 
             if (w.lowerBound != null) {
                 out.append("? super ");

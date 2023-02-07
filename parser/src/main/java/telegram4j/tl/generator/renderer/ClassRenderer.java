@@ -128,6 +128,11 @@ public class ClassRenderer<P extends BaseClassRenderer<?>> extends BaseClassRend
     }
 
     @Override
+    public ClassRenderer<P> addPermits(Type first, Type... rest) {
+        return (ClassRenderer<P>) super.addPermits(first, rest);
+    }
+
+    @Override
     public ClassRenderer<P> addAttribute(Type type, String name) {
         return (ClassRenderer<P>) super.addAttribute(type, name);
     }

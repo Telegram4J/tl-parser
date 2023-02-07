@@ -10,12 +10,13 @@ import java.util.*;
 
 import static telegram4j.tl.generator.renderer.CompletableRenderer.Stage.*;
 
-public abstract class BaseClassRenderer<P>
+abstract class BaseClassRenderer<P>
         implements CompletableRenderer<P>, AnnotatedRenderer<P> {
-    protected static final Stage BEGIN = new Stage(-2, "BEGIN"),
-            SUPER_TYPE = new Stage(2, "SUPER_TYPE"),
-            INTERFACES = new Stage(3, "INTERFACES"),
-            CONSTANTS = new Stage(4, "CONSTANTS");
+    protected static final Stage BEGIN = mandatory(-2, "BEGIN"),
+            SUPER_TYPE = optional(2, "SUPER_TYPE"),
+            INTERFACES = optional(3, "INTERFACES"),
+            PERMITS = optional(4, "PERMITS"),
+            CONSTANTS = optional(5, "CONSTANTS");
 
     public final ClassRef name;
     public final ClassRenderer.Kind kind;
@@ -88,6 +89,11 @@ public abstract class BaseClassRenderer<P>
             } else if (stage == INTERFACES) { // optional
                 stage = required;
 
+                if (required != PERMITS)
+                    out.incIndent().append(" {")/*.ln()*/;
+            } else if (stage == PERMITS) { // optional
+                stage = required;
+
                 out.incIndent().append(" {")/*.ln()*/;
             } else if (stage == CONSTANTS) {
                 stage = PROCESSING;
@@ -120,14 +126,11 @@ public abstract class BaseClassRenderer<P>
                 c = s.charAt(++i);
 
                 switch (c) {
-                    case 'W': // line wrapping (soft)
-                        out.lw();
-                        break;
-                    case 'B': // force
-                        out.lb();
-                        break;
-                    default:
-                        out.append(c);
+                    // soft line wrapping
+                    case 'W' -> out.lw();
+                    // force line wrapping
+                    case 'B' -> out.lb();
+                    default -> out.append(c);
                 }
             } else {
                 out.append(c);
@@ -175,19 +178,14 @@ public abstract class BaseClassRenderer<P>
 
                 Object o = args[pos];
                 switch (c) {
-                    case 'L':
-                        out.append(o);
-                        break;
-                    case 'S':
-                        appendStringLiteral(out, o);
-                        break;
-                    case 'T':
+                    case 'L' -> out.append(o);
+                    case 'S' -> appendStringLiteral(out, o);
+                    case 'T' -> {
                         Objects.requireNonNull(o);
                         Preconditions.requireArgument(o instanceof Type, () -> "Argument #" + pos + " is not a type: " + o.getClass());
-
                         appendType(out, TypeRef.of((Type) o));
-                        break;
-                    default: throw new IllegalArgumentException();
+                    }
+                    default -> throw new IllegalArgumentException();
                 }
 
                 i = endPos;
@@ -261,12 +259,10 @@ public abstract class BaseClassRenderer<P>
     }
 
     private boolean isFormatControl(char c) {
-        switch (c) {
-            case 'L':
-            case 'S':
-            case 'T': return true;
-            default: return false;
-        }
+        return switch (c) {
+            case 'L', 'S', 'T' -> true;
+            default -> false;
+        };
     }
 
     // public api
@@ -450,6 +446,27 @@ public abstract class BaseClassRenderer<P>
         return this;
     }
 
+    public BaseClassRenderer<P> addPermits(Type first, Type... rest) {
+        Preconditions.requireState(kind != ClassRenderer.Kind.ANNOTATION, "Interface implementing is not allowed in " + kind);
+        if (stage != PERMITS) {
+            requireStage(BEGIN, PERMITS);
+            completeStage(PERMITS);
+
+            out.append(" permits ");
+        } else {
+            out.append(", ").lw();
+        }
+
+        appendType(out, TypeRef.of(first));
+        for (Type value : rest) {
+            TypeRef type = TypeRef.of(value);
+
+            out.append(", ").lw();
+            appendType(out, type);
+        }
+        return this;
+    }
+
     public BaseClassRenderer<P> addAttribute(Type type, String name) {
         Preconditions.requireState(kind == ClassRenderer.Kind.ANNOTATION, "Annotation attributes is not allowed in " + kind);
         if (stage != PROCESSING) {
@@ -574,7 +591,7 @@ public abstract class BaseClassRenderer<P>
         } else if (stage == PROCESSING) {
             out.decIndent();
             out.lno().append('}').ln();
-        } else if (stage == INTERFACES || stage == SUPER_TYPE) {
+        } else if (stage == INTERFACES || stage == PERMITS || stage == SUPER_TYPE) {
             out.append(" {}").ln();
         }
     }

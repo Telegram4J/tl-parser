@@ -51,46 +51,6 @@ final class SchemaGeneratorConsts {
         }
 
         static {
-            addPredicate("PtsUpdate",
-                    "UpdateDeleteMessages",
-                    "UpdateDeleteChannelMessages",
-                    "UpdateNewChannelMessage",
-                    "UpdateNewMessage",
-                    "UpdatePinnedMessages",
-                    "UpdatePinnedChannelMessages",
-                    "UpdateReadHistoryOutbox",
-                    "UpdateWebPage",
-                    "UpdateReadMessagesContents",
-                    "UpdateChannelWebPage",
-                    "UpdateFolderPeers");
-
-            addPredicate("BaseDocumentFields", "BaseDocument",
-                    "BaseWebDocument",
-                    "WebDocumentNoProxy");
-
-            addPredicate("QtsUpdate", "UpdateNewEncryptedMessage",
-                    "UpdateMessagePollVote",
-                    "UpdateChatParticipant",
-                    "UpdateChannelParticipant",
-                    "UpdateBotStopped");
-
-            addPredicate("UpdateDeleteMessagesFields", "UpdateDeleteScheduledMessages",
-                    "UpdateDeleteMessages",
-                    "UpdateDeleteChannelMessages");
-
-            addPredicate("BaseMessageFields", "MessageService", "BaseMessage");
-
-            addPredicate("request.messages.BaseSendMessageRequest", "SendMedia", "SendMessage");
-
-            addPredicate("UpdateNewMessageFields", "UpdateNewMessage",
-                    "UpdateNewChannelMessage",
-                    "UpdateNewScheduledMessage");
-
-            addPredicate("UpdatePinnedMessagesFields", "UpdatePinnedMessages", "UpdatePinnedChannelMessages");
-
-            addPredicate("ChatPhotoFields", "BaseChatPhoto", "BaseUserProfilePhoto");
-
-            addPredicate("UpdateEditMessageFields", "UpdateEditMessage", "UpdateEditChannelMessage");
 
             addPredicate("api.RpcMethod", "MsgDetailedInfo",
                     "MsgResendReq",

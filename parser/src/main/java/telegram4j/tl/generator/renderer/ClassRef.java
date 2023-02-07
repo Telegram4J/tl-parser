@@ -8,7 +8,7 @@ import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.SimpleElementVisitor9;
 
-public class ClassRef implements TypeRef {
+public final class ClassRef implements TypeRef {
     public static final ClassRef BOOLEAN = create("Boolean");
     public static final ClassRef BYTE = create("Byte");
     public static final ClassRef CHARACTER = create("Character");
@@ -127,18 +127,18 @@ public class ClassRef implements TypeRef {
     public PrimitiveTypeRef unbox() {
         Preconditions.requireState(packageName.equals("java.lang"), "Package name must be 'java.lang'");
 
-        switch (name) {
-            case "Boolean": return PrimitiveTypeRef.BOOLEAN;
-            case "Byte": return PrimitiveTypeRef.BYTE;
-            case "Character": return PrimitiveTypeRef.CHAR;
-            case "Double": return PrimitiveTypeRef.DOUBLE;
-            case "Float": return PrimitiveTypeRef.FLOAT;
-            case "Integer": return PrimitiveTypeRef.INT;
-            case "Long": return PrimitiveTypeRef.LONG;
-            case "Short": return PrimitiveTypeRef.SHORT;
-            case "Void": return PrimitiveTypeRef.VOID;
-            default: throw new IllegalStateException("Unexpected value: '" + name + "'");
-        }
+        return switch (name) {
+            case "Boolean" -> PrimitiveTypeRef.BOOLEAN;
+            case "Byte" -> PrimitiveTypeRef.BYTE;
+            case "Character" -> PrimitiveTypeRef.CHAR;
+            case "Double" -> PrimitiveTypeRef.DOUBLE;
+            case "Float" -> PrimitiveTypeRef.FLOAT;
+            case "Integer" -> PrimitiveTypeRef.INT;
+            case "Long" -> PrimitiveTypeRef.LONG;
+            case "Short" -> PrimitiveTypeRef.SHORT;
+            case "Void" -> PrimitiveTypeRef.VOID;
+            default -> throw new IllegalStateException("Unexpected value: '" + name + "'");
+        };
     }
 
     public ClassRef peer(String name) {
@@ -185,9 +185,8 @@ public class ClassRef implements TypeRef {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        ClassRef classRef = (ClassRef) o;
-        return qualifiedName().equals(classRef.qualifiedName());
+        if (!(o instanceof ClassRef c)) return false;
+        return qualifiedName().equals(c.qualifiedName());
     }
 
     @Override

@@ -7,18 +7,28 @@ public interface CompletableRenderer<P> {
     P complete();
 
     class Stage implements Comparable<Stage> {
-        public static final Stage ANNOTATIONS = new Stage(-1, "ANNOTATIONS");
-        public static final Stage MODIFIERS = new Stage(0, "MODIFIERS");
-        public static final Stage TYPE_VARIABLES = new Stage(1, "TYPE_VARIABLES");
-        public static final Stage PROCESSING = new Stage(Integer.MAX_VALUE - 1, "PROCESSING");
-        public static final Stage COMPLETE = new Stage(Integer.MAX_VALUE, "COMPLETE");
+        public static final Stage ANNOTATIONS = mandatory(-1, "ANNOTATIONS");
+        public static final Stage MODIFIERS = mandatory(0, "MODIFIERS");
+        public static final Stage TYPE_VARIABLES = mandatory(1, "TYPE_VARIABLES");
+        public static final Stage PROCESSING = mandatory(Integer.MAX_VALUE - 1, "PROCESSING");
+        public static final Stage COMPLETE = mandatory(Integer.MAX_VALUE, "COMPLETE");
 
         public final int index;
         public final String name;
+        public final boolean optional;
 
-        public Stage(int index, String name) {
+        Stage(int index, String name, boolean optional) {
             this.index = index;
             this.name = name;
+            this.optional = optional;
+        }
+
+        public static Stage optional(int index, String name) {
+            return new Stage(index, name, true);
+        }
+
+        public static Stage mandatory(int index, String name) {
+            return new Stage(index, name, false);
         }
 
         @Override

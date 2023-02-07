@@ -41,17 +41,17 @@ class RenderUtils {
         var visitor = new SimpleTypeVisitor9<TypeRef, Void>() {
             @Override
             public TypeRef visitPrimitive(PrimitiveType t, Void p) {
-                switch (t.getKind()) {
-                    case BOOLEAN: return PrimitiveTypeRef.BOOLEAN;
-                    case BYTE: return PrimitiveTypeRef.BYTE;
-                    case SHORT: return PrimitiveTypeRef.SHORT;
-                    case INT: return PrimitiveTypeRef.INT;
-                    case LONG: return PrimitiveTypeRef.LONG;
-                    case CHAR: return PrimitiveTypeRef.CHAR;
-                    case FLOAT: return PrimitiveTypeRef.FLOAT;
-                    case DOUBLE: return PrimitiveTypeRef.DOUBLE;
-                    default: throw new IllegalStateException();
-                }
+                return switch (t.getKind()) {
+                    case BOOLEAN -> PrimitiveTypeRef.BOOLEAN;
+                    case BYTE -> PrimitiveTypeRef.BYTE;
+                    case SHORT -> PrimitiveTypeRef.SHORT;
+                    case INT -> PrimitiveTypeRef.INT;
+                    case LONG -> PrimitiveTypeRef.LONG;
+                    case CHAR -> PrimitiveTypeRef.CHAR;
+                    case FLOAT -> PrimitiveTypeRef.FLOAT;
+                    case DOUBLE -> PrimitiveTypeRef.DOUBLE;
+                    default -> throw new IllegalStateException();
+                };
             }
 
             @Override

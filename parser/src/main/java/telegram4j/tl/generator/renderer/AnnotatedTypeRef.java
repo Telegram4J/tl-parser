@@ -11,7 +11,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class AnnotatedTypeRef implements TypeRef {
+public final class AnnotatedTypeRef implements TypeRef {
 
     public final TypeRef type;
     public final List<ClassRef> annotations;
@@ -31,8 +31,7 @@ public class AnnotatedTypeRef implements TypeRef {
 
     public static AnnotatedTypeRef create(Type type, Collection<Class<? extends Annotation>> annotations) {
         Objects.requireNonNull(type);
-        if (type instanceof AnnotatedTypeRef) {
-            AnnotatedTypeRef c = (AnnotatedTypeRef) type;
+        if (type instanceof AnnotatedTypeRef c) {
 
             return new AnnotatedTypeRef(c.type, Stream.concat(c.annotations.stream(), annotations.stream()
                             .map(ClassRef::of))

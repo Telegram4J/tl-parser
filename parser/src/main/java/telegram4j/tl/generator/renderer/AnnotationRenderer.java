@@ -1,8 +1,10 @@
 package telegram4j.tl.generator.renderer;
 
+import static telegram4j.tl.generator.renderer.CompletableRenderer.Stage.mandatory;
+
 public class AnnotationRenderer implements CompletableRenderer<CharSequence> {
-    private static final Stage BEGIN = new Stage(0, "BEGIN");
-    private static final Stage VALUE_ATTRIBUTE = new Stage(-1, "VALUE_ATTRIBUTE");
+    private static final Stage BEGIN = mandatory(0, "BEGIN");
+    private static final Stage VALUE_ATTRIBUTE = mandatory(-1, "VALUE_ATTRIBUTE");
 
     private final BaseClassRenderer<?> parent;
     private final CharSink out;

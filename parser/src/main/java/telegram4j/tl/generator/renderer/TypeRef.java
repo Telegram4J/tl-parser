@@ -5,7 +5,9 @@ import java.lang.reflect.Type;
 import java.util.Locale;
 import java.util.Objects;
 
-public interface TypeRef extends Type {
+public sealed interface TypeRef extends Type
+        permits AnnotatedTypeRef, ArrayRef, ClassRef, ParameterizedTypeRef,
+                PrimitiveTypeRef, TypeVariableRef, WildcardTypeRef {
 
     default TypeRef safeBox() {
         return this;
@@ -21,11 +23,9 @@ public interface TypeRef extends Type {
 
     static TypeRef of(Type type) {
         Objects.requireNonNull(type);
-        if (type instanceof TypeRef) {
-            return (TypeRef) type;
-        } else if (type instanceof Class) {
-            Class<?> klass = (Class<?>) type;
-
+        if (type instanceof TypeRef t) {
+            return t;
+        } else if (type instanceof Class<?> klass) {
             if (klass.isArray()) {
                 Class<?> cl = klass;
                 short dimensions = 0;

@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 
-public class WildcardTypeRef implements TypeRef {
+public final class WildcardTypeRef implements TypeRef {
     private static final WildcardTypeRef NONE = new WildcardTypeRef(null, null);
 
     @Nullable
@@ -82,16 +82,15 @@ public class WildcardTypeRef implements TypeRef {
     }
 
     @Override
-    public int hashCode() {
-        return Objects.hash(upperBound, lowerBound);
+    public boolean equals(@Nullable Object o) {
+        if (this == o) return true;
+        if (!(o instanceof WildcardTypeRef w)) return false;
+        return Objects.equals(upperBound, w.upperBound) && Objects.equals(lowerBound, w.lowerBound);
     }
 
     @Override
-    public boolean equals(@Nullable Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        WildcardTypeRef that = (WildcardTypeRef) o;
-        return Objects.equals(upperBound, that.upperBound) && Objects.equals(lowerBound, that.lowerBound);
+    public int hashCode() {
+        return Objects.hashCode(upperBound) + Objects.hashCode(lowerBound);
     }
 
     @Override

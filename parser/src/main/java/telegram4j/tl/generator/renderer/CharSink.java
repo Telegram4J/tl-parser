@@ -146,7 +146,7 @@ public class CharSink {
     }
 
     public CharSink append(CharSequence str) {
-        if (str.length() == 0) {
+        if (str.isEmpty()) {
             return this;
         }
 

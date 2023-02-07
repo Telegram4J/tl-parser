@@ -13,9 +13,9 @@ public class ExecutableRenderer<P extends BaseClassRenderer<?>>
         extends BaseCompletableRenderer<P>
         implements CodeRenderer<P>, AnnotatedRenderer<P> {
 
-    protected static final Stage PARAMETERS = new Stage(2, "PARAMETERS"),
-            EXCEPTIONS = new Stage(3, "EXCEPTIONS"),
-            BODY = new Stage(4, "BODY");
+    protected static final Stage PARAMETERS = optional(2, "PARAMETERS"),
+            EXCEPTIONS = optional(3, "EXCEPTIONS"),
+            BODY = optional(4, "BODY");
 
     protected final String name;
 

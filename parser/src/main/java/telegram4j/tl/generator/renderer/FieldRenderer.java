@@ -2,17 +2,18 @@ package telegram4j.tl.generator.renderer;
 
 import javax.lang.model.element.Modifier;
 import java.lang.annotation.Annotation;
-import java.lang.reflect.Type;
-import java.util.*;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Objects;
 
-import static telegram4j.tl.generator.renderer.CompletableRenderer.Stage.ANNOTATIONS;
-import static telegram4j.tl.generator.renderer.CompletableRenderer.Stage.MODIFIERS;
+import static telegram4j.tl.generator.renderer.CompletableRenderer.Stage.*;
 
 public class FieldRenderer<P extends BaseClassRenderer<?>>
         extends BaseCompletableRenderer<P>
         implements SeparableRenderer<P>, AnnotatedRenderer<P> {
 
-    private static final Stage INITIALIZER = new Stage(1, "INITIALIZER");
+    private static final Stage INITIALIZER = optional(1, "INITIALIZER");
 
     protected final TypeRef type;
     protected final String name;
@@ -84,10 +85,9 @@ public class FieldRenderer<P extends BaseClassRenderer<?>>
 
     @Override
     public <T extends CompletableRenderer<?>> boolean separate(T child) {
-        if (!(child instanceof FieldRenderer)) {
+        if (!(child instanceof FieldRenderer<?> f)) {
             return true;
         }
-        FieldRenderer<?> f = (FieldRenderer<?>) child;
         return !modifiers.equals(f.modifiers);
     }
 

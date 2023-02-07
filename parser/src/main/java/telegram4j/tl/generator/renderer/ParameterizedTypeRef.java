@@ -1,5 +1,7 @@
 package telegram4j.tl.generator.renderer;
 
+import reactor.util.annotation.Nullable;
+
 import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.Collection;
@@ -7,7 +9,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-public class ParameterizedTypeRef implements TypeRef {
+public final class ParameterizedTypeRef implements TypeRef {
     public final ClassRef rawType;
     public final List<TypeRef> typeArguments;
 
@@ -52,16 +54,18 @@ public class ParameterizedTypeRef implements TypeRef {
     }
 
     @Override
-    public boolean equals(Object o) {
+    public boolean equals(@Nullable Object o) {
         if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        ParameterizedTypeRef that = (ParameterizedTypeRef) o;
-        return rawType.equals(that.rawType) && typeArguments.equals(that.typeArguments);
+        if (!(o instanceof ParameterizedTypeRef p)) return false;
+        return rawType.equals(p.rawType) && typeArguments.equals(p.typeArguments);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(rawType, typeArguments);
+        int h = 5381;
+        h += (h << 5) + rawType.hashCode();
+        h += (h << 5) + typeArguments.hashCode();
+        return h;
     }
 
     @Override

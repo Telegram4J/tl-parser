@@ -236,9 +236,8 @@ class ImmutableGenerator {
         var copyOf = renderer.addMethod(type.immutableType, "copyOf", Modifier.PUBLIC, Modifier.STATIC)
                 .addTypeVariables(type.typeVars)
                 .addParameter(type.baseType, "instance")
-                .beginControlFlow("if (instance instanceof $T) {", type.immutableType.withTypeArguments(
-                        Collections.nCopies(type.typeVars.size(), WildcardTypeRef.none())))
-                .addStatement("return ($T) instance", type.immutableType)
+                .beginControlFlow("if (instance instanceof $T c) {", type.immutableType)
+                .addStatement("return c")
                 .endControlFlow();
 
         if (!type.typeVars.isEmpty()) {
@@ -313,15 +312,14 @@ class ImmutableGenerator {
 
         // region object methods
 
-        var unknownTypeParams = type.baseType.withTypeArguments(
-                Collections.nCopies(type.typeVars.size(), WildcardTypeRef.none()));
-        var equals0 = renderer.addMethod(boolean.class, "equals")
+        var equals = renderer.addMethod(boolean.class, "equals")
                 .addAnnotation(Override.class)
                 .addModifiers(Modifier.PUBLIC)
                 .addParameter(ClassRef.OBJECT, "o")
                 .addStatement("if (this == o) return true")
-                .addStatement("if (!(o instanceof $T)) return false", unknownTypeParams)
-                .addStatement("$1T $2L = ($1T) o", unknownTypeParams, type.equalsName)
+                .addStatement("if (!(o instanceof $T $L)) return false", type.baseType.withTypeArguments(
+                        Collections.nCopies(type.typeVars.size(), WildcardTypeRef.none())),
+                        type.equalsName)
                 .addCode("return ID == $L.identifier() &&", type.equalsName)
                 .incIndent(2).ln();
 
@@ -347,17 +345,17 @@ class ImmutableGenerator {
 
             TypeRef unwrapped = unboxOptional(a, type);
             if (a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
-                equals0.addCode("$T.equals($2L(), $3L.$2L())", OBJECTS, a.name, type.equalsName);
+                equals.addCode("$T.equals($2L(), $3L.$2L())", OBJECTS, a.name, type.equalsName);
             } else if (unwrapped == PrimitiveTypeRef.DOUBLE) {
-                equals0.addCode("Double.doubleToLongBits($1L) == Double.doubleToLongBits($2L.$1L())", a.name, type.equalsName);
+                equals.addCode("Double.doubleToLongBits($1L) == Double.doubleToLongBits($2L.$1L())", a.name, type.equalsName);
             } else if (unwrapped instanceof PrimitiveTypeRef) {
-                equals0.addCode("$1L == $2L.$1L()", a.name, type.equalsName);
+                equals.addCode("$1L == $2L.$1L()", a.name, type.equalsName);
             } else {
-                equals0.addCode("$1L.equals($2L.$1L())", a.name, type.equalsName);
+                equals.addCode("$1L.equals($2L.$1L())", a.name, type.equalsName);
             }
 
             if (i != n - 1) {
-                equals0.addCode(" &&").ln();
+                equals.addCode(" &&").ln();
             }
         }
 
@@ -453,7 +451,7 @@ class ImmutableGenerator {
         }
         toString.decIndent(2);
 
-        equals0.decIndent(2).addCode(';').complete();
+        equals.decIndent(2).addCode(';').complete();
         hashCode.complete();
         toString.complete();
 
@@ -628,8 +626,7 @@ class ImmutableGenerator {
                         .addStatement("from((Object) instance)")
                         .addStatement("return this"));
 
-                from.beginControlFlow("if (instance instanceof $T) {", e.getKey());
-                from.addStatement("$1T c = ($1T) instance", e.getKey());
+                from.beginControlFlow("if (instance instanceof $T c) {", e.getKey());
 
                 for (String s : e.getValue()) {
                     Integer mask = commonMethods.get(s);
@@ -1238,10 +1235,8 @@ class ImmutableGenerator {
     }
 
     static TypeRef unwrap(TypeRef type, TypeRef pred) {
-        ParameterizedTypeRef p;
-        return type instanceof ParameterizedTypeRef &&
-                !(p = (ParameterizedTypeRef) type).typeArguments.isEmpty() &&
-                p.rawType.equals(pred)
+        return type instanceof ParameterizedTypeRef p &&
+                !p.typeArguments.isEmpty() && p.rawType.equals(pred)
                 ? p.typeArguments.get(0)
                 : type;
     }

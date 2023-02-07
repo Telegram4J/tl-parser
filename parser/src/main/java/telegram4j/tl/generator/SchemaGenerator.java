@@ -75,7 +75,7 @@ public class SchemaGenerator extends AbstractProcessor {
             ParameterizedTypeRef.of(Class.class, WildcardTypeRef.subtypeOf(TL_OBJECT)), "typeOf")
             .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
             .addParameter(int.class, "id")
-            .beginControlFlow("switch (id) {");
+            .beginControlFlow("return switch (id) {");
 
     private final TopLevelRenderer serializer = ClassRenderer.create(ClassRef.of(BASE_PACKAGE, "TlSerializer"), ClassRenderer.Kind.CLASS)
             .addStaticImport(BASE_PACKAGE + ".TlSerialUtil.*")
@@ -86,7 +86,7 @@ public class SchemaGenerator extends AbstractProcessor {
     private final MethodRenderer<TopLevelRenderer> sizeOfMethod = serializer.addMethod(int.class, "sizeOf")
             .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
             .addParameter(TL_OBJECT, "payload")
-            .beginControlFlow("switch (payload.identifier()) {");
+            .beginControlFlow("return switch (payload.identifier()) {");
 
     private final MethodRenderer<TopLevelRenderer> serializeMethod = serializer.addMethod(BYTE_BUF, "serialize")
             .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
@@ -105,11 +105,11 @@ public class SchemaGenerator extends AbstractProcessor {
             .addTypeVariables(genericTypeRef)
             .addParameter(BYTE_BUF, "payload")
             .addStatement("int identifier = payload.readIntLE()")
-            .beginControlFlow("switch (identifier) {")
+            .beginControlFlow("return (T) switch (identifier) {")
             // *basic* types
-            .addStatement("case BOOL_TRUE_ID: return (T) Boolean.TRUE")
-            .addStatement("case BOOL_FALSE_ID: return (T) Boolean.FALSE")
-            .addStatement("case VECTOR_ID: return (T) deserializeUnknownVector(payload)");
+            .addStatement("case BOOL_TRUE_ID -> Boolean.TRUE")
+            .addStatement("case BOOL_FALSE_ID -> Boolean.FALSE")
+            .addStatement("case VECTOR_ID -> deserializeUnknownVector(payload)");
 
     @Override
     public synchronized void init(ProcessingEnvironment processingEnv) {
@@ -164,7 +164,7 @@ public class SchemaGenerator extends AbstractProcessor {
         }
 
         switch (iteration) {
-            case 0: {
+            case 0 -> {
                 generateInfo();
 
                 var t = schemas.get(schemaIteration);
@@ -173,17 +173,16 @@ public class SchemaGenerator extends AbstractProcessor {
 
                 currTypeTree = typeTree.get(schema);
                 iteration++;
-                break;
             }
-            case 1:
+            case 1 -> {
                 generateSuperTypes();
                 iteration++;
-                break;
-            case 2:
+            }
+            case 2 -> {
                 generateConstructors();
                 iteration++;
-                break;
-            case 3:
+            }
+            case 3 -> {
                 generateMethods();
                 if (++schemaIteration >= schemas.size()) {
                     iteration = 4;
@@ -195,11 +194,11 @@ public class SchemaGenerator extends AbstractProcessor {
                     currTypeTree = typeTree.get(schema);
                     iteration = 1;
                 }
-                break;
-            case 4:
+            }
+            case 4 -> {
                 generateSerialization();
                 iteration++; // end
-                break;
+            }
         }
 
         return true;
@@ -209,33 +208,46 @@ public class SchemaGenerator extends AbstractProcessor {
 
         for (int i = 0; i < emptyObjectsIds.size(); i++) {
             String id = emptyObjectsIds.get(i);
-            if (i + 1 == emptyObjectsIds.size()) {
-                serializeMethod.addStatement("case 0x$L: return buf.writeIntLE(payload.identifier())", id);
-                sizeOfMethod.addStatement("case 0x$L: return 4", id);
+
+            if (i == 0) {
+                serializeMethod.addCode("case ");
+                sizeOfMethod.addCode("case ");
+            }
+            serializeMethod.addCode("0x" + id);
+            sizeOfMethod.addCode("0x" + id);
+            if (i + 1 < emptyObjectsIds.size()) {
+                serializeMethod.addCodeFormatted(",$W ");
+                sizeOfMethod.addCodeFormatted(",$W ");
             } else {
-                sizeOfMethod.addCode("case 0x$L:", id).ln();
-                serializeMethod.addCode("case 0x$L:", id).ln();
+                serializeMethod.addCode(" -> buf.writeIntLE(payload.identifier());").ln();
+                sizeOfMethod.addCode(" -> 4;").ln();
             }
         }
 
         for (var e : sizeOfGroups.entrySet()) {
+            int i = 0;
             for (var it = e.getValue().iterator(); it.hasNext(); ) {
                 String s = it.next();
-                if (!it.hasNext()) {
-                    sizeOfMethod.addStatement("case 0x$L: return $L", s, e.getKey());
-                } else {
-                    sizeOfMethod.addCode("case 0x$L:", s).ln();
+                if (i == 0) {
+                    sizeOfMethod.addCode("case ");
                 }
+                sizeOfMethod.addCode("0x" + s);
+                if (!it.hasNext()) {
+                    sizeOfMethod.addCode(" -> $L;", e.getKey()).ln();
+                } else {
+                    sizeOfMethod.addCodeFormatted(",$W ");
+                }
+                i++;
             }
         }
 
-        // oh
-        sizeOfMethod.addStatement("default: throw new IllegalArgumentException($S + Integer.toHexString(payload.identifier()) + $S + payload)",
+        sizeOfMethod.addStatement("default -> throw new IllegalArgumentException($S + Integer.toHexString(payload.identifier()) + $S + payload)",
                 "Incorrect TlObject identifier: 0x", ", payload: ");
-        sizeOfMethod.endControlFlow();
-        serializeMethod.addStatement("default: throw new IllegalArgumentException($S + Integer.toHexString(payload.identifier()) + $S + payload)",
+        sizeOfMethod.endControlFlow("};");
+        serializeMethod.addStatement("default -> throw new IllegalArgumentException($S + Integer.toHexString(payload.identifier()) + $S + payload)",
                 "Incorrect TlObject identifier: 0x", ", payload: ");
         serializeMethod.endControlFlow();
+        serializeMethod.addStatement("return buf");
 
         sizeOfMethod.complete();
 
@@ -252,17 +264,18 @@ public class SchemaGenerator extends AbstractProcessor {
 
         fileService.writeTo(serializer);
 
-        deserializeMethod.addStatement("default: throw new IllegalArgumentException($S + Integer.toHexString(identifier))",
+        deserializeMethod.addStatement("default -> throw new IllegalArgumentException($S + Integer.toHexString(identifier))",
                 "Incorrect TlObject identifier: 0x");
-        deserializeMethod.endControlFlow();
+        deserializeMethod.endControlFlow("};");
         deserializeMethod.complete();
 
         fileService.writeTo(deserializer);
 
         tlInfo.addConstructor(Modifier.PRIVATE).complete();
 
-        tlTypeOf.addStatement("default: throw new IllegalArgumentException($S + id)", "Incorrect TlObject identifier: 0x");
-        tlTypeOf.endControlFlow();
+        tlTypeOf.addStatement("default -> throw new IllegalArgumentException($S + Integer.toHexString(id))",
+                "Incorrect TlObject identifier: 0x");
+        tlTypeOf.endControlFlow("};");
         tlTypeOf.complete();
 
         fileService.writeTo(tlInfo);
@@ -304,9 +317,11 @@ public class SchemaGenerator extends AbstractProcessor {
 
             renderer.addInterface(returnType);
 
-            renderer.addField(int.class, "ID", Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
-                    .initializer("0x" + method.id)
-                    .complete();
+            var idConst = renderer.addField(int.class, "ID");
+            if (isEmptyMethod) {
+                idConst.addModifiers(Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL);
+            }
+            idConst.initializer("0x" + method.id).complete();
 
             boolean singleton = true;
             for (Parameter p : method.parameters) {
@@ -324,7 +339,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
             if (!isEmptyMethod) {
                 var builder = renderer.addMethod(immutableBuilderType, "builder")
-                        .addModifiers(Modifier.PUBLIC, Modifier.STATIC);
+                        .addModifiers(Modifier.STATIC);
 
                 if (generic) {
                     builder.addTypeVariables(genericResultTypeRef, genericTypeRef.withBounds(wildcardMethodType));
@@ -378,10 +393,10 @@ public class SchemaGenerator extends AbstractProcessor {
                 String serializeMethodName = uniqueMethodName("serialize", name, () ->
                         camelize(parentPackageName(method.name.rawType)), computedSerializers);
 
-                serializeMethod.addStatement("case 0x$L: return $L(buf, ($T) payload)",
+                serializeMethod.addStatement("case 0x$L -> $L(buf, ($T) payload)",
                         method.id, serializeMethodName, payloadType);
 
-                var methodSerializer = serializer.addMethod(BYTE_BUF, serializeMethodName)
+                var methodSerializer = serializer.addMethod(PrimitiveTypeRef.VOID, serializeMethodName)
                         .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
                         .addParameter(BYTE_BUF, "buf")
                         .addParameter(payloadType, "payload")
@@ -428,7 +443,6 @@ public class SchemaGenerator extends AbstractProcessor {
                     }
                 }
 
-                methodSerializer.addStatement("return buf");
                 methodSerializer.complete();
 
                 if (sizes.length() != 0) {
@@ -437,8 +451,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     String sizeOfMethodName = uniqueMethodName("sizeOf", name, () ->
                             camelize(parentPackageName(method.name.rawType)), computedSizeOfs);
 
-                    sizeOfMethod.addCode("case 0x$L: return $L(($T) payload);\n",
-                            method.id, sizeOfMethodName, payloadType);
+                    sizeOfMethod.addStatement("case 0x$L -> $L(($T) payload)", method.id, sizeOfMethodName, payloadType);
 
                     serializer.addMethod(int.class, sizeOfMethodName)
                             .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
@@ -453,7 +466,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
             fileService.writeTo(renderer);
 
-            tlTypeOf.addStatement("case 0x$L: return $T.class", method.id, renderer.name);
+            tlTypeOf.addStatement("case 0x$L -> $T.class", method.id, renderer.name);
 
             if (isEmptyMethod) {
                 continue;
@@ -504,6 +517,8 @@ public class SchemaGenerator extends AbstractProcessor {
 
             if (isEmptyObject) {
                 renderer.addModifiers(Modifier.FINAL);
+            } else if (multiple) {
+                renderer.addModifiers(Modifier.NON_SEALED);
             }
 
             var interfaces = additionalSuperTypes(name);
@@ -514,9 +529,11 @@ public class SchemaGenerator extends AbstractProcessor {
 
             renderer.addInterface(superType);
 
-            renderer.addField(int.class, "ID", Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
-                    .initializer("0x" + constructor.id)
-                    .complete();
+            var idConst = renderer.addField(int.class, "ID");
+            if (isEmptyObject) {
+                idConst.addModifiers(Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL);
+            }
+            idConst.initializer("0x" + constructor.id).complete();
 
             boolean singleton = true;
             // if true then will be generated simplified deserialization
@@ -535,7 +552,7 @@ public class SchemaGenerator extends AbstractProcessor {
             }
 
             if (!isEmptyObject) {
-                renderer.addMethod(immutableType.nested("Builder"), "builder", Modifier.PUBLIC, Modifier.STATIC)
+                renderer.addMethod(immutableType.nested("Builder"), "builder", Modifier.STATIC)
                         .addStatement("return Immutable$L.builder()", name)
                         .complete();
             } else {
@@ -562,7 +579,7 @@ public class SchemaGenerator extends AbstractProcessor {
             identifierMethod.complete();
 
             if (isEmptyObject) {
-                deserializeMethod.addStatement("case 0x$L: return (T) $T.instance()", constructor.id, renderer.name);
+                deserializeMethod.addStatement("case 0x$L -> $T.instance()", constructor.id, renderer.name);
 
                 emptyObjectsIds.add(constructor.id);
 
@@ -584,10 +601,10 @@ public class SchemaGenerator extends AbstractProcessor {
                 String deserializeMethodName = uniqueMethodName("deserialize", name, () ->
                         camelize(parentPackageName(constructor.name.rawType)), computedDeserializers);
 
-                serializeMethod.addStatement("case 0x$L: return $L(buf, ($T) payload)",
+                serializeMethod.addStatement("case 0x$L -> $L(buf, ($T) payload)",
                         constructor.id, serializeMethodName, renderer.name);
 
-                deserializeMethod.addStatement("case 0x$L: return (T) $L(payload)",
+                deserializeMethod.addStatement("case 0x$L -> $L(payload)",
                         constructor.id, deserializeMethodName);
 
                 var typeDeserializer = deserializer.addMethod(immutableType, deserializeMethodName,
@@ -610,7 +627,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
                 typeDeserializer.addCode("return $T.builder()", immutableType).incIndent().ln();
 
-                var typeSerializer = serializer.addMethod(BYTE_BUF, serializeMethodName,
+                var typeSerializer = serializer.addMethod(PrimitiveTypeRef.VOID, serializeMethodName,
                                 Modifier.PRIVATE, Modifier.STATIC)
                         .addParameter(BYTE_BUF, "buf")
                         .addParameter(renderer.name, "payload")
@@ -674,7 +691,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     typeDeserializer.ln();
                 }
 
-                typeSerializer.addStatement("return buf").complete();
+                typeSerializer.complete();
                 typeDeserializer.addStatement(".build()").decIndent().complete();
 
                 if (sizes.length() != 0) {
@@ -683,7 +700,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     String sizeOfMethodName = uniqueMethodName("sizeOf", name, () ->
                             camelize(parentPackageName(constructor.name.rawType)), computedSizeOfs);
 
-                    sizeOfMethod.addStatement("case 0x$L: return $L(($T) payload)",
+                    sizeOfMethod.addStatement("case 0x$L -> $L(($T) payload)",
                             constructor.id, sizeOfMethodName, renderer.name);
 
                     serializer.addMethod(int.class, sizeOfMethodName, Modifier.PRIVATE, Modifier.STATIC)
@@ -698,7 +715,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
             fileService.writeTo(renderer);
 
-            tlTypeOf.addStatement("case 0x$L: return $T.class", constructor.id, renderer.name);
+            tlTypeOf.addStatement("case 0x$L -> $T.class", constructor.id, renderer.name);
 
             if (isEmptyObject)
                 continue;
@@ -836,6 +853,10 @@ public class SchemaGenerator extends AbstractProcessor {
                     ? ClassRenderer.Kind.ENUM : ClassRenderer.Kind.INTERFACE);
 
             renderer.addModifiers(Modifier.PUBLIC);
+            if (!canMakeEnum) {
+                renderer.addModifiers(Modifier.SEALED);
+            }
+
             renderer.addInterface(config.superType != null ? config.superType : TL_OBJECT);
 
             if (canMakeEnum) {
@@ -848,12 +869,18 @@ public class SchemaGenerator extends AbstractProcessor {
                 for (int i = 0; i < types.size(); i++) {
                     Type constructor = types.get(i);
 
-                    if (i + 1 == types.size()) {
-                        deserializeMethod.addStatement("case 0x$L: return (T) $T.of(identifier)", constructor.id, className);
-                        tlTypeOf.addStatement("case 0x$L: return $T.class", constructor.id, className);
+                    if (i == 0) {
+                        deserializeMethod.addCode("case ");
+                        tlTypeOf.addCode("case ");
+                    }
+                    deserializeMethod.addCode("0x$L", constructor.id);
+                    tlTypeOf.addCode("0x$L", constructor.id);
+                    if (i + 1 < types.size()) {
+                        tlTypeOf.addCodeFormatted(",$W ");
+                        deserializeMethod.addCodeFormatted(",$W ");
                     } else {
-                        deserializeMethod.addCode("case 0x$L:", constructor.id).ln();
-                        tlTypeOf.addCode("case 0x$L:", constructor.id).ln();
+                        tlTypeOf.addCode(" -> $T.class;", className).ln();
+                        deserializeMethod.addCode(" -> $T.of(identifier);", className).ln();
                     }
 
                     String subtypeName = constructor.name.normalized();
@@ -861,7 +888,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
                     renderer.addConstant(constName, "0x" + constructor.id);
 
-                    ofMethodCode.addStatement("case 0x$L: return $L", constructor.id, constName);
+                    ofMethodCode.addStatement("case 0x$L -> $L", constructor.id, constName);
 
                     emptyObjectsIds.add(constructor.id);
                 }
@@ -881,13 +908,20 @@ public class SchemaGenerator extends AbstractProcessor {
 
                 renderer.addMethod(className, "of", Modifier.PUBLIC, Modifier.STATIC)
                         .addParameter(int.class, "identifier")
-                        .beginControlFlow("switch (identifier) {")
+                        .beginControlFlow("return switch (identifier) {")
                         .addCode(ofMethodCode.complete())
-                        .addStatement("default: throw new IllegalArgumentException($S + Integer.toHexString(identifier))",
+                        .addStatement("default -> throw new IllegalArgumentException($S + Integer.toHexString(identifier))",
                                 "Incorrect type identifier: 0x")
-                        .endControlFlow()
+                        .endControlFlow("};")
                         .complete();
             } else {
+                for (Type subtype : currTypeTree.get(qualifiedName)) {
+                    String subtypeName = name.equals(subtype.name.normalized())
+                            ? "Base" + name
+                            : subtype.name.normalized();
+                    renderer.addPermits(ClassRef.of(packageName, subtypeName));
+                }
+
                 for (Parameter param : params) {
                     TypeRef paramType = mapType(param.type);
 
@@ -947,32 +981,23 @@ public class SchemaGenerator extends AbstractProcessor {
         int flagPos = param.type.flagPos();
 
         String posFieldName = bitPos.apply(param.formattedName(), Naming.As.SCREMALIZED);
-        renderer.addField(byte.class, posFieldName, Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
+        renderer.addField(byte.class, posFieldName)
                 .initializer(Integer.toString(flagPos))
                 .complete();
 
-        renderer.addField(int.class, bitMask.apply(param.formattedName(), Naming.As.SCREMALIZED),
-                        Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
+        renderer.addField(int.class, bitMask.apply(param.formattedName(), Naming.As.SCREMALIZED))
                 .initializer("1 << " + posFieldName)
                 .complete();
     }
 
     private int sizeOfPrimitive(TlProcessing.TypeName type) {
-        switch (type.rawType) {
-            case "int256":
-                return 32;
-            case "int128":
-                return 16;
-            case "long":
-            case "double":
-                return 8;
-            case "int":
-            case "Bool":
-            case "#":
-                return 4;
-            default:
-                return -1;
-        }
+        return switch (type.rawType) {
+            case "int256" -> 32;
+            case "int128" -> 16;
+            case "long", "double" -> 8;
+            case "int", "Bool", "#" -> 4;
+            default -> -1;
+        };
     }
 
     private void preparePackages() {
@@ -1010,38 +1035,33 @@ public class SchemaGenerator extends AbstractProcessor {
     }
 
     private TypeRef mapType(TlProcessing.TypeNameBase type) {
-        switch (type.rawType) {
-            case "!X": return genericTypeRef;
-            case "X": return genericResultTypeRef;
-            case "#":
-            case "int": return PrimitiveTypeRef.INT;
-            case "true":
-            case "Bool": return PrimitiveTypeRef.BOOLEAN;
-            case "long": return PrimitiveTypeRef.LONG;
-            case "double": return PrimitiveTypeRef.DOUBLE;
-            case "bytes":
-            case "int128":
-            case "int256": return BYTE_BUF;
-            case "string": return STRING;
-            case "Object": return ClassRef.OBJECT;
-            case "JSONValue": return ClassRef.of(JsonNode.class);
-            default:
-                if (type instanceof TlProcessing.TypeName) {
-                    TlProcessing.TypeName t = (TlProcessing.TypeName) type;
+        return switch (type.rawType) {
+            case "!X" -> genericTypeRef;
+            case "X" -> genericResultTypeRef;
+            case "#", "int" -> PrimitiveTypeRef.INT;
+            case "true", "Bool" -> PrimitiveTypeRef.BOOLEAN;
+            case "long" -> PrimitiveTypeRef.LONG;
+            case "double" -> PrimitiveTypeRef.DOUBLE;
+            case "bytes", "int128", "int256" -> BYTE_BUF;
+            case "string" -> STRING;
+            case "Object" -> ClassRef.OBJECT;
+            case "JSONValue" -> ClassRef.of(JsonNode.class);
+            default -> {
+                if (type instanceof TlProcessing.TypeName t) {
 
                     if (t.isFlag()) {
                         TypeNameBase innerType = t.innerType();
                         TypeRef mapped = mapType(innerType);
-                        return t.isBitFlag() ? mapped : mapped.safeBox();
+                        yield t.isBitFlag() ? mapped : mapped.safeBox();
                     } else if (t.isVector()) {
                         TypeNameBase innerType = t.innerType();
                         TypeRef mapped = mapType(innerType);
-                        return ParameterizedTypeRef.of(LIST, mapped.safeBox());
+                        yield ParameterizedTypeRef.of(LIST, mapped.safeBox());
                     }
                 }
-
-                return ClassRef.of(type.packageName, type.normalized());
-        }
+                yield ClassRef.of(type.packageName, type.normalized());
+            }
+        };
     }
 
     private String extractEnumName(String type) {
@@ -1070,130 +1090,106 @@ public class SchemaGenerator extends AbstractProcessor {
     }
 
     private String deserializeMethod0(TypeNameBase type) {
-        switch (type.rawType) {
-            case "Bool": return "deserializeBoolean(payload)";
-            case "int": return "payload.readIntLE()";
-            case "long": return "payload.readLongLE()";
-            case "double": return "payload.readDoubleLE()";
-            case "bytes": return "deserializeBytes(payload)";
-            case "string": return "deserializeString(payload)";
-            case "int128": return "readInt128(payload)";
-            case "int256": return "readInt256(payload)";
-            case "JSONValue": return "deserializeJsonNode(payload)";
-            default:
-                if (type instanceof TlProcessing.TypeName) {
-                    TlProcessing.TypeName t = (TlProcessing.TypeName) type;
-
+        return switch (type.rawType) {
+            case "Bool" -> "deserializeBoolean(payload)";
+            case "int" -> "payload.readIntLE()";
+            case "long" -> "payload.readLongLE()";
+            case "double" -> "payload.readDoubleLE()";
+            case "bytes" -> "deserializeBytes(payload)";
+            case "string" -> "deserializeString(payload)";
+            case "int128" -> "readInt128(payload)";
+            case "int256" -> "readInt256(payload)";
+            case "JSONValue" -> "deserializeJsonNode(payload)";
+            default -> {
+                if (type instanceof TlProcessing.TypeName t) {
                     if (t.isFlag()) {
                         throw new IllegalStateException("Unexpected flag type: " + type);
                     } else if (t.isVector()) {
                         String innerTypeRaw = t.innerType().rawType;
-                        String specific = "";
-                        switch (innerTypeRaw) {
-                            case "int":
-                            case "long":
-                            case "bytes":
-                            case "string":
-                                specific = Character.toUpperCase(innerTypeRaw.charAt(0)) + innerTypeRaw.substring(1);
-                                break;
-                        }
 
                         // NOTE: bare vectors (msg_container, future_salts)
                         if (t.rawType.contains("%")) {
-                            return "deserializeVector0(payload, true, TlDeserializer::deserializeMessage)";
+                            yield "deserializeVector0(payload, true, TlDeserializer::deserializeMessage)";
                         } else if (t.rawType.contains("future_salt")) {
-                            return "deserializeVector0(payload, true, TlDeserializer::deserializeFutureSalt)";
+                            yield "deserializeVector0(payload, true, TlDeserializer::deserializeFutureSalt)";
                         } else {
-                            return "deserialize" + specific + "Vector(payload)";
+                            String specific = switch (innerTypeRaw) {
+                                case "int", "long", "bytes", "string" ->
+                                        Character.toUpperCase(innerTypeRaw.charAt(0))
+                                                + innerTypeRaw.substring(1);
+                                default -> "";
+                            };
+
+                            yield "deserialize" + specific + "Vector(payload)";
                         }
                     }
                 }
-                return "deserialize(payload)";
-        }
+                yield "deserialize(payload)";
+            }
+        };
     }
 
     private String byteBufMethod(Parameter param) {
-        switch (param.type.rawType) {
-            case "Bool":
-            case "#":
-            case "int": return "writeIntLE";
-            case "long": return "writeLongLE";
-            case "double": return "writeDoubleLE";
-            default: throw new IllegalStateException("Unexpected value: " + param.type.rawType);
-        }
+        return switch (param.type.rawType) {
+            case "Bool", "#", "int" -> "writeIntLE";
+            case "long" -> "writeLongLE";
+            case "double" -> "writeDoubleLE";
+            default -> throw new IllegalStateException("Unexpected value: " + param.type.rawType);
+        };
     }
 
     private String serializeMethod(Parameter param) {
-        switch (param.type.rawType) {
-            case "int":
-            case "#":
-            case "long":
-            case "int128": // handled manually
-            case "int256": // ^
-            case "double": return "payload.$L()";
-            case "Bool": return "payload.$L() ? BOOL_TRUE_ID : BOOL_FALSE_ID";
-            case "string": return "serializeString(buf, payload.$L())";
-            case "bytes": return "serializeBytes(buf, payload.$L())";
-            case "JSONValue": return "serializeJsonNode(buf, payload.$L())";
-            case "Object": return "serializeUnknown(buf, payload.$L())";
-            default:
+        return switch (param.type.rawType) {
+            // int128/256 handled manually
+            case "int", "#", "long", "int128", "int256", "double" -> "payload.$L()";
+            case "Bool" ->  "payload.$L() ? BOOL_TRUE_ID : BOOL_FALSE_ID";
+            case "string" -> "serializeString(buf, payload.$L())";
+            case "bytes" -> "serializeBytes(buf, payload.$L())";
+            case "JSONValue" -> "serializeJsonNode(buf, payload.$L())";
+            case "Object" -> "serializeUnknown(buf, payload.$L())";
+            default -> {
                 if (param.type.isVector()) {
                     String innerTypeRaw = param.type.innerType().rawType;
-                    String specific = "";
-                    switch (innerTypeRaw.toLowerCase()) {
-                        case "int":
-                        case "long":
-                        case "bytes":
-                        case "string":
-                            specific = Character.toUpperCase(innerTypeRaw.charAt(0)) + innerTypeRaw.substring(1);
-                            break;
-                    }
-                    return "serialize" + specific + "Vector(buf, payload.$L())";
+                    String specific = switch (innerTypeRaw.toLowerCase()) {
+                        case "int", "long", "bytes", "string" ->
+                                Character.toUpperCase(innerTypeRaw.charAt(0)) + innerTypeRaw.substring(1);
+                        default -> "";
+                    };
+                    yield "serialize" + specific + "Vector(buf, payload.$L())";
                 } else if (param.type.isFlag()) {
-                    return "serializeFlags(buf, payload.$L())";
+                    yield "serializeFlags(buf, payload.$L())";
                 } else {
-                    return "serialize(buf, payload.$L())";
+                    yield "serialize(buf, payload.$L())";
                 }
-        }
+            }
+        };
     }
 
     @Nullable
     private String sizeOfMethod(Parameter param) {
-        switch (param.type.rawType) {
-            case "int":
-            case "#":
-            case "long":
-            case "int128":
-            case "int256":
-            case "Bool":
-            case "double":
-                return null;
-            case "string":
-            case "bytes":
-                return "sizeOf0(payload.$L())";
-            case "JSONValue": return "sizeOfJsonNode(payload.$L())";
-            case "Object": return "sizeOfUnknown(payload.$L())";
-            default:
+        return switch (param.type.rawType) {
+            case "int", "#", "long", "int128", "int256", "Bool", "double" -> null;
+            case "string", "bytes" -> "sizeOf0(payload.$L())";
+            case "JSONValue" -> "sizeOfJsonNode(payload.$L())";
+            case "Object" -> "sizeOfUnknown(payload.$L())";
+            default -> {
                 if (param.type.isVector()) {
                     String innerTypeRaw = param.type.innerType().rawType;
-                    String specific = "";
-                    switch (innerTypeRaw) {
-                        case "int":
-                        case "long":
-                        case "bytes":
-                        case "string":
-                            specific = Character.toUpperCase(innerTypeRaw.charAt(0)) + innerTypeRaw.substring(1);
-                            break;
-                    }
-                    return "sizeOf" + specific + "Vector(payload.$L())";
+                    String specific = switch (innerTypeRaw) {
+                        case "int", "long", "bytes", "string" ->
+                                Character.toUpperCase(innerTypeRaw.charAt(0)) + innerTypeRaw.substring(1);
+                        default -> "";
+                    };
+                    yield "sizeOf" + specific + "Vector(payload.$L())";
                 } else if (param.type.isBitFlag()) {
-                    return null;
+                    yield null;
                 } else if (param.type.isFlag()) {
-                    return "sizeOfFlags(payload.$L())";
+                    yield "sizeOfFlags(payload.$L())";
                 } else {
-                    return "sizeOf(payload.$L())";
+                    yield "sizeOf(payload.$L())";
                 }
-        }
+            }
+        };
     }
 
     private String uniqueMethodName(String prefix, String base, Supplier<String> fixFunc, Set<String> set) {
