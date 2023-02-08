@@ -309,8 +309,7 @@ public class SchemaGenerator extends AbstractProcessor {
 
             TypeRef returnType = ParameterizedTypeRef.of(TL_METHOD, mapType(method.type).safeBox());
 
-            var interfaces = additionalSuperTypes(name);
-            renderer.addInterfaces(interfaces);
+            renderer.addInterfaces(additionalSuperTypes(name));
             if (config.superType != null) {
                 renderer.addInterface(config.superType);
             }
@@ -479,8 +478,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     ? List.of(genericResultTypeRef, genericTypeRef.withBounds(wildcardMethodType))
                     : List.<TypeVariableRef>of();
 
-            immutableGenerator.process(prepareType(method, renderer.name, singleton, typeRefs,
-                    interfaces, superType));
+            immutableGenerator.process(prepareType(method, renderer.name, singleton, typeRefs, superType));
         }
     }
 
@@ -521,8 +519,7 @@ public class SchemaGenerator extends AbstractProcessor {
                 renderer.addModifiers(Modifier.NON_SEALED);
             }
 
-            var interfaces = additionalSuperTypes(name);
-            renderer.addInterfaces(interfaces);
+            renderer.addInterfaces(additionalSuperTypes(name));
 
             ClassRef immutableType = renderer.name.peer(immutable.apply(name));
             TypeRef superType = multiple ? typeName : config.superType != null ? config.superType : TL_OBJECT;
@@ -720,15 +717,13 @@ public class SchemaGenerator extends AbstractProcessor {
             if (isEmptyObject)
                 continue;
 
-            immutableGenerator.process(prepareType(constructor, renderer.name, singleton, List.of(),
-                    interfaces, superType));
+            immutableGenerator.process(prepareType(constructor, renderer.name, singleton, List.of(), superType));
         }
     }
 
     private ValueType prepareType(Type tlType, ClassRef baseType, boolean singleton,
-                                  List<TypeVariableRef> typeVars, List<? extends TypeRef> interfaces,
-                                  TypeRef superType) {
-        ValueType valType = new ValueType(baseType, typeVars, interfaces);
+                                  List<TypeVariableRef> typeVars, TypeRef superType) {
+        ValueType valType = new ValueType(baseType, typeVars);
         valType.attributes = new ArrayList<>(tlType.parameters.size());
 
         NameDeduplicator initBitsName = NameDeduplicator.create("initBits");

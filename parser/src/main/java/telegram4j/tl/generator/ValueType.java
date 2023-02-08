@@ -17,7 +17,6 @@ class ValueType {
     public final ParameterizedTypeRef builderType;
     public final List<TypeVariableRef> typeVars;
     public final List<TypeVariableRef> typeVarNames;
-    public final List<? extends TypeRef> interfaces;
 
     public Map<String, BitSetInfo> bitSets = new HashMap<>();
 
@@ -33,14 +32,13 @@ class ValueType {
     public String hashCodeName;
     public String equalsName;
 
-    public ValueType(ClassRef baseType, List<TypeVariableRef> typeVars, List<? extends TypeRef> interfaces) {
+    public ValueType(ClassRef baseType, List<TypeVariableRef> typeVars) {
         typeVarNames = typeVars.stream()
                 .map(TypeVariableRef::withBounds)
                 .collect(Collectors.toList());
 
         this.baseType = ParameterizedTypeRef.of(baseType, typeVarNames);
         this.typeVars = typeVars;
-        this.interfaces = interfaces;
 
         immutableType = ParameterizedTypeRef.of(baseType.peer(immutable.apply(baseType.name)), typeVarNames);
         builderType = ParameterizedTypeRef.of(immutableType.rawType.nested("Builder"), typeVarNames);
