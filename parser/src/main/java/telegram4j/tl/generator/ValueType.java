@@ -29,8 +29,6 @@ class ValueType {
     public short initBitsCount;
 
     public String initBitsName;
-    public String hashCodeName;
-    public String equalsName;
 
     public ValueType(ClassRef baseType, List<TypeVariableRef> typeVars) {
         typeVarNames = typeVars.stream()

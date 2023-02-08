@@ -47,7 +47,7 @@ public class TlProcessing {
         public final String packagePrefix;
         public final ClassRef superType;
 
-        Configuration(String name, @Nullable String packagePrefix, @Nullable ClassRef superType) {
+        Configuration(String name, @Nullable String packagePrefix, ClassRef superType) {
             this.name = name;
             this.packagePrefix = packagePrefix;
             this.superType = superType;

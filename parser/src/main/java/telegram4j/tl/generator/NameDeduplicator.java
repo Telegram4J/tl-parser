@@ -19,7 +19,8 @@ public class NameDeduplicator implements Consumer<String>, Supplier<String> {
 
     @Override
     public void accept(String s) {
-        if ((base + counter).equals(s)) {
+        if (counter == 0 && s.equals(base) ||
+                counter > 0 && (base + counter).equals(s)) {
             counter++;
         }
     }

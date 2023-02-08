@@ -7,11 +7,7 @@ import reactor.util.function.Tuple2;
 import reactor.util.function.Tuples;
 import telegram4j.tl.generator.renderer.*;
 
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.util.Elements;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -19,15 +15,16 @@ import java.util.stream.StreamSupport;
 import static telegram4j.tl.generator.SchemaGeneratorConsts.*;
 import static telegram4j.tl.generator.SchemaGeneratorConsts.Style.newValue;
 import static telegram4j.tl.generator.SchemaGeneratorConsts.Style.with;
+import static telegram4j.tl.generator.ValueType.*;
 
 class ImmutableGenerator {
+    private static final String hashCodeVariableName = "h";
+    private static final String equalsVariableName = "that";
 
     private final FileService fileService;
-    private final Elements elements;
 
-    ImmutableGenerator(FileService fileService, Elements elements) {
+    ImmutableGenerator(FileService fileService) {
         this.fileService = fileService;
-        this.elements = elements;
     }
 
     public void process(ValueType type) {
@@ -37,7 +34,7 @@ class ImmutableGenerator {
                 .addInterface(type.baseType);
 
         CompletionDeferrer pending = new CompletionDeferrer();
-        boolean singleton = type.flags.contains(ValueType.Flag.SINGLETON);
+        boolean singleton = type.flags.contains(Flag.SINGLETON);
 
         // region generate fields
         if (singleton) { // TODO: unhandled generics
@@ -64,7 +61,7 @@ class ImmutableGenerator {
         }
 
         // constructor with mandatory parameters
-        if (!type.flags.contains(ValueType.Flag.CAN_OMIT_OF_METHOD)) {
+        if (!type.flags.contains(Flag.CAN_OMIT_OF_METHOD)) {
             var mandatoryConstructorBody = renderer.createCode().incIndent(2);
             var mandatoryConstructor = renderer.addConstructor(Modifier.PRIVATE);
             var mandatoryOf = renderer.addMethod(type.immutableType, "of",
@@ -142,7 +139,7 @@ class ImmutableGenerator {
             }
 
             for (ValueAttribute a : sorted) {
-                ValueType.BitSetInfo bitSet;
+                BitSetInfo bitSet;
                 if (a.flags.contains(ValueAttribute.Flag.BIT_SET) &&
                     (bitSet = type.bitSets.get(a.name)) != null && bitSet.bitFlagsCount != 0) {
                     generateValueBitsMask(type, a, a.name, mandatoryOf);
@@ -200,14 +197,14 @@ class ImmutableGenerator {
         // preconditions:
         // - no reference fields
         // - no optional fields
-        if (!type.flags.contains(ValueType.Flag.CAN_OMIT_COPY_CONSTRUCTOR)) {
+        if (!type.flags.contains(Flag.CAN_OMIT_COPY_CONSTRUCTOR)) {
             var allConstructorBody = renderer.createCode().incIndent(2);
             var allConstructor = renderer.addConstructor(Modifier.PRIVATE);
 
             // have a reference fields, need to stub.
             // This is necessary because this constructor does not contain null checks
             // and does not copy lists
-            if (type.flags.contains(ValueType.Flag.NEED_STUB_PARAM)) {
+            if (type.flags.contains(Flag.NEED_STUB_PARAM)) {
                 allConstructor.addParameter(Void.class, "synthetic0");
             }
 
@@ -272,7 +269,7 @@ class ImmutableGenerator {
             TypeRef listElement = unwrap(a.type, LIST);
 
             boolean opt = a.flags.contains(ValueAttribute.Flag.OPTIONAL);
-            ValueType.BitSetInfo bitSet = type.bitSets.get(a.flagsName);
+            BitSetInfo bitSet = type.bitSets.get(a.flagsName);
             boolean primitiveOpt = opt && a.type.safeUnbox() instanceof PrimitiveTypeRef
                     && bitSet != null && bitSet.bitUsage.get(a.flagPos).value == 1;
             StringBuilder format = new StringBuilder("return ");
@@ -318,16 +315,15 @@ class ImmutableGenerator {
                 .addParameter(ClassRef.OBJECT, "o")
                 .addStatement("if (this == o) return true")
                 .addStatement("if (!(o instanceof $T $L)) return false", type.baseType.withTypeArguments(
-                        Collections.nCopies(type.typeVars.size(), WildcardTypeRef.none())),
-                        type.equalsName)
-                .addCode("return ID == $L.identifier() &&", type.equalsName)
+                        Collections.nCopies(type.typeVars.size(), WildcardTypeRef.none())), equalsVariableName)
+                .addCode("return ID == $L.identifier() &&", equalsVariableName)
                 .incIndent(2).ln();
 
         var hashCode = renderer.addMethod(int.class, "hashCode")
                 .addAnnotation(Override.class)
                 .addModifiers(Modifier.PUBLIC)
-                .addStatement("int $L = 5381", type.hashCodeName)
-                .addStatement("$1L += ($1L << 5) + ID", type.hashCodeName);
+                .addStatement("int $L = 5381", hashCodeVariableName)
+                .addStatement("$1L += ($1L << 5) + ID", hashCodeVariableName);
 
         var toString = renderer.addMethod(STRING, "toString")
                 .addAnnotation(Override.class)
@@ -345,13 +341,17 @@ class ImmutableGenerator {
 
             TypeRef unwrapped = unboxOptional(a, type);
             if (a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
-                equals.addCode("$T.equals($2L(), $3L.$2L())", OBJECTS, a.name, type.equalsName);
+                equals.addCode("$T.equals($2L(), $3L.$2L())", OBJECTS, a.name, equalsVariableName);
             } else if (unwrapped == PrimitiveTypeRef.DOUBLE) {
-                equals.addCode("Double.doubleToLongBits($1L) == Double.doubleToLongBits($2L.$1L())", a.name, type.equalsName);
+                String fieldName = qualify(a.name, equalsVariableName);
+                equals.addCode("Double.doubleToLongBits($L) == Double.doubleToLongBits($L.$L())",
+                        fieldName, equalsVariableName, a.name);
             } else if (unwrapped instanceof PrimitiveTypeRef) {
-                equals.addCode("$1L == $2L.$1L()", a.name, type.equalsName);
+                String fieldName = qualify(a.name, equalsVariableName);
+                equals.addCode("$L == $L.$L()", fieldName, equalsVariableName, a.name);
             } else {
-                equals.addCode("$1L.equals($2L.$1L())", a.name, type.equalsName);
+                String fieldName = qualify(a.name, equalsVariableName);
+                equals.addCode("$L.equals($L.$L())", fieldName, equalsVariableName, a.name);
             }
 
             if (i != n - 1) {
@@ -365,25 +365,27 @@ class ImmutableGenerator {
             ValueAttribute a = type.generated.get(i);
 
             TypeRef unwrapped = unboxOptional(a, type);
+            String fieldName = qualify(a.name, hashCodeVariableName);
 
             // region hashCode
             if (unwrapped == PrimitiveTypeRef.DOUBLE) {
-                hashCode.addStatement("$1L += ($1L << 5) + Double.hashCode($2L)", type.hashCodeName, a.name);
+                hashCode.addStatement("$1L += ($1L << 5) + Double.hashCode($2L)", hashCodeVariableName, fieldName);
             } else if (unwrapped == PrimitiveTypeRef.INT) {
-                hashCode.addStatement("$1L += ($1L << 5) + $2L", type.hashCodeName, a.name);
+                hashCode.addStatement("$1L += ($1L << 5) + $2L", hashCodeVariableName, fieldName);
             } else if (unwrapped == PrimitiveTypeRef.BOOLEAN) {
                 if (a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
-                    hashCode.addStatement("$1L += ($1L << 5) + (this." + a.flagsName() + " & " + a.flagMask()
-                            + ") != 0 ? Boolean.hashCode($2L) : 0", type.hashCodeName, a.name);
+                    String flagsName = qualify(a.flagsName(), hashCodeVariableName);
+                    hashCode.addStatement("$1L += ($1L << 5) + (" + flagsName + " & " + a.flagMask()
+                            + ") != 0 ? Boolean.hashCode($2L) : 0", hashCodeVariableName, fieldName);
                 } else {
-                    hashCode.addStatement("$1L += ($1L << 5) + Boolean.hashCode($2L)", type.hashCodeName, a.name);
+                    hashCode.addStatement("$1L += ($1L << 5) + Boolean.hashCode($2L)", hashCodeVariableName, fieldName);
                 }
             } else if (unwrapped == PrimitiveTypeRef.LONG) {
-                hashCode.addStatement("$1L += ($1L << 5) + Long.hashCode($2L)", type.hashCodeName, a.name);
+                hashCode.addStatement("$1L += ($1L << 5) + Long.hashCode($2L)", hashCodeVariableName, fieldName);
             } else if (a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
-                hashCode.addStatement("$1L += ($1L << 5) + $2T.hashCode($3L)", type.hashCodeName, OBJECTS, a.name);
+                hashCode.addStatement("$1L += ($1L << 5) + $2T.hashCode($3L)", hashCodeVariableName, OBJECTS, fieldName);
             } else {
-                hashCode.addStatement("$1L += ($1L << 5) + $2L.hashCode()", type.hashCodeName, a.name);
+                hashCode.addStatement("$1L += ($1L << 5) + $2L.hashCode()", hashCodeVariableName, fieldName);
             }
 
             // endregion
@@ -441,7 +443,7 @@ class ImmutableGenerator {
             // endregion
         }
 
-        hashCode.addStatement("return $L", type.hashCodeName);
+        hashCode.addStatement("return $L", hashCodeVariableName);
 
         ValueAttribute last = type.generated.get(type.generated.size() - 1);
         if (unboxOptional(last, type) == STRING) {
@@ -610,7 +612,7 @@ class ImmutableGenerator {
                                         String newValueVar) {
         renderer.addCode("return ");
 
-        if (type.flags.contains(ValueType.Flag.SINGLETON)) {
+        if (type.flags.contains(Flag.SINGLETON)) {
             StringJoiner j = new StringJoiner(" && ");
             for (ValueAttribute b : type.generated) {
                 if (b.flags.contains(ValueAttribute.Flag.BIT_SET)) {
@@ -620,7 +622,7 @@ class ImmutableGenerator {
                     } else if (b.name.equals(a.flagsName)) {
                         s = newValue.apply(b.name);
                     } else {
-                        s = qualify(b, paramName);
+                        s = qualify(b.name, paramName);
                     }
 
                     j.add(s + " == 0");
@@ -631,7 +633,7 @@ class ImmutableGenerator {
         }
 
         renderer.addCode("new $T(", type.immutableType);
-        if (type.flags.contains(ValueType.Flag.NEED_STUB_PARAM)) {
+        if (type.flags.contains(Flag.NEED_STUB_PARAM)) {
             renderer.addCode("null, ");
         }
 
@@ -644,7 +646,7 @@ class ImmutableGenerator {
             } else if (b.name.equals(a.flagsName)) {
                 s = newValue.apply(b.name);
             } else {
-                s = qualify(b, paramName);
+                s = qualify(b.name, paramName);
             }
 
             String c = i != 0 ? ",$W " : "";
@@ -657,7 +659,7 @@ class ImmutableGenerator {
     private void generateWither(ValueType type, ValueAttribute a,
                                 TopLevelRenderer renderer, CompletionDeferrer pending) {
 
-        ValueType.BitSetInfo bitSet = type.bitSets.get(a.flagsName);
+        BitSetInfo bitSet = type.bitSets.get(a.flagsName);
         Counter counter;
         if (a.flags.contains(ValueAttribute.Flag.BIT_FLAG) &&
                 (counter = bitSet.bitUsage.get(a.flagPos)) != null &&
@@ -675,7 +677,7 @@ class ImmutableGenerator {
 
         String name = with.apply(a.name);
         String paramName = listElement != a.type ? "values" : "value";
-        String localName = qualify(a, paramName);
+        String localName = qualify(a.name, paramName);
         String newValueVar = newValue.apply(a.name);
         boolean transformed = false;
 
@@ -948,8 +950,8 @@ class ImmutableGenerator {
 
         // add methods
 
-        String localNameSingular = qualify(a, "value");
-        String localName = qualify(a, "values");
+        String localNameSingular = qualify(a.name, "value");
+        String localName = qualify(a.name, "values");
 
         var add = pending.add(builder.addMethod(type.builderType, a.names().add)
                 .addModifiers(Modifier.PUBLIC)
@@ -1070,8 +1072,8 @@ class ImmutableGenerator {
         return WildcardTypeRef.subtypeOf(type);
     }
 
-    private String qualify(ValueAttribute a, String name) {
-        return a.name.equals(name) ? "this." + a.name : a.name;
+    private static String qualify(String field, String alreadyExist) {
+        return field.equals(alreadyExist) ? "this." + field : field;
     }
 
     private String bitsCountMethod(int bits) {

@@ -116,7 +116,7 @@ public class SchemaGenerator extends AbstractProcessor {
         super.init(processingEnv);
 
         fileService = new FileService(processingEnv.getFiler());
-        immutableGenerator = new ImmutableGenerator(fileService, processingEnv.getElementUtils());
+        immutableGenerator = new ImmutableGenerator(fileService);
     }
 
     @Override
@@ -310,7 +310,7 @@ public class SchemaGenerator extends AbstractProcessor {
             TypeRef returnType = ParameterizedTypeRef.of(TL_METHOD, mapType(method.type).safeBox());
 
             renderer.addInterfaces(additionalSuperTypes(name));
-            if (config.superType != null) {
+            if (config.superType != TL_OBJECT) {
                 renderer.addInterface(config.superType);
             }
 
@@ -471,8 +471,9 @@ public class SchemaGenerator extends AbstractProcessor {
                 continue;
             }
 
-            TypeRef superType = config.superType != null
-                    ? config.superType : ParameterizedTypeRef.of(TL_METHOD, WildcardTypeRef.none());
+            TypeRef superType = config.superType != TL_OBJECT
+                    ? config.superType
+                    : ParameterizedTypeRef.of(TL_METHOD, WildcardTypeRef.none());
 
             var typeRefs = generic
                     ? List.of(genericResultTypeRef, genericTypeRef.withBounds(wildcardMethodType))
@@ -522,7 +523,7 @@ public class SchemaGenerator extends AbstractProcessor {
             renderer.addInterfaces(additionalSuperTypes(name));
 
             ClassRef immutableType = renderer.name.peer(immutable.apply(name));
-            TypeRef superType = multiple ? typeName : config.superType != null ? config.superType : TL_OBJECT;
+            TypeRef superType = multiple ? typeName : config.superType != TL_OBJECT ? config.superType : TL_OBJECT;
 
             renderer.addInterface(superType);
 
@@ -727,8 +728,6 @@ public class SchemaGenerator extends AbstractProcessor {
         valType.attributes = new ArrayList<>(tlType.parameters.size());
 
         NameDeduplicator initBitsName = NameDeduplicator.create("initBits");
-        NameDeduplicator hashCodeName = NameDeduplicator.create("h");
-        NameDeduplicator equalsName = NameDeduplicator.create("that");
 
         short primitivefCount = 0; // including fields with '#' type
         short reffCount = 0;
@@ -741,8 +740,6 @@ public class SchemaGenerator extends AbstractProcessor {
             valAttr.type = mapType(p.type);
 
             initBitsName.accept(valAttr.name);
-            hashCodeName.accept(valAttr.name);
-            equalsName.accept(valAttr.name);
 
             if (!p.type.isFlag()) {
                 if (valAttr.type instanceof PrimitiveTypeRef) {
@@ -806,8 +803,6 @@ public class SchemaGenerator extends AbstractProcessor {
         }
 
         valType.initBitsName = initBitsName.get();
-        valType.hashCodeName = hashCodeName.get();
-        valType.equalsName = equalsName.get();
 
         valType.generated = valType.attributes.stream()
                 .filter(e -> !e.flags.contains(ValueAttribute.Flag.BIT_FLAG))
@@ -852,7 +847,7 @@ public class SchemaGenerator extends AbstractProcessor {
                 renderer.addModifiers(Modifier.SEALED);
             }
 
-            renderer.addInterface(config.superType != null ? config.superType : TL_OBJECT);
+            renderer.addInterface(config.superType != TL_OBJECT ? config.superType : TL_OBJECT);
 
             if (canMakeEnum) {
                 String shortenName = extractEnumName(qualifiedName);
