@@ -212,6 +212,7 @@ public class ClassRenderer<P extends BaseClassRenderer<?>> extends BaseClassRend
         CLASS,
         INTERFACE,
         ENUM,
+        RECORD,
         ANNOTATION;
 
         protected String asKeyword() {

@@ -303,6 +303,27 @@ class ImmutableGenerator {
             generateWither(type, a, renderer, pending);
 
             pending.complete();
+
+        }
+        // composite withers
+
+        var groupedConditionalFields = new HashMap<Tuple2<String, Integer>, List<ValueAttribute>>();
+        for (ValueAttribute a : type.generated) {
+            if (!a.flags.contains(ValueAttribute.Flag.OPTIONAL)) continue;
+            groupedConditionalFields.computeIfAbsent(Tuples.of(a.flagsName(), a.flagPos), k -> new ArrayList<>()).add(a);
+        }
+
+        for (var group : groupedConditionalFields.values()) {
+            if (group.size() == 1) continue;
+
+            String andSeq = group.stream()
+                    .map(a -> Character.toUpperCase(a.name.charAt(0)) + a.name.substring(1))
+                    .collect(Collectors.joining("And"));
+            var with = renderer.addMethod(type.immutableType, Style.with.apply(andSeq));
+            with.addModifiers(Modifier.PUBLIC);
+            with.addParameter(AnnotatedTypeRef.create(type.baseType.rawType.nested(andSeq + "View"), Nullable.class), "values");
+            with.addStatement("return null");
+            with.complete();
         }
 
         // endregion
@@ -661,7 +682,7 @@ class ImmutableGenerator {
 
         BitSetInfo bitSet = type.bitSets.get(a.flagsName);
         Counter counter;
-        if (a.flags.contains(ValueAttribute.Flag.BIT_FLAG) &&
+        if (a.flags.contains(ValueAttribute.Flag.OPTIONAL) &&
                 (counter = bitSet.bitUsage.get(a.flagPos)) != null &&
                 counter.value > 1) {
             return;

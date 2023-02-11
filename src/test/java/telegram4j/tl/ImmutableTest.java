@@ -2,7 +2,6 @@ package telegram4j.tl;
 
 import io.netty.buffer.Unpooled;
 import org.junit.jupiter.api.Test;
-import telegram4j.tl.request.messages.ImmutableTranslateText;
 import telegram4j.tl.request.messages.TranslateText;
 
 import java.util.List;
@@ -37,11 +36,6 @@ class ImmutableTest {
                 .build();
         // FIXME: this is not exactly an error, it is a consequence of what we return .duplicate()
         assertNotSame(bicpsrp.withA(Unpooled.EMPTY_BUFFER), bicpsrp);
-        var tr = ImmutableTranslateText.of("en")
-                .withPeer(InputPeerEmpty.instance());
-        // FIXME: expected behavior, but tg servers will return protocol errors
-        // Need to find a way to correctly validate these attributes in with* methods
-        assertNull(tr.id());
     }
 
     @Test

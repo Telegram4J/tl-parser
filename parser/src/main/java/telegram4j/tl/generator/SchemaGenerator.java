@@ -385,8 +385,8 @@ public class SchemaGenerator extends AbstractProcessor {
             } else {
                 ClassRef typeRaw = ClassRef.of(method.name.packageName, name);
                 TypeRef payloadType = generic
-                        ? ParameterizedTypeRef.of(typeRaw,
-                        WildcardTypeRef.none(), ParameterizedTypeRef.of(TL_METHOD, WildcardTypeRef.none()))
+                        ? ParameterizedTypeRef.of(typeRaw, WildcardTypeRef.none(),
+                                ParameterizedTypeRef.of(TL_METHOD, WildcardTypeRef.none()))
                         : typeRaw;
 
                 String serializeMethodName = uniqueMethodName("serialize", name, () ->
@@ -460,6 +460,41 @@ public class SchemaGenerator extends AbstractProcessor {
                 } else {
                     var group = sizeOfGroups.computeIfAbsent(size, i -> new HashSet<>());
                     group.add(method.id);
+                }
+
+                var conditionalGroups = new HashMap<Tuple2<String, Integer>, List<Parameter>>();
+                for (Parameter p : method.parameters) {
+                    if (p.type.isBitFlag() || !p.type.isFlag()) continue;
+                    conditionalGroups.computeIfAbsent(Tuples.of(p.type.flagsName, p.type.flagPos), k -> new ArrayList<>()).add(p);
+                }
+
+                for (var group : conditionalGroups.values()) {
+                    if (group.size() == 1) continue;
+                    String andSeq = group.stream()
+                            .map(a -> Character.toUpperCase(a.formattedName().charAt(0)) + a.formattedName().substring(1))
+                            .collect(Collectors.joining("And"));
+                    var view = renderer.addType(andSeq + "View", ClassRenderer.Kind.RECORD);
+                    var accessor = renderer.addMethod(AnnotatedTypeRef.create(view.name, Nullable.class),
+                                    Character.toLowerCase(andSeq.charAt(0)) + andSeq.substring(1))
+                            .addModifiers(Modifier.DEFAULT);
+                    for (Parameter p : group) {
+                        accessor.addStatement("var $1L = $1L()", p.formattedName());
+                    }
+
+                    String condition = group.stream()
+                            .map(a -> a.formattedName() + " == null")
+                            .collect(Collectors.joining(" || "));
+                    accessor.addStatement("if (" + condition + ") return null");
+                    accessor.addStatement("return new $T($L)",
+                            view.name, group.stream()
+                                    .map(Parameter::formattedName)
+                                    .collect(Collectors.joining(", ")));
+                    accessor.complete();
+
+                    for (Parameter p : group) {
+                        view.addComponent(mapType(p.type), p.formattedName());
+                    }
+                    view.complete();
                 }
             }
 
@@ -709,6 +744,41 @@ public class SchemaGenerator extends AbstractProcessor {
                     var group = sizeOfGroups.computeIfAbsent(size, i -> new HashSet<>());
                     group.add(constructor.id);
                 }
+
+                var conditionalGroups = new HashMap<Tuple2<String, Integer>, List<Parameter>>();
+                for (Parameter p : constructor.parameters) {
+                    if (p.type.isBitFlag() || !p.type.isFlag()) continue;
+                    conditionalGroups.computeIfAbsent(Tuples.of(p.type.flagsName(), p.type.flagPos), k -> new ArrayList<>()).add(p);
+                }
+
+                for (var group : conditionalGroups.values()) {
+                    if (group.size() == 1) continue;
+                    String andSeq = group.stream()
+                            .map(a -> Character.toUpperCase(a.formattedName().charAt(0)) + a.formattedName().substring(1))
+                            .collect(Collectors.joining("And"));
+                    var view = renderer.addType(andSeq + "View", ClassRenderer.Kind.RECORD);
+                    var accessor = renderer.addMethod(AnnotatedTypeRef.create(view.name, Nullable.class),
+                            Character.toLowerCase(andSeq.charAt(0)) + andSeq.substring(1))
+                            .addModifiers(Modifier.DEFAULT);
+                    for (Parameter p : group) {
+                        accessor.addStatement("var $1L = $1L()", p.formattedName());
+                    }
+
+                    String condition = group.stream()
+                            .map(a -> a.formattedName() + " == null")
+                            .collect(Collectors.joining(" || "));
+                    accessor.addStatement("if (" + condition + ") return null");
+                    accessor.addStatement("return new $T($L)",
+                            view.name, group.stream()
+                                    .map(Parameter::formattedName)
+                                    .collect(Collectors.joining(", ")));
+                    accessor.complete();
+
+                    for (Parameter p : group) {
+                        view.addComponent(mapType(p.type), p.formattedName());
+                    }
+                    view.complete();
+                }
             }
 
             fileService.writeTo(renderer);
@@ -786,8 +856,8 @@ public class SchemaGenerator extends AbstractProcessor {
         valType.identifier = tlType.id;
         valType.superType = superType;
 
-        var types = superType instanceof ClassRef
-                ? currTypeTree.getOrDefault(((ClassRef) superType).qualifiedName(), List.of())
+        var types = superType instanceof ClassRef c
+                ? currTypeTree.getOrDefault(c.qualifiedName(), List.of())
                 : List.<Type>of();
 
         if (types.size() > 1) {

@@ -12,7 +12,9 @@ import static telegram4j.tl.generator.renderer.CompletableRenderer.Stage.*;
 
 abstract class BaseClassRenderer<P>
         implements CompletableRenderer<P>, AnnotatedRenderer<P> {
-    protected static final Stage BEGIN = mandatory(-2, "BEGIN"),
+    protected static final Stage
+            COMPONENTS = mandatory(Integer.MAX_VALUE - 2, "COMPONENTS"),
+            BEGIN = mandatory(-2, "BEGIN"),
             SUPER_TYPE = optional(2, "SUPER_TYPE"),
             INTERFACES = optional(3, "INTERFACES"),
             PERMITS = optional(4, "PERMITS"),
@@ -60,7 +62,7 @@ abstract class BaseClassRenderer<P>
         do {
             // [ separate (only in nested classes) ]
             // [ annotations ]
-            // [ modifiers ] [keyword & name] <[ type variables ]> [ super type] [ interfaces ]
+            // [ modifiers ] [keyword & name] <[ type variables ]> [ super type] [ interfaces ] [ components ]
             // [ processing ]
             if (stage == BEGIN) {
                 stage = ANNOTATIONS;
@@ -71,6 +73,10 @@ abstract class BaseClassRenderer<P>
                 out.append(kind.asKeyword());
                 out.append(' ');
                 out.append(name.name);
+                if (kind == ClassRenderer.Kind.RECORD) {
+                    out.append("(");
+                }
+
                 if (required == PROCESSING) {
                     out.incIndent().append(" {")/*.ln()*/;
                 }
@@ -82,6 +88,9 @@ abstract class BaseClassRenderer<P>
                 if (required == PROCESSING) {
                     out.incIndent().append(" {")/*.ln()*/;
                 }
+            } else if (stage == COMPONENTS) {
+                stage = required;
+                out.incIndent().append(") {");
             } else if (stage == SUPER_TYPE) { // optional
                 stage = required;
 
@@ -588,6 +597,8 @@ abstract class BaseClassRenderer<P>
             out.append(' ');
             out.append(name.name);
             out.append(" {}").ln();
+        } else if (stage == COMPONENTS) {
+            out.append(") {}");
         } else if (stage == PROCESSING) {
             out.decIndent();
             out.lno().append('}').ln();
@@ -601,5 +612,19 @@ abstract class BaseClassRenderer<P>
     @Override
     public Stage stage() {
         return stage;
+    }
+
+    public BaseClassRenderer<P> addComponent(TypeRef type, String name) {
+        Preconditions.requireState(kind == ClassRenderer.Kind.RECORD, "Not a record type: " + kind);
+        if (stage != COMPONENTS) {
+            completeStage(COMPONENTS);
+        } else {
+            out.append(", ").lw();
+        }
+
+        appendType(out, TypeRef.of(type));
+        out.append(" ");
+        out.append(name);
+        return this;
     }
 }
