@@ -307,23 +307,77 @@ class ImmutableGenerator {
         }
         // composite withers
 
-        var groupedConditionalFields = new HashMap<Tuple2<String, Integer>, List<ValueAttribute>>();
-        for (ValueAttribute a : type.generated) {
-            if (!a.flags.contains(ValueAttribute.Flag.OPTIONAL)) continue;
-            groupedConditionalFields.computeIfAbsent(Tuples.of(a.flagsName(), a.flagPos), k -> new ArrayList<>()).add(a);
-        }
-
-        for (var group : groupedConditionalFields.values()) {
+        for (var group : type.conditionalGroups.values()) {
             if (group.size() == 1) continue;
+            var anyAttr = group.get(0);
 
             String andSeq = group.stream()
                     .map(a -> Character.toUpperCase(a.name.charAt(0)) + a.name.substring(1))
                     .collect(Collectors.joining("And"));
-            var with = renderer.addMethod(type.immutableType, Style.with.apply(andSeq));
-            with.addModifiers(Modifier.PUBLIC);
-            with.addParameter(AnnotatedTypeRef.create(type.baseType.rawType.nested(andSeq + "View"), Nullable.class), "values");
-            with.addStatement("return null");
-            with.complete();
+
+            String refEqCheck = group.stream()
+                    .map(a -> a.name + " == values." + a.name + "()")
+                    .collect(Collectors.joining(" && "));
+
+            var wither = renderer.addMethod(type.immutableType, with.apply(andSeq))
+                    .addModifiers(Modifier.PUBLIC)
+                    .addParameter(AnnotatedTypeRef.create(type.baseType.rawType.nested(andSeq + "View"), Nullable.class), "values")
+                    .beginControlFlow("if ((values == null && ($L & $L) == 0) || ($L)) {",
+                            anyAttr.flagsName, anyAttr.flagMask, refEqCheck)
+                    .addStatement("return this")
+                    .endControlFlow()
+                    .addStatement("int $L = $T.mask($L, $L, values != null)",
+                            newValue.apply(anyAttr.flagsName()), UTILITY, anyAttr.flagsName(),
+                            anyAttr.flagMask());
+
+            for (ValueAttribute a : group) {
+                wither.addStatement("$T $L = values != null ? values.$L() : $L",
+                        a.type, newValue.apply(a.name), a.name, defaultValueFor(a.type));
+            }
+
+            wither.addCode("return ");
+
+            if (type.flags.contains(Flag.SINGLETON)) {
+                StringJoiner j = new StringJoiner(" && ");
+                for (ValueAttribute b : type.generated) {
+                    if (b.flags.contains(ValueAttribute.Flag.BIT_SET)) {
+                        String s;
+                        if (Objects.equals(anyAttr.flagsName, b.flagsName) && anyAttr.flagPos == b.flagPos ||
+                                Objects.equals(anyAttr.flagsName, b.name)) {
+                            s = newValue.apply(b.name);
+                        } else {
+                            s = qualify(b.name, "values");
+                        }
+
+                        j.add(s + " == 0");
+                    }
+                }
+
+                wither.addCode("$L ? INSTANCE : ", j);
+            }
+
+            wither.addCode("new $T(", type.immutableType);
+            if (type.flags.contains(Flag.NEED_STUB_PARAM)) {
+                wither.addCode("null, ");
+            }
+
+            for (int i = 0, n = type.generated.size(); i < n; i++) {
+                ValueAttribute b = type.generated.get(i);
+
+                String s;
+                if (Objects.equals(anyAttr.flagsName, b.flagsName) && anyAttr.flagPos == b.flagPos ||
+                        Objects.equals(anyAttr.flagsName, b.name)) {
+                    s = newValue.apply(b.name);
+                } else {
+                    s = qualify(b.name, "values");
+                }
+
+                String c = i != 0 ? ",$W " : "";
+                wither.addCode(c + "$L", s);
+            }
+
+            wither.addCode(");");
+            wither.complete();
         }
 
         // endregion
@@ -534,20 +588,10 @@ class ImmutableGenerator {
             build.endControlFlow();
         }
 
-        Map<Tuple2<String, Integer>, List<ValueAttribute>> dualBits = new LinkedHashMap<>();
-        for (ValueAttribute a : type.generated) {
-            if (a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
-                var bitSet = type.bitSets.get(a.flagsName);
-                if (bitSet.bitUsage.get(a.flagPos).value > 1) {
-                    dualBits.computeIfAbsent(Tuples.of(a.flagsName(), a.flagPos), k -> new ArrayList<>()).add(a);
-                }
-            }
-        }
-
-        if (!dualBits.isEmpty()) {
+        if (!type.conditionalGroups.isEmpty()) {
             build.addStatement("$T<String> attributes = new $T<>()", List.class, ArrayList.class);
 
-            for (var bits : dualBits.values()) {
+            for (var bits : type.conditionalGroups.values()) {
                 String bitSet = bits.get(0).flagsName;
                 String mask = bits.get(0).flagMask;
 
@@ -680,12 +724,17 @@ class ImmutableGenerator {
     private void generateWither(ValueType type, ValueAttribute a,
                                 TopLevelRenderer renderer, CompletionDeferrer pending) {
 
-        BitSetInfo bitSet = type.bitSets.get(a.flagsName);
-        Counter counter;
-        if (a.flags.contains(ValueAttribute.Flag.OPTIONAL) &&
-                (counter = bitSet.bitUsage.get(a.flagPos)) != null &&
-                counter.value > 1) {
-            return;
+        if (a.flags.contains(ValueAttribute.Flag.BIT_FLAG)) {
+            BitSetInfo bitSet = type.bitSets.get(a.flagsName);
+            var usage = bitSet.bitUsage.get(a.flagPos);
+            if (usage != null && usage.value >= 1) {
+                return;
+            }
+        } else if (a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
+            BitSetInfo bitSet = type.bitSets.get(a.flagsName);
+            if (bitSet.bitUsage.get(a.flagPos).value > 1) {
+                return;
+            }
         }
 
         TypeRef listElement = unwrap(a.type, LIST);
@@ -806,9 +855,7 @@ class ImmutableGenerator {
         } else if (a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
             TypeRef unboxed = a.type.safeUnbox();
 
-            if (unboxed instanceof PrimitiveTypeRef && bitSet.bitUsage.get(a.flagPos).value > 1) {
-                withMethod.addStatement("if ($T.equals($L, $L)) return this", OBJECTS, localName, paramName);
-            } else if (unboxed instanceof PrimitiveTypeRef) {
+            if (unboxed instanceof PrimitiveTypeRef) {
                 transformed = true;
 
                 withMethod.addStatement("if ($T.eq(($L & $L) != 0, $L, $L)) return this",
@@ -882,12 +929,12 @@ class ImmutableGenerator {
                                 ClassRenderer<?> builder, TopLevelRenderer renderer,
                                 CompletionDeferrer pending) {
 
-
-        Counter counter;
-        if (a.flags.contains(ValueAttribute.Flag.BIT_FLAG) &&
-                (counter = type.bitSets.get(a.flagsName).bitUsage.get(a.flagPos)) != null &&
-                counter.value > 1) {
-            return;
+        if (a.flags.contains(ValueAttribute.Flag.BIT_FLAG)) {
+            BitSetInfo bitSet = type.bitSets.get(a.flagsName);
+            var usage = bitSet.bitUsage.get(a.flagPos);
+            if (usage != null && usage.value >= 1) {
+                return;
+            }
         }
 
         TypeRef listElement = unwrap(a.type, LIST);

@@ -1,6 +1,7 @@
 package telegram4j.tl.generator;
 
 
+import reactor.util.function.Tuple2;
 import telegram4j.tl.generator.renderer.ClassRef;
 import telegram4j.tl.generator.renderer.ParameterizedTypeRef;
 import telegram4j.tl.generator.renderer.TypeRef;
@@ -29,6 +30,7 @@ class ValueType {
     public short initBitsCount;
 
     public String initBitsName;
+    public Map<Tuple2<String, Integer>, List<ValueAttribute>> conditionalGroups;
 
     public ValueType(ClassRef baseType, List<TypeVariableRef> typeVars) {
         typeVarNames = typeVars.stream()

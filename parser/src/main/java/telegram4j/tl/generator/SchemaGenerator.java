@@ -474,8 +474,8 @@ public class SchemaGenerator extends AbstractProcessor {
                             .map(a -> Character.toUpperCase(a.formattedName().charAt(0)) + a.formattedName().substring(1))
                             .collect(Collectors.joining("And"));
                     var view = renderer.addType(andSeq + "View", ClassRenderer.Kind.RECORD);
-                    var accessor = renderer.addMethod(AnnotatedTypeRef.create(view.name, Nullable.class),
-                                    Character.toLowerCase(andSeq.charAt(0)) + andSeq.substring(1))
+                    var accessor = renderer.addMethod(view.name, Character.toLowerCase(andSeq.charAt(0)) + andSeq.substring(1))
+                            .addAnnotation(Nullable.class)
                             .addModifiers(Modifier.DEFAULT);
                     for (Parameter p : group) {
                         accessor.addStatement("var $1L = $1L()", p.formattedName());
@@ -757,8 +757,8 @@ public class SchemaGenerator extends AbstractProcessor {
                             .map(a -> Character.toUpperCase(a.formattedName().charAt(0)) + a.formattedName().substring(1))
                             .collect(Collectors.joining("And"));
                     var view = renderer.addType(andSeq + "View", ClassRenderer.Kind.RECORD);
-                    var accessor = renderer.addMethod(AnnotatedTypeRef.create(view.name, Nullable.class),
-                            Character.toLowerCase(andSeq.charAt(0)) + andSeq.substring(1))
+                    var accessor = renderer.addMethod(view.name, Character.toLowerCase(andSeq.charAt(0)) + andSeq.substring(1))
+                            .addAnnotation(Nullable.class)
                             .addModifiers(Modifier.DEFAULT);
                     for (Parameter p : group) {
                         accessor.addStatement("var $1L = $1L()", p.formattedName());
@@ -885,6 +885,16 @@ public class SchemaGenerator extends AbstractProcessor {
             valType.flags.add(ValueType.Flag.CAN_OMIT_OF_METHOD);
         if (reffCount > 0)
             valType.flags.add(ValueType.Flag.NEED_STUB_PARAM);
+
+        valType.conditionalGroups = new HashMap<>();
+        for (ValueAttribute a : valType.generated) {
+            if (a.flags.contains(ValueAttribute.Flag.OPTIONAL)) {
+                var bitSet = valType.bitSets.get(a.flagsName);
+                if (bitSet.bitUsage.get(a.flagPos).value > 1) {
+                    valType.conditionalGroups.computeIfAbsent(Tuples.of(a.flagsName(), a.flagPos), k -> new ArrayList<>()).add(a);
+                }
+            }
+        }
 
         return valType;
     }
