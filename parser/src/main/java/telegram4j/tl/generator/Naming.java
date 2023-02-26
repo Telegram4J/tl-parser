@@ -47,11 +47,10 @@ public abstract class Naming implements UnaryOperator<String> {
     private static final Naming IDENTITY_NAMING = new Naming() {
         @Override
         public String apply(String input, As as) {
-            switch (as) {
-                case IDENTICAL: return input;
-                case SCREMALIZED: return Strings.screamilize(input);
-                default: throw new IllegalStateException();
-            }
+            return switch (as) {
+                case IDENTICAL -> input;
+                case SCREMALIZED -> Strings.screamilize(input);
+            };
         }
 
         @Override
@@ -74,11 +73,10 @@ public abstract class Naming implements UnaryOperator<String> {
 
         @Override
         public String apply(String input, As as) {
-            switch (as) {
-                case IDENTICAL: return name;
-                case SCREMALIZED: return Strings.screamilize(name);
-                default: throw new IllegalStateException();
-            }
+            return switch (as) {
+                case IDENTICAL -> name;
+                case SCREMALIZED -> Strings.screamilize(name);
+            };
         }
 
         @Override
@@ -113,11 +111,10 @@ public abstract class Naming implements UnaryOperator<String> {
                 result = prefix + fixedInput + suffix;
             }
 
-            switch (as) {
-                case IDENTICAL: return result;
-                case SCREMALIZED: return Strings.screamilize(result);
-                default: throw new IllegalStateException();
-            }
+            return switch (as) {
+                case IDENTICAL -> result;
+                case SCREMALIZED -> Strings.screamilize(result);
+            };
         }
 
         @Override
