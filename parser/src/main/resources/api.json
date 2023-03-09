@@ -2636,11 +2636,23 @@
     },
     {
       "predicate": "messageActionBotAllowed",
-      "id": "abe9affe",
+      "id": "c516d679",
       "params": [
         {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "attach_menu",
+          "type": "flags.1?true"
+        },
+        {
           "name": "domain",
-          "type": "string"
+          "type": "flags.0?string"
+        },
+        {
+          "name": "app",
+          "type": "flags.2?BotApp"
         }
       ],
       "type": "MessageAction"
@@ -2883,11 +2895,6 @@
           "type": "Photo"
         }
       ],
-      "type": "MessageAction"
-    },
-    {
-      "predicate": "messageActionAttachMenuBotAllowed",
-      "id": "e7e75f97",
       "type": "MessageAction"
     },
     {
@@ -6703,15 +6710,11 @@
     },
     {
       "predicate": "config",
-      "id": "232566ac",
+      "id": "cc1a241e",
       "params": [
         {
           "name": "flags",
           "type": "#"
-        },
-        {
-          "name": "phonecalls_enabled",
-          "type": "flags.1?true"
         },
         {
           "name": "default_p2p_contacts",
@@ -6722,20 +6725,12 @@
           "type": "flags.4?true"
         },
         {
-          "name": "ignore_phone_entities",
-          "type": "flags.5?true"
-        },
-        {
           "name": "revoke_pm_inbox",
           "type": "flags.6?true"
         },
         {
           "name": "blocked_mode",
           "type": "flags.8?true"
-        },
-        {
-          "name": "pfs_enabled",
-          "type": "flags.13?true"
         },
         {
           "name": "force_try_ipv6",
@@ -6810,10 +6805,6 @@
           "type": "int"
         },
         {
-          "name": "saved_gifs_limit",
-          "type": "int"
-        },
-        {
           "name": "edit_time_limit",
           "type": "int"
         },
@@ -6834,24 +6825,12 @@
           "type": "int"
         },
         {
-          "name": "stickers_faved_limit",
-          "type": "int"
-        },
-        {
           "name": "channels_read_media_period",
           "type": "int"
         },
         {
           "name": "tmp_sessions",
           "type": "flags.0?int"
-        },
-        {
-          "name": "pinned_dialogs_count_max",
-          "type": "int"
-        },
-        {
-          "name": "pinned_infolder_count_max",
-          "type": "int"
         },
         {
           "name": "call_receive_timeout_ms",
@@ -6920,6 +6899,10 @@
         {
           "name": "reactions_default",
           "type": "flags.15?Reaction"
+        },
+        {
+          "name": "autologin_token",
+          "type": "flags.16?string"
         }
       ],
       "type": "Config"
@@ -10689,7 +10672,7 @@
     },
     {
       "predicate": "messages.botResults",
-      "id": "947ca848",
+      "id": "e021f2f6",
       "params": [
         {
           "name": "flags",
@@ -10710,6 +10693,10 @@
         {
           "name": "switch_pm",
           "type": "flags.2?InlineBotSwitchPM"
+        },
+        {
+          "name": "switch_webview",
+          "type": "flags.3?InlineBotWebView"
         },
         {
           "name": "results",
@@ -12897,7 +12884,7 @@
     },
     {
       "predicate": "inputStickerSetItem",
-      "id": "ffa0a496",
+      "id": "32da9e9c",
       "params": [
         {
           "name": "flags",
@@ -12914,6 +12901,10 @@
         {
           "name": "mask_coords",
           "type": "flags.0?MaskCoords"
+        },
+        {
+          "name": "keywords",
+          "type": "flags.1?string"
         }
       ],
       "type": "InputStickerSetItem"
@@ -18236,7 +18227,7 @@
     },
     {
       "predicate": "sponsoredMessage",
-      "id": "3a836df8",
+      "id": "fc25b828",
       "params": [
         {
           "name": "flags",
@@ -18281,6 +18272,14 @@
         {
           "name": "entities",
           "type": "flags.1?Vector<MessageEntity>"
+        },
+        {
+          "name": "sponsor_info",
+          "type": "flags.7?string"
+        },
+        {
+          "name": "additional_info",
+          "type": "flags.8?string"
         }
       ],
       "type": "SponsoredMessage"
@@ -19923,6 +19922,168 @@
         }
       ],
       "type": "account.AutoSaveSettings"
+    },
+    {
+      "predicate": "help.appConfigNotModified",
+      "id": "7cde641d",
+      "type": "help.AppConfig"
+    },
+    {
+      "predicate": "help.appConfig",
+      "id": "dd18782e",
+      "params": [
+        {
+          "name": "hash",
+          "type": "int"
+        },
+        {
+          "name": "config",
+          "type": "JSONValue"
+        }
+      ],
+      "type": "help.AppConfig"
+    },
+    {
+      "predicate": "inputBotAppID",
+      "id": "a920bd7a",
+      "params": [
+        {
+          "name": "id",
+          "type": "long"
+        },
+        {
+          "name": "access_hash",
+          "type": "long"
+        }
+      ],
+      "type": "InputBotApp"
+    },
+    {
+      "predicate": "inputBotAppShortName",
+      "id": "908c0407",
+      "params": [
+        {
+          "name": "bot_id",
+          "type": "InputUser"
+        },
+        {
+          "name": "short_name",
+          "type": "string"
+        }
+      ],
+      "type": "InputBotApp"
+    },
+    {
+      "predicate": "botAppNotModified",
+      "id": "5da674b7",
+      "type": "BotApp"
+    },
+    {
+      "predicate": "botApp",
+      "id": "95fcd1d6",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "id",
+          "type": "long"
+        },
+        {
+          "name": "access_hash",
+          "type": "long"
+        },
+        {
+          "name": "short_name",
+          "type": "string"
+        },
+        {
+          "name": "title",
+          "type": "string"
+        },
+        {
+          "name": "description",
+          "type": "string"
+        },
+        {
+          "name": "photo",
+          "type": "Photo"
+        },
+        {
+          "name": "document",
+          "type": "flags.0?Document"
+        },
+        {
+          "name": "hash",
+          "type": "long"
+        }
+      ],
+      "type": "BotApp"
+    },
+    {
+      "predicate": "messages.botApp",
+      "id": "eb50adf5",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "inactive",
+          "type": "flags.0?true"
+        },
+        {
+          "name": "request_write_access",
+          "type": "flags.1?true"
+        },
+        {
+          "name": "app",
+          "type": "BotApp"
+        }
+      ],
+      "type": "messages.BotApp"
+    },
+    {
+      "predicate": "appWebViewResultUrl",
+      "id": "3c1b4f0d",
+      "params": [
+        {
+          "name": "url",
+          "type": "string"
+        }
+      ],
+      "type": "AppWebViewResult"
+    },
+    {
+      "predicate": "inlineBotWebView",
+      "id": "b57295d5",
+      "params": [
+        {
+          "name": "text",
+          "type": "string"
+        },
+        {
+          "name": "url",
+          "type": "string"
+        }
+      ],
+      "type": "InlineBotWebView"
+    },
+    {
+      "predicate": "readParticipantDate",
+      "id": "4a4ff172",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "long"
+        },
+        {
+          "name": "date",
+          "type": "int"
+        }
+      ],
+      "type": "ReadParticipantDate"
     }
   ],
   "methods": [
@@ -23166,7 +23327,7 @@
     },
     {
       "method": "messages.setInlineBotResults",
-      "id": "eb5ea206",
+      "id": "bb12a419",
       "params": [
         {
           "name": "flags",
@@ -23199,6 +23360,10 @@
         {
           "name": "switch_pm",
           "type": "flags.3?InlineBotSwitchPM"
+        },
+        {
+          "name": "switch_webview",
+          "type": "flags.4?InlineBotWebView"
         }
       ],
       "type": "Bool"
@@ -24929,7 +25094,7 @@
     },
     {
       "method": "messages.getMessageReadParticipants",
-      "id": "2c6f97b7",
+      "id": "31c1c44f",
       "params": [
         {
           "name": "peer",
@@ -24940,7 +25105,7 @@
           "type": "int"
         }
       ],
-      "type": "Vector<long>"
+      "type": "Vector<ReadParticipantDate>"
     },
     {
       "method": "messages.getSearchResultsCalendar",
@@ -25430,6 +25595,10 @@
           "type": "#"
         },
         {
+          "name": "from_switch_webview",
+          "type": "flags.1?true"
+        },
+        {
           "name": "bot",
           "type": "InputUser"
         },
@@ -25731,6 +25900,56 @@
         }
       ],
       "type": "Bool"
+    },
+    {
+      "method": "messages.getBotApp",
+      "id": "34fdc5c3",
+      "params": [
+        {
+          "name": "app",
+          "type": "InputBotApp"
+        },
+        {
+          "name": "hash",
+          "type": "long"
+        }
+      ],
+      "type": "messages.BotApp"
+    },
+    {
+      "method": "messages.requestAppWebView",
+      "id": "8c5a3b3c",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "write_allowed",
+          "type": "flags.0?true"
+        },
+        {
+          "name": "peer",
+          "type": "InputPeer"
+        },
+        {
+          "name": "app",
+          "type": "InputBotApp"
+        },
+        {
+          "name": "start_param",
+          "type": "flags.1?string"
+        },
+        {
+          "name": "theme_params",
+          "type": "flags.2?DataJSON"
+        },
+        {
+          "name": "platform",
+          "type": "string"
+        }
+      ],
+      "type": "AppWebViewResult"
     },
     {
       "method": "updates.getState",
@@ -26176,8 +26395,14 @@
     },
     {
       "method": "help.getAppConfig",
-      "id": "98914110",
-      "type": "JSONValue"
+      "id": "61e3f854",
+      "params": [
+        {
+          "name": "hash",
+          "type": "int"
+        }
+      ],
+      "type": "help.AppConfig"
     },
     {
       "method": "help.saveAppLog",
@@ -27372,6 +27597,40 @@
       "type": "Bool"
     },
     {
+      "method": "bots.setBotInfo",
+      "id": "a365df7a",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "lang_code",
+          "type": "string"
+        },
+        {
+          "name": "about",
+          "type": "flags.0?string"
+        },
+        {
+          "name": "description",
+          "type": "flags.1?string"
+        }
+      ],
+      "type": "Bool"
+    },
+    {
+      "method": "bots.getBotInfo",
+      "id": "75ec12e6",
+      "params": [
+        {
+          "name": "lang_code",
+          "type": "string"
+        }
+      ],
+      "type": "Vector<string>"
+    },
+    {
       "method": "payments.getPaymentForm",
       "id": "37148dbb",
       "params": [
@@ -27571,6 +27830,14 @@
           "type": "flags.4?true"
         },
         {
+          "name": "emojis",
+          "type": "flags.5?true"
+        },
+        {
+          "name": "text_color",
+          "type": "flags.6?true"
+        },
+        {
           "name": "user_id",
           "type": "InputUser"
         },
@@ -27640,15 +27907,23 @@
     },
     {
       "method": "stickers.setStickerSetThumb",
-      "id": "9a364e30",
+      "id": "a76a5392",
       "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
         {
           "name": "stickerset",
           "type": "InputStickerSet"
         },
         {
           "name": "thumb",
-          "type": "InputDocument"
+          "type": "flags.0?InputDocument"
+        },
+        {
+          "name": "thumb_document_id",
+          "type": "flags.1?long"
         }
       ],
       "type": "messages.StickerSet"
@@ -27674,6 +27949,59 @@
         }
       ],
       "type": "stickers.SuggestedShortName"
+    },
+    {
+      "method": "stickers.changeSticker",
+      "id": "f5537ebc",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "sticker",
+          "type": "InputDocument"
+        },
+        {
+          "name": "emoji",
+          "type": "flags.0?string"
+        },
+        {
+          "name": "mask_coords",
+          "type": "flags.1?MaskCoords"
+        },
+        {
+          "name": "keywords",
+          "type": "flags.2?string"
+        }
+      ],
+      "type": "messages.StickerSet"
+    },
+    {
+      "method": "stickers.renameStickerSet",
+      "id": "124b1c00",
+      "params": [
+        {
+          "name": "stickerset",
+          "type": "InputStickerSet"
+        },
+        {
+          "name": "title",
+          "type": "string"
+        }
+      ],
+      "type": "messages.StickerSet"
+    },
+    {
+      "method": "stickers.deleteStickerSet",
+      "id": "87704394",
+      "params": [
+        {
+          "name": "stickerset",
+          "type": "InputStickerSet"
+        }
+      ],
+      "type": "Bool"
     },
     {
       "method": "phone.getCallConfig",
