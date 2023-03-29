@@ -6181,6 +6181,17 @@
       "type": "Update"
     },
     {
+      "predicate": "updateGroupInvitePrivacyForbidden",
+      "id": "ccf08ad6",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "long"
+        }
+      ],
+      "type": "Update"
+    },
+    {
       "predicate": "updates.state",
       "id": "a56c2a3e",
       "params": [
@@ -18650,7 +18661,7 @@
     },
     {
       "predicate": "messagePeerReaction",
-      "id": "b156fe9c",
+      "id": "8c79b63c",
       "params": [
         {
           "name": "flags",
@@ -18667,6 +18678,10 @@
         {
           "name": "peer_id",
           "type": "Peer"
+        },
+        {
+          "name": "date",
+          "type": "int"
         },
         {
           "name": "reaction",
