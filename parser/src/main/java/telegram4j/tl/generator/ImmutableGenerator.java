@@ -79,7 +79,8 @@ class ImmutableGenerator {
                     .sorted(Comparator.comparingInt(d -> {
                         if (d.flags.contains(ValueAttribute.Flag.BIT_SET)) {
                             var bitSet = type.bitSets.get(d.name);
-                            if (bitSet.bitFlagsCount == 0) {
+
+                            if (bitSet != null && bitSet.bitFlagsCount == 0) {
                                 return 2;
                             }
                         }
