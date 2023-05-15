@@ -12,7 +12,7 @@ class ImmutableTest {
 
     @Test
     void withMethods() {
-        ImmutableBaseUser user = ImmutableBaseUser.of(0, 1337);
+        ImmutableBaseUser user = ImmutableBaseUser.of(0, 0, 1337);
 
         // assert shallow equals check in with*() method
         assertSame(user, user.withFlags(0));
