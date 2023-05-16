@@ -492,7 +492,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     accessor.complete();
 
                     for (Parameter p : group) {
-                        view.addComponent(mapType(p.type), p.formattedName());
+                        view.addComponent(mapType(p.type).safeUnbox(), p.formattedName());
                     }
                     view.complete();
                 }
@@ -775,7 +775,7 @@ public class SchemaGenerator extends AbstractProcessor {
                     accessor.complete();
 
                     for (Parameter p : group) {
-                        view.addComponent(mapType(p.type), p.formattedName());
+                        view.addComponent(mapType(p.type).safeUnbox(), p.formattedName());
                     }
                     view.complete();
                 }
