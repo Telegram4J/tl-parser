@@ -20,44 +20,14 @@ allprojects {
         testImplementation(rootProject.libs.junit)
     }
 
-    java {
-        withJavadocJar()
-        withSourcesJar()
-
-        modularity.inferModulePath.set(true)
-    }
-
     tasks.withType<JavaCompile> {
         options.javaModuleVersion.set(version.toString())
         options.encoding = "UTF-8"
         options.release.set(17)
     }
 
-    tasks.withType<Test> {
+    tasks.test {
         useJUnitPlatform()
-    }
-
-    tasks.withType<Javadoc> {
-        source += fileTree("$buildDir/generated/sources/annotationProcessor/java/main/")
-
-        options {
-            encoding = "UTF-8"
-            val opt = this as StandardJavadocDocletOptions
-            opt.addBooleanOption("html5", true)
-            opt.addStringOption("encoding", "UTF-8")
-
-            tags = listOf(
-                "apiNote:a:API Note:",
-                "implSpec:a:Implementation Requirements:",
-                "implNote:a:Implementation Note:"
-            )
-            links = listOf(
-                "https://projectreactor.io/docs/core/release/api/",
-                "https://fasterxml.github.io/jackson-databind/javadoc/2.14/",
-                "https://www.reactive-streams.org/reactive-streams-1.0.3-javadoc/",
-                "https://netty.io/4.1/api/"
-            )
-        }
     }
 }
 
@@ -66,11 +36,6 @@ dependencies {
 
     compileOnly(project(":parser"))
     annotationProcessor(project(":parser"))
-}
-
-tasks.named<Jar>("sourcesJar") {
-    dependsOn("compileJava")
-    from("$buildDir/generated/sources/annotationProcessor/java/main")
 }
 
 publishing {
@@ -144,5 +109,41 @@ publishing {
                 sign(this@publications["mavenJava"])
             }
         }
+    }
+}
+
+java {
+    withJavadocJar()
+    withSourcesJar()
+}
+
+tasks.named<Jar>("sourcesJar") {
+    dependsOn("compileJava")
+    from("$buildDir/generated/sources/annotationProcessor/java/main")
+}
+
+tasks.javadoc {
+    source += fileTree("$buildDir/generated/sources/annotationProcessor/java/main/")
+
+    title = "Telegram4J TL API reference ($version)"
+
+    options {
+        encoding = "UTF-8"
+        locale = "en_US"
+        val opt = this as StandardJavadocDocletOptions
+        opt.addBooleanOption("html5", true)
+        opt.addStringOption("encoding", "UTF-8")
+
+        tags = listOf(
+            "apiNote:a:API Note:",
+            "implSpec:a:Implementation Requirements:",
+            "implNote:a:Implementation Note:"
+        )
+        links = listOf(
+            "https://projectreactor.io/docs/core/release/api/",
+            "https://fasterxml.github.io/jackson-databind/javadoc/2.14/",
+            "https://www.reactive-streams.org/reactive-streams-1.0.3-javadoc/",
+            "https://netty.io/4.1/api/"
+        )
     }
 }
