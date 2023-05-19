@@ -2,11 +2,7 @@ dependencies {
     compileOnly(libs.immutables.value)
     annotationProcessor(libs.immutables.value)
 
-    implementation(libs.jackson.databind)
-    implementation(libs.reactor.addons.extra)
     implementation(libs.reactor.netty)
-
-    testImplementation(libs.junit)
 }
 
 tasks.register<JavaExec>("updateSchemas") {

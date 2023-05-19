@@ -1,7 +1,7 @@
 plugins {
     `java-library`
     `maven-publish`
-    `signing`
+    signing
     alias(libs.plugins.versions)
 }
 
@@ -14,7 +14,10 @@ allprojects {
 
     dependencies {
         implementation(platform(rootProject.libs.reactor.bom))
+        implementation(rootProject.libs.jackson.databind)
         compileOnly(rootProject.libs.jsr305)
+
+        testImplementation(rootProject.libs.junit)
     }
 
     java {
@@ -25,7 +28,7 @@ allprojects {
     }
 
     tasks.withType<JavaCompile> {
-        options.javaModuleVersion.set(version as String)
+        options.javaModuleVersion.set(version.toString())
         options.encoding = "UTF-8"
         options.release.set(17)
     }
@@ -59,11 +62,7 @@ allprojects {
 }
 
 dependencies {
-    implementation(platform(libs.reactor.bom))
-    implementation(libs.jackson.databind)
     implementation(libs.reactor.netty.core)
-
-    testImplementation(libs.junit)
 
     compileOnly(project(":parser"))
     annotationProcessor(project(":parser"))
@@ -71,7 +70,7 @@ dependencies {
 
 tasks.named<Jar>("sourcesJar") {
     dependsOn("compileJava")
-    from("build/generated/sources/annotationProcessor/java/main")
+    from("$buildDir/generated/sources/annotationProcessor/java/main")
 }
 
 publishing {
@@ -142,7 +141,7 @@ publishing {
                 if (signingKey != null && signingPassword != null) {
                     useInMemoryPgpKeys(signingKey, signingPassword)
                 }
-                sign(publishing.publications["mavenJava"])
+                sign(this@publications["mavenJava"])
             }
         }
     }

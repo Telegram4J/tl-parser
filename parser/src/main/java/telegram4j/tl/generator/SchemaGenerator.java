@@ -66,10 +66,7 @@ public class SchemaGenerator extends AbstractProcessor {
     private final List<String> emptyObjectsIds = new ArrayList<>(200);
 
     private final TopLevelRenderer tlInfo = ClassRenderer.create(ClassRef.of(BASE_PACKAGE, "TlInfo"), ClassRenderer.Kind.CLASS)
-            .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
-            .addField(int.class, "LAYER", Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
-                    .initializer(Integer.toString(LAYER))
-                    .complete();
+            .addModifiers(Modifier.PUBLIC, Modifier.FINAL);
 
     private final MethodRenderer<TopLevelRenderer> tlTypeOf = tlInfo.addMethod(
             ParameterizedTypeRef.of(Class.class, WildcardTypeRef.subtypeOf(TL_OBJECT)), "typeOf")
@@ -159,6 +156,10 @@ public class SchemaGenerator extends AbstractProcessor {
                     throw Exceptions.propagate(t);
                 }
             }
+
+            tlInfo.addField(int.class, "LAYER", Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
+                    .initializer(apiScheme.version())
+                    .complete();
 
             preparePackages();
         }

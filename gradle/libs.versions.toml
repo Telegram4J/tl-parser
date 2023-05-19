@@ -9,7 +9,6 @@ junit = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "juni
 reactor-bom = { module = "io.projectreactor:reactor-bom", version.ref = "reactor-bom" }
 reactor-netty = { module = "io.projectreactor.netty:reactor-netty" }
 reactor-netty-core = { module = "io.projectreactor.netty:reactor-netty-core" }
-reactor-addons-extra = { module = "io.projectreactor.addons:reactor-extra" }
 jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
 jsr305 = "com.google.code.findbugs:jsr305:3.0.2"
 immutables-value = { module = "org.immutables:value", version.ref = "immutables" }
