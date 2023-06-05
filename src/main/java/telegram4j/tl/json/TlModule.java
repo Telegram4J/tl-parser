@@ -33,8 +33,17 @@ public class TlModule extends Module {
 
     @Override
     public Version version() {
-        // TODO: parse from module descriptor
-        return new Version(0, 1, 2, null, null, null);
+        var moduleDesc = TlModule.class.getModule().getDescriptor();
+        if (moduleDesc == null) {
+            return new Version(0, 1, 2, "SNAPSHOT", "com.telegram4j", "tl-parser");
+        }
+
+        String[] versionAndInfo = moduleDesc.rawVersion().orElseThrow().split("-");
+        String[] version = versionAndInfo[0].split("\\.");
+        String snapshot = versionAndInfo.length == 2 ? versionAndInfo[1] : null;
+
+        return new Version(Integer.parseInt(version[0]), Integer.parseInt(version[1]),
+                Integer.parseInt(version[2]), snapshot, "com.telegram4j", "tl-parser");
     }
 
     @Override
