@@ -3,12 +3,10 @@ package telegram4j.tl.generator;
 import reactor.util.annotation.Nullable;
 
 import java.util.function.UnaryOperator;
-import java.util.regex.Pattern;
 
 public abstract class Naming implements UnaryOperator<String> {
 
     private static final String NAME_PLACEHOLDER = "*";
-    private static final Pattern NAME_PATTERN = Pattern.compile(Pattern.quote(NAME_PLACEHOLDER));
 
     @Override
     public String apply(String input) {
@@ -27,7 +25,7 @@ public abstract class Naming implements UnaryOperator<String> {
             return IDENTITY_NAMING;
         }
 
-        String[] parts = NAME_PATTERN.split(template, 3);
+        String[] parts = template.split('\\' + NAME_PLACEHOLDER, 3);
         Preconditions.requireState(parts.length <= 2, "Template '" + template
                 + "' contains more than one '*' placeholder");
 
@@ -47,11 +45,10 @@ public abstract class Naming implements UnaryOperator<String> {
     private static final Naming IDENTITY_NAMING = new Naming() {
         @Override
         public String apply(String input, As as) {
-            switch (as) {
-                case IDENTICAL: return input;
-                case SCREMALIZED: return Strings.screamilize(input);
-                default: throw new IllegalStateException();
-            }
+            return switch (as) {
+                case IDENTICAL -> input;
+                case SCREMALIZED -> Strings.screamilize(input);
+            };
         }
 
         @Override
@@ -74,11 +71,10 @@ public abstract class Naming implements UnaryOperator<String> {
 
         @Override
         public String apply(String input, As as) {
-            switch (as) {
-                case IDENTICAL: return name;
-                case SCREMALIZED: return Strings.screamilize(name);
-                default: throw new IllegalStateException();
-            }
+            return switch (as) {
+                case IDENTICAL -> name;
+                case SCREMALIZED -> Strings.screamilize(name);
+            };
         }
 
         @Override
@@ -113,11 +109,10 @@ public abstract class Naming implements UnaryOperator<String> {
                 result = prefix + fixedInput + suffix;
             }
 
-            switch (as) {
-                case IDENTICAL: return result;
-                case SCREMALIZED: return Strings.screamilize(result);
-                default: throw new IllegalStateException();
-            }
+            return switch (as) {
+                case IDENTICAL -> result;
+                case SCREMALIZED -> Strings.screamilize(result);
+            };
         }
 
         @Override

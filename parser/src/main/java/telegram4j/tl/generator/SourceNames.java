@@ -41,27 +41,21 @@ public final class SourceNames {
         // TODO, replace
         if (!SourceVersion.isName(name)) {
             switch (name) {
-                case "default":
-                case "static":
-                case "public":
-                case "final":
-                case "private":
-                case "short":
+                case "default", "static", "public", "final", "private", "short" -> {
                     if (!"true".equals(type)) {
                         throw new IllegalStateException("Non-flag parameter with java keyword name, type: " + type);
                     }
-
                     name = camelize("is_" + name);
-                    break;
-                case "long":
+                }
+                case "long" -> {
                     if (!"double".equals(type)) {
                         throw new IllegalStateException("Non-flag parameter with java keyword name, type: " + type);
                     }
 
                     // just use the full form of word
                     name = "longitude";
-                    break;
-                default: throw new IllegalStateException("Unhandled keyword use: " + name + ", type: " + type);
+                }
+                default -> throw new IllegalStateException("Unhandled keyword use: " + name + ", type: " + type);
             }
         }
 
@@ -77,16 +71,16 @@ public final class SourceNames {
     }
 
     public static String escape(char c) {
-        switch (c) {
-            case '\b': return "\\b";
-            case '\f': return "\\f";
-            case '\n': return "\\n";
-            case '\r': return "\\r";
-            case '\t': return "\\t";
-            case '\'': return "\\'";
-            case '\"': return "\\\"";
-            case '\\': return "\\\\";
-            default: return c >= ' ' && c <= '~' ? String.valueOf(c) : String.format("\\u%04x", (int) c);
-        }
+        return switch (c) {
+            case '\b' -> "\\b";
+            case '\f' -> "\\f";
+            case '\n' -> "\\n";
+            case '\r' -> "\\r";
+            case '\t' -> "\\t";
+            case '\'' -> "\\'";
+            case '\"' -> "\\\"";
+            case '\\' -> "\\\\";
+            default -> c >= ' ' && c <= '~' ? String.valueOf(c) : String.format("\\u%04x", (int) c);
+        };
     }
 }
