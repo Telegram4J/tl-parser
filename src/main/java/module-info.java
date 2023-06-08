@@ -12,7 +12,9 @@ module telegram4j.tl {
 	exports telegram4j.tl.account;
 	exports telegram4j.tl.api;
 	exports telegram4j.tl.auth;
+	exports telegram4j.tl.bots;
 	exports telegram4j.tl.channels;
+	exports telegram4j.tl.chatlists;
 	exports telegram4j.tl.contacts;
 	exports telegram4j.tl.help;
 	exports telegram4j.tl.json;
@@ -26,6 +28,7 @@ module telegram4j.tl {
 	exports telegram4j.tl.request.auth;
 	exports telegram4j.tl.request.bots;
 	exports telegram4j.tl.request.channels;
+	exports telegram4j.tl.request.chatlists;
 	exports telegram4j.tl.request.contacts;
 	exports telegram4j.tl.request.folders;
 	exports telegram4j.tl.request.help;
