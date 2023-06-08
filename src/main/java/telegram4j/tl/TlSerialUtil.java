@@ -3,8 +3,6 @@ package telegram4j.tl;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.*;
 import io.netty.buffer.*;
-import reactor.core.Exceptions;
-import reactor.util.annotation.Nullable;
 import telegram4j.tl.api.TlObject;
 
 import java.io.IOException;
@@ -28,23 +26,21 @@ public final class TlSerialUtil {
     private TlSerialUtil() {
     }
 
-    public static ByteBuf compressGzip(ByteBufAllocator allocator, int level, ByteBuf buf) {
+    public static ByteBuf compressGzip(ByteBufAllocator allocator, int level, ByteBuf buf) throws IOException {
         ByteBufOutputStream bufOut = new ByteBufOutputStream(allocator.buffer(buf.readableBytes()));
         try (DeflaterOutputStream out = new ConfigurableGZIPOutputStream(bufOut, level)) {
             out.write(ByteBufUtil.getBytes(buf));
             out.finish();
             buf.release();
             return bufOut.buffer();
-        } catch (IOException e) {
-            throw Exceptions.propagate(e);
         }
     }
 
-    public static ByteBuf compressGzip(ByteBufAllocator allocator, int level, TlObject object) {
+    public static ByteBuf compressGzip(ByteBufAllocator allocator, int level, TlObject object) throws IOException {
         return compressGzip(allocator, level, TlSerializer.serialize(allocator, object));
     }
 
-    public static <T> T decompressGzip(ByteBuf packed) {
+    public static <T> T decompressGzip(ByteBuf packed) throws IOException {
         ByteBuf result = packed.alloc().buffer(packed.readableBytes());
         try (GZIPInputStream in = new GZIPInputStream(new ByteBufInputStream(packed))) {
             int remaining = Integer.MAX_VALUE;
@@ -64,8 +60,6 @@ public final class TlSerialUtil {
             } while (n >= 0 && remaining > 0);
 
             return TlDeserializer.deserialize(result);
-        } catch (IOException e) {
-            throw Exceptions.propagate(e);
         } finally {
             result.release();
         }
