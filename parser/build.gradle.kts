@@ -2,7 +2,8 @@ dependencies {
     compileOnly(libs.immutables.value)
     annotationProcessor(libs.immutables.value)
 
-    implementation(libs.reactor.netty)
+    implementation(libs.netty.handler)
+    implementation(libs.reactor.core)
 }
 
 tasks.register<JavaExec>("updateSchemas") {

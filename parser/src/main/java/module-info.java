@@ -1,8 +1,6 @@
 module telegram4j.tl.parser {
     requires com.fasterxml.jackson.databind;
     requires reactor.core;
-    requires reactor.netty.core;
-    requires org.reactivestreams;
     requires io.netty.buffer;
 
     requires java.compiler;

@@ -14,6 +14,8 @@ allprojects {
 
     dependencies {
         implementation(platform(rootProject.libs.reactor.bom))
+        implementation(platform(rootProject.libs.netty.bom))
+
         implementation(rootProject.libs.jackson.databind)
         compileOnly(rootProject.libs.jsr305)
 
@@ -32,7 +34,8 @@ allprojects {
 }
 
 dependencies {
-    implementation(libs.reactor.netty.core)
+    implementation(libs.netty.handler)
+    implementation(libs.reactor.core)
 
     compileOnly(project(":parser"))
     annotationProcessor(project(":parser"))

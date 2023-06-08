@@ -46,5 +46,6 @@ module telegram4j.tl {
 	exports telegram4j.tl.updates;
 	exports telegram4j.tl.upload;
 	exports telegram4j.tl.users;
+
 	provides Module with TlModule;
 }
