@@ -1,12 +1,17 @@
 dependencies {
-    compileOnly(libs.immutables.value)
-    annotationProcessor(libs.immutables.value)
-
     implementation(libs.netty.handler)
     implementation(libs.reactor.core)
+    compileOnly(libs.immutables.value)
+    annotationProcessor(libs.immutables.value)
 }
 
-tasks.register<JavaExec>("updateSchemas") {
+val updateSchemas by tasks.registering(JavaExec::class) {
     mainClass.set("telegram4j.tl.parser.SchemaUpdater")
     classpath = sourceSets.main.get().runtimeClasspath
+}
+
+// TODO update api scheme before processing
+
+tasks.compileJava {
+    finalizedBy(updateSchemas)
 }

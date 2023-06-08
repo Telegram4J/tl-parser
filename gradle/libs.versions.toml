@@ -1,5 +1,5 @@
 [versions]
-reactor-bom = "2020.0.24"
+reactor-core = "3.5.6"
 netty-bom = "4.1.92.Final"
 
 jackson = "2.14.0"
@@ -12,8 +12,7 @@ junit = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "juni
 netty-bom = { module = "io.netty:netty-bom", version.ref = "netty-bom" }
 netty-handler = { module = "io.netty:netty-handler" }
 
-reactor-bom = { module = "io.projectreactor:reactor-bom", version.ref = "reactor-bom" }
-reactor-core = { module = "io.projectreactor:reactor-core" }
+reactor-core = { module = "io.projectreactor:reactor-core", version.ref = "reactor-core" }
 
 jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
 

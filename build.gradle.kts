@@ -20,9 +20,7 @@ allprojects {
     apply(plugin = "com.github.ben-manes.versions")
 
     dependencies {
-        implementation(platform(rootProject.libs.reactor.bom))
         implementation(platform(rootProject.libs.netty.bom))
-
         implementation(rootProject.libs.jackson.databind)
         compileOnly(rootProject.libs.jsr305)
 
@@ -133,6 +131,8 @@ tasks.named<Jar>("sourcesJar") {
 }
 
 val updateModuleInfo by tasks.registering {
+    mustRunAfter("compileJava")
+
     doLast {
 
         class PackagesCollector(val root: Path, val packages: MutableSet<String>) : SimpleFileVisitor<Path>() {
@@ -174,7 +174,7 @@ val updateModuleInfo by tasks.registering {
     }
 }
 
-tasks.named("classes") {
+tasks.classes {
     dependsOn(updateModuleInfo)
 }
 
