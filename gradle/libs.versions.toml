@@ -1,5 +1,5 @@
 [versions]
-reactor-core = "3.5.6"
+reactor-bom = "2020.0.24"
 netty-bom = "4.1.92.Final"
 
 jackson = "2.14.0"
@@ -12,11 +12,12 @@ junit = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "juni
 netty-bom = { module = "io.netty:netty-bom", version.ref = "netty-bom" }
 netty-handler = { module = "io.netty:netty-handler" }
 
-reactor-core = { module = "io.projectreactor:reactor-core", version.ref = "reactor-core" }
+reactor-bom = { module = "io.projectreactor:reactor-bom", version.ref = "reactor-bom" }
+reactor-core = { module = "io.projectreactor:reactor-core" }
 
 jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
-
 jsr305 = "com.google.code.findbugs:jsr305:3.0.2"
+
 immutables-value = { module = "org.immutables:value", version.ref = "immutables" }
 
 [plugins]

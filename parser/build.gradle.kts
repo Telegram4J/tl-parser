@@ -1,6 +1,5 @@
 dependencies {
     implementation(libs.netty.handler)
-    implementation(libs.reactor.core)
     compileOnly(libs.immutables.value)
     annotationProcessor(libs.immutables.value)
 }

@@ -20,8 +20,10 @@ allprojects {
     apply(plugin = "com.github.ben-manes.versions")
 
     dependencies {
+        implementation(platform(rootProject.libs.reactor.bom))
         implementation(platform(rootProject.libs.netty.bom))
         implementation(rootProject.libs.jackson.databind)
+        implementation(rootProject.libs.reactor.core)
         compileOnly(rootProject.libs.jsr305)
 
         testImplementation(rootProject.libs.junit)
@@ -40,7 +42,6 @@ allprojects {
 
 dependencies {
     implementation(libs.netty.handler)
-    implementation(libs.reactor.core)
 
     compileOnly(project(":parser"))
     annotationProcessor(project(":parser"))
