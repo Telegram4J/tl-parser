@@ -1,8 +1,8 @@
 [versions]
-reactor-bom = "2020.0.24"
-netty-bom = "4.1.92.Final"
+reactor-bom = "2022.0.7"
+netty-bom = "4.1.93.Final"
 
-jackson = "2.14.0"
+jackson = "2.15.2"
 immutables = "2.9.3"
 junit = "5.9.0"
 
@@ -21,4 +21,4 @@ jsr305 = "com.google.code.findbugs:jsr305:3.0.2"
 immutables-value = { module = "org.immutables:value", version.ref = "immutables" }
 
 [plugins]
-versions = { id = "com.github.ben-manes.versions", version = "0.45.0" }
+versions = { id = "com.github.ben-manes.versions", version = "0.47.0" }
