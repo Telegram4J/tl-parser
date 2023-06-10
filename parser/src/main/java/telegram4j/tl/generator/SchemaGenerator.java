@@ -453,11 +453,18 @@ public class SchemaGenerator extends AbstractProcessor {
 
                 for (var group : conditionalGroups.values()) {
                     if (group.size() == 1) continue;
-                    String andSeq = group.stream()
-                            .map(a -> Character.toUpperCase(a.formattedName().charAt(0)) + a.formattedName().substring(1))
-                            .collect(Collectors.joining("And"));
-                    var view = renderer.addType(andSeq + "View", ClassRenderer.Kind.RECORD);
-                    var accessor = renderer.addMethod(view.name, Character.toLowerCase(andSeq.charAt(0)) + andSeq.substring(1))
+                    String key = group.stream()
+                            .map(Parameter::formattedName)
+                            .collect(Collectors.joining(","));
+                    String recordName = conditionalGroupNames.get(key);
+                    if (recordName == null) {
+                        throw new IllegalStateException("No view name for group: " + group.stream()
+                                .map(Parameter::formattedName).collect(Collectors.joining(",")) + ", in type: " + rawMethod.name());
+                    }
+
+                    String viewClassName = recordName + "View";
+                    var view = renderer.addType(viewClassName, ClassRenderer.Kind.RECORD);
+                    var accessor = renderer.addMethod(view.name, Character.toLowerCase(viewClassName.charAt(0)) + viewClassName.substring(1))
                             .addAnnotation(Nullable.class)
                             .addModifiers(Modifier.DEFAULT);
                     for (Parameter p : group) {
@@ -738,11 +745,19 @@ public class SchemaGenerator extends AbstractProcessor {
 
                 for (var group : conditionalGroups.values()) {
                     if (group.size() == 1) continue;
-                    String andSeq = group.stream()
-                            .map(a -> Character.toUpperCase(a.formattedName().charAt(0)) + a.formattedName().substring(1))
-                            .collect(Collectors.joining("And"));
-                    var view = renderer.addType(andSeq + "View", ClassRenderer.Kind.RECORD);
-                    var accessor = renderer.addMethod(view.name, Character.toLowerCase(andSeq.charAt(0)) + andSeq.substring(1))
+                    String key = group.stream()
+                            .map(Parameter::formattedName)
+                            .collect(Collectors.joining(","));
+                    String recordName = conditionalGroupNames.get(key);
+                    if (recordName == null) {
+                        throw new IllegalStateException("No view name for group: " + group.stream()
+                                .map(Parameter::formattedName).collect(Collectors.joining(","))
+                                + ", in type: " + rawConstructor.name());
+                    }
+
+                    String viewClassName = recordName + "View";
+                    var view = renderer.addType(viewClassName, ClassRenderer.Kind.RECORD);
+                    var accessor = renderer.addMethod(view.name, Character.toLowerCase(viewClassName.charAt(0)) + viewClassName.substring(1))
                             .addAnnotation(Nullable.class)
                             .addModifiers(Modifier.DEFAULT);
                     for (Parameter p : group) {

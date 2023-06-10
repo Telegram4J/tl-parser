@@ -4,13 +4,11 @@ import io.netty.buffer.ByteBuf;
 import reactor.util.function.Tuple2;
 import telegram4j.tl.generator.renderer.*;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
+import static java.util.Map.entry;
 import static reactor.util.function.Tuples.of;
 
 final class SchemaGeneratorConsts {
@@ -29,6 +27,40 @@ final class SchemaGeneratorConsts {
     static final String METHOD_PACKAGE_PREFIX = "request";
     static final String TEMPLATE_PACKAGE_INFO = "package-info.template";
     static final String BASE_PACKAGE = "telegram4j.tl";
+
+    static final Map<String, String> conditionalGroupNames = Map.ofEntries(
+            entry("solution,solutionEntities", "Solution"),
+            entry("videoChannel,videoQuality", "Video"),
+            entry("w,h", "Size"),
+            entry("requestsPending,recentRequesters", "JoinRequests"),
+            entry("kickedCount,bannedCount", "AdminStatistic"),
+            entry("migratedFromChatId,migratedFromMaxId", "MigratedFrom"),
+            entry("views,forwards", "MessageStatistic"),
+            entry("cryptoCurrency,cryptoAmount", "CryptoAmount"),
+            entry("requestChatTitle,requestChatDate", "JoinRequest"),
+            entry("broadcastId,broadcastPost", "DiscussionThread"),
+            entry("suggestedLangCode,langPackVersion,baseLangPackVersion", "LangPack"),
+            entry("embedWidth,embedHeight", "EmbedPreviewSize"),
+            entry("embedUrl,embedType", "EmbedPreview"),
+            entry("currentAlgo,srpB,srpId", "SRPParameters"),
+            entry("newAlgo,newPasswordHash,hint", "PasswordSettings"),
+            entry("thumbs,thumbDcId,thumbVersion", "StickerSetThumb"),
+            entry("savedFromPeer,savedFromMsgId", "SavedFrom"),
+            entry("receipt,pushTimeout", "PushNotification"),
+            entry("url,webpageId", "Photo"),
+            entry("maxTipAmount,suggestedTipAmounts", "SuggestedTips"),
+            entry("title,performer", "AudioDetails"),
+            entry("nativeProvider,nativeParams", "NativeProvider"),
+            entry("token,appSandbox", "FirebaseAuth"),
+            entry("secondBackgroundColor,rotation", "GradientSettings"),
+            entry("wallpaper,wallpaperSettings", "Wallpaper"),
+            entry("chatInvite,chatInviteHash", "ChatInvite"),
+            entry("aroundAnimation,centerIcon", "AroundAnimation"),
+            entry("peer,msgId,buttonId", "MessageInfo"),
+            entry("offsetDate,offsetLink", "PaginationOffset"),
+            entry("peer,id", "MessageInfo"),
+            entry("geoPoint,address", "GeoPoint")
+    );
 
     static class Supertypes {
         static final List<Tuple2<Predicate<String>, ClassRef>> predicates = new ArrayList<>();

@@ -312,17 +312,18 @@ class ImmutableGenerator {
             if (group.size() == 1) continue;
             var anyAttr = group.get(0);
 
-            String andSeq = group.stream()
-                    .map(a -> Character.toUpperCase(a.name.charAt(0)) + a.name.substring(1))
-                    .collect(Collectors.joining("And"));
+            String key = group.stream()
+                    .map(s -> s.name)
+                    .collect(Collectors.joining(","));
+            String recordName = conditionalGroupNames.get(key) + "View";
 
             String refEqCheck = group.stream()
                     .map(a -> a.name + " == values." + a.name + "()")
                     .collect(Collectors.joining(" && "));
 
-            var wither = renderer.addMethod(type.immutableType, with.apply(andSeq))
+            var wither = renderer.addMethod(type.immutableType, with.apply(recordName))
                     .addModifiers(Modifier.PUBLIC)
-                    .addParameter(AnnotatedTypeRef.create(type.baseType.rawType.nested(andSeq + "View"), Nullable.class), "values")
+                    .addParameter(AnnotatedTypeRef.create(type.baseType.rawType.nested(recordName), Nullable.class), "values")
                     .beginControlFlow("if ((values == null && ($L & $L) == 0) || ($L)) {",
                             anyAttr.flagsName, anyAttr.flagMask, refEqCheck)
                     .addStatement("return this")
@@ -574,13 +575,14 @@ class ImmutableGenerator {
         for (var group : type.conditionalGroups.values()) {
             if (group.size() == 1) continue;
 
-            String andSeq = group.stream()
-                    .map(a -> Character.toUpperCase(a.name.charAt(0)) + a.name.substring(1))
-                    .collect(Collectors.joining("And"));
+            String key = group.stream()
+                    .map(s -> s.name)
+                    .collect(Collectors.joining(","));
+            String recordName = conditionalGroupNames.get(key) + "View";
 
-            var setter = builder.addMethod(type.builderType, Character.toLowerCase(andSeq.charAt(0)) + andSeq.substring(1))
+            var setter = builder.addMethod(type.builderType, Character.toLowerCase(recordName.charAt(0)) + recordName.substring(1))
                     .addModifiers(Modifier.PUBLIC)
-                    .addParameter(AnnotatedTypeRef.create(type.baseType.rawType.nested(andSeq + "View"), Nullable.class), "values");
+                    .addParameter(AnnotatedTypeRef.create(type.baseType.rawType.nested(recordName), Nullable.class), "values");
 
             for (ValueAttribute a : group) {
                 setter.addStatement("$1L(values.$1L())", a.name);
