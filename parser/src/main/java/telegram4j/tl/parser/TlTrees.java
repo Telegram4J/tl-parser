@@ -3,6 +3,7 @@ package telegram4j.tl.parser;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import org.immutables.value.Value;
+import reactor.util.annotation.Nullable;
 
 import java.util.List;
 
@@ -13,6 +14,9 @@ public class TlTrees {
     @JsonSerialize(as = ImmutableTlTrees.Scheme.class)
     @JsonDeserialize(as = ImmutableTlTrees.Scheme.class)
     public static abstract class Scheme {
+
+        @Nullable
+        public abstract String version();
 
         public abstract List<Type> constructors();
 

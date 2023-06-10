@@ -3,12 +3,10 @@ package telegram4j.tl.generator;
 import reactor.util.annotation.Nullable;
 
 import java.util.function.UnaryOperator;
-import java.util.regex.Pattern;
 
 public abstract class Naming implements UnaryOperator<String> {
 
     private static final String NAME_PLACEHOLDER = "*";
-    private static final Pattern NAME_PATTERN = Pattern.compile(Pattern.quote(NAME_PLACEHOLDER));
 
     @Override
     public String apply(String input) {
@@ -27,7 +25,7 @@ public abstract class Naming implements UnaryOperator<String> {
             return IDENTITY_NAMING;
         }
 
-        String[] parts = NAME_PATTERN.split(template, 3);
+        String[] parts = template.split('\\' + NAME_PLACEHOLDER, 3);
         Preconditions.requireState(parts.length <= 2, "Template '" + template
                 + "' contains more than one '*' placeholder");
 

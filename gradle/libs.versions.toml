@@ -1,0 +1,24 @@
+[versions]
+reactor-bom = "2022.0.7"
+netty-bom = "4.1.93.Final"
+
+jackson = "2.15.2"
+immutables = "2.9.3"
+junit = "5.9.0"
+
+[libraries]
+junit = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit" }
+
+netty-bom = { module = "io.netty:netty-bom", version.ref = "netty-bom" }
+netty-handler = { module = "io.netty:netty-handler" }
+
+reactor-bom = { module = "io.projectreactor:reactor-bom", version.ref = "reactor-bom" }
+reactor-core = { module = "io.projectreactor:reactor-core" }
+
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
+jsr305 = "com.google.code.findbugs:jsr305:3.0.2"
+
+immutables-value = { module = "org.immutables:value", version.ref = "immutables" }
+
+[plugins]
+versions = { id = "com.github.ben-manes.versions", version = "0.47.0" }

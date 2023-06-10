@@ -11,6 +11,7 @@ import telegram4j.tl.api.TlObject;
 import telegram4j.tl.mtproto.GzipPacked;
 import telegram4j.tl.mtproto.ResPQ;
 
+import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.List;
@@ -57,7 +58,7 @@ class SerializationTest {
     }
 
     @Test
-    void chatGziped() {
+    void chatGziped() throws IOException {
         Chat expected = ChatEmpty.builder()
                 .id(1337)
                 .build();

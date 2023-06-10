@@ -66,10 +66,7 @@ public class SchemaGenerator extends AbstractProcessor {
     private final List<String> emptyObjectsIds = new ArrayList<>(200);
 
     private final TopLevelRenderer tlInfo = ClassRenderer.create(ClassRef.of(BASE_PACKAGE, "TlInfo"), ClassRenderer.Kind.CLASS)
-            .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
-            .addField(int.class, "LAYER", Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
-                    .initializer(Integer.toString(LAYER))
-                    .complete();
+            .addModifiers(Modifier.PUBLIC, Modifier.FINAL);
 
     private final MethodRenderer<TopLevelRenderer> tlTypeOf = tlInfo.addMethod(
             ParameterizedTypeRef.of(Class.class, WildcardTypeRef.subtypeOf(TL_OBJECT)), "typeOf")
@@ -159,6 +156,10 @@ public class SchemaGenerator extends AbstractProcessor {
                     throw Exceptions.propagate(t);
                 }
             }
+
+            tlInfo.addField(int.class, "LAYER", Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
+                    .initializer(apiScheme.version())
+                    .complete();
 
             preparePackages();
         }
@@ -414,32 +415,14 @@ public class SchemaGenerator extends AbstractProcessor {
                         continue;
                     }
 
-                    String sizeMethod = sizeOfMethod(param);
-
                     int s = sizeOfPrimitive(param.type);
                     if (s != -1) {
                         size = Math.addExact(size, s);
-                    } else if (sizeMethod != null) {
-                        String sizeVar = sizeVariable.apply(param.formattedName());
-
-                        sizeOfBlock.addStatement("int $L = " + sizeMethod, sizeVar, param.formattedName());
-                        sizes.add(sizeVar);
-                    }
-
-                    String ser = serializeMethod(param);
-                    if (sizeMethod != null) {
-                        methodSerializer.addStatement(ser, param.formattedName());
                     } else {
-                        // writeBytes(ByteBuf) changes reader and writer indexes which may break semantic
-                        // But our implementation always return .duplicate() of byte buffer
-                        if (param.type.rawType.equals("int128") || param.type.rawType.equals("int256")) {
-                            methodSerializer.addStatement("$1T $2L = payload.$2L()", BYTE_BUF, param.formattedName());
-                            methodSerializer.addStatement("buf.writeBytes($1L, $1L.readerIndex(), $1L.readableBytes())", param.formattedName());
-                        } else {
-                            String met = byteBufMethod(param);
-                            methodSerializer.addStatement("buf." + met + "(" + ser + ")", param.formattedName());
-                        }
+                        writeSizeOfVariable(sizeOfBlock, sizes, param);
                     }
+
+                    writeSerializeMethod(methodSerializer, param);
                 }
 
                 methodSerializer.complete();
@@ -516,6 +499,27 @@ public class SchemaGenerator extends AbstractProcessor {
 
             immutableGenerator.process(prepareType(method, renderer.name, singleton, typeRefs, superType));
         }
+    }
+
+    private void writeSizeOfVariable(CodeRenderer<CharSequence> sizeOfBlock, StringJoiner sizes, Parameter param) {
+        String sizeVar = sizeVariable.apply(param.formattedName());
+
+        if (param.type.isFlag()) {
+            int primitiveSizeof = sizeOfPrimitive(param.type.innerType());
+            if (primitiveSizeof != -1) {
+                sizeOfBlock.addStatement("int $L = payload.$L() != null ? $L : 0", sizeVar, param.formattedName(), primitiveSizeof);
+            } else {
+                sizeOfBlock.addStatement("var $1L = payload.$1L()", param.formattedName());
+                String sizeMethod = sizeOfMethod(param.type.innerType());
+                sizeOfBlock.addStatement("int $L = $L != null ? " + sizeMethod + " : 0",
+                        sizeVar, param.formattedName(), param.formattedName());
+            }
+        } else {
+            String sizeMethod = sizeOfMethod(param);
+            sizeOfBlock.addStatement("int $L = " + sizeMethod, sizeVar, param.formattedName());
+        }
+
+        sizes.add(sizeVar);
     }
 
     private void generateConstructors() {
@@ -679,33 +683,14 @@ public class SchemaGenerator extends AbstractProcessor {
                         continue;
                     }
 
-                    String sizeMethod = sizeOfMethod(param);
-
                     int s = sizeOfPrimitive(param.type);
                     if (s != -1) {
                         size = Math.addExact(size, s);
-                    } else if (sizeMethod != null) {
-                        String sizeVar = sizeVariable.apply(param.formattedName());
-
-                        sizeOfBlock.addStatement("int $L = " + sizeMethod, sizeVar, param.formattedName());
-
-                        // TODO: Maybe add an overflow check?
-                        sizes.add(sizeVar);
-                    }
-
-                    String ser = serializeMethod(param);
-                    if (sizeMethod != null) {
-                        typeSerializer.addStatement(ser, param.formattedName());
                     } else {
-                        if (param.type.rawType.equals("int128") || param.type.rawType.equals("int256")) {
-                            typeSerializer.addStatement("$1T $2L = payload.$2L()", BYTE_BUF, param.formattedName());
-                            typeSerializer.addStatement("buf.writeBytes($1L, $1L.readerIndex(), $1L.readableBytes())",
-                                    param.formattedName());
-                        } else {
-                            String met = byteBufMethod(param);
-                            typeSerializer.addStatement("buf." + met + "(" + ser + ")", param.formattedName());
-                        }
+                        writeSizeOfVariable(sizeOfBlock, sizes, param);
                     }
+
+                    writeSerializeMethod(typeSerializer, param);
 
                     if (param.type.isBitSet()) {
                         Parameter prev;
@@ -1060,7 +1045,7 @@ public class SchemaGenerator extends AbstractProcessor {
                 .complete();
     }
 
-    private int sizeOfPrimitive(TlProcessing.TypeName type) {
+    private int sizeOfPrimitive(TlProcessing.TypeNameBase type) {
         return switch (type.rawType) {
             case "int256" -> 32;
             case "int128" -> 16;
@@ -1208,37 +1193,91 @@ public class SchemaGenerator extends AbstractProcessor {
         };
     }
 
-    private String serializeMethod(Parameter param) {
-        return switch (param.type.rawType) {
-            // int128/256 handled manually
-            case "int", "#", "long", "int128", "int256", "double" -> "payload.$L()";
-            case "Bool" ->  "payload.$L() ? BOOL_TRUE_ID : BOOL_FALSE_ID";
-            case "string" -> "serializeString(buf, payload.$L())";
-            case "bytes" -> "serializeBytes(buf, payload.$L())";
-            case "JSONValue" -> "serializeJsonNode(buf, payload.$L())";
-            case "Object" -> "serializeUnknown(buf, payload.$L())";
+    private String serializeMethod(TlProcessing.TypeNameBase type) {
+        return switch (type.rawType) {
+            case "#", "int" -> "buf.writeIntLE($1L)";
+            case "long" -> "buf.writeLongLE($1L)";
+            case "double" -> "buf.writeDoubleLE($1L)";
+            case "int128", "int256" -> "buf.writeBytes($1L, $1L.readerIndex(), $1L.readableBytes())";
+            case "Bool" -> "buf.writeIntLE($1L ? BOOL_TRUE_ID : BOOL_FALSE_ID)";
+            case "string" -> "serializeString(buf, $1L)";
+            case "bytes" -> "serializeBytes(buf, $1L)";
+            case "JSONValue" -> "serializeJsonNode(buf, $1L)";
+            case "Object" -> "serializeUnknown(buf, $1L)";
             default -> {
-                if (param.type.isVector()) {
-                    String innerTypeRaw = param.type.innerType().rawType;
+                if (type instanceof TlProcessing.TypeName t && t.isVector()) {
+                    String innerTypeRaw = t.innerType().rawType;
                     String specific = switch (innerTypeRaw.toLowerCase()) {
                         case "int", "long", "bytes", "string" ->
                                 Character.toUpperCase(innerTypeRaw.charAt(0)) + innerTypeRaw.substring(1);
                         default -> "";
                     };
-                    yield "serialize" + specific + "Vector(buf, payload.$L())";
-                } else if (param.type.isFlag()) {
-                    yield "serializeFlags(buf, payload.$L())";
-                } else {
-                    yield "serialize(buf, payload.$L())";
+                    yield "serialize" + specific + "Vector(buf, $1L)";
                 }
+                yield "serialize(buf, $1L)";
             }
         };
     }
 
-    @Nullable
+    private void writeSerializeMethod(MethodRenderer<TopLevelRenderer> renderer, Parameter param) {
+        if (param.type.isFlag()) {
+            renderer.addStatement("var $1L = payload.$1L()", param.formattedName());
+            String serializeMethod = serializeMethod(param.type.innerType());
+            renderer.addStatement("if ($1L != null) " + serializeMethod, param.formattedName());
+        } else if (param.type.isVector()) {
+            String innerTypeRaw = param.type.innerType().rawType;
+            String specific = switch (innerTypeRaw.toLowerCase()) {
+                case "int", "long", "bytes", "string" ->
+                        Character.toUpperCase(innerTypeRaw.charAt(0)) + innerTypeRaw.substring(1);
+                default -> "";
+            };
+
+            renderer.addStatement("serialize" + specific + "Vector(buf, payload.$L())", param.formattedName());
+        } else {
+            switch (param.type.rawType) {
+                case "int", "#" -> renderer.addStatement("buf.writeIntLE(payload.$L())", param.formattedName());
+                case "long" -> renderer.addStatement("buf.writeLongLE(payload.$L())", param.formattedName());
+                case "double" -> renderer.addStatement("buf.writeDoubleLE(payload.$L())", param.formattedName());
+                case "int128", "int256" -> {
+                    // writeBytes(ByteBuf) changes reader and writer indexes which may break semantic
+                    // But our implementation always return .duplicate() of byte buffer
+                    renderer.addStatement("var $1L = payload.$1L()", param.formattedName());
+                    renderer.addStatement("buf.writeBytes($1L, $1L.readerIndex(), $1L.readableBytes())", param.formattedName());
+                }
+                case "Bool" -> renderer.addStatement("buf.writeIntLE(payload.$L() ? BOOL_TRUE_ID : BOOL_FALSE_ID)", param.formattedName());
+                case "string" -> renderer.addStatement("serializeString(buf, payload.$L())", param.formattedName());
+                case "bytes" -> renderer.addStatement("serializeBytes(buf, payload.$L())", param.formattedName());
+                case "JSONValue" -> renderer.addStatement("serializeJsonNode(buf, payload.$L())", param.formattedName());
+                case "Object" -> renderer.addStatement("serializeUnknown(buf, payload.$L())", param.formattedName());
+                default -> renderer.addStatement("serialize(buf, payload.$L())", param.formattedName());
+            }
+        }
+    }
+
+    private String sizeOfMethod(TypeNameBase type) {
+        return switch (type.rawType) {
+            case "int", "#", "long", "int128", "int256", "Bool", "double" -> throw new IllegalStateException();
+            case "string", "bytes" -> "sizeOf0($L)";
+            case "JSONValue" -> "sizeOfJsonNode($L)";
+            case "Object" -> throw new IllegalStateException();
+            default -> {
+                if (type instanceof TlProcessing.TypeName t && t.isVector()) {
+                    String innerTypeRaw = t.innerType().rawType;
+                    String specific = switch (innerTypeRaw) {
+                        case "int", "long", "bytes", "string" ->
+                                Character.toUpperCase(innerTypeRaw.charAt(0)) + innerTypeRaw.substring(1);
+                        default -> "";
+                    };
+                    yield "sizeOf" + specific + "Vector($L)";
+                }
+                yield "sizeOf($L)";
+            }
+        };
+    }
+
     private String sizeOfMethod(Parameter param) {
         return switch (param.type.rawType) {
-            case "int", "#", "long", "int128", "int256", "Bool", "double" -> null;
+            case "int", "#", "long", "int128", "int256", "Bool", "double" -> throw new IllegalStateException();
             case "string", "bytes" -> "sizeOf0(payload.$L())";
             case "JSONValue" -> "sizeOfJsonNode(payload.$L())";
             case "Object" -> "sizeOfUnknown(payload.$L())";
@@ -1251,10 +1290,8 @@ public class SchemaGenerator extends AbstractProcessor {
                         default -> "";
                     };
                     yield "sizeOf" + specific + "Vector(payload.$L())";
-                } else if (param.type.isBitFlag()) {
-                    yield null;
-                } else if (param.type.isFlag()) {
-                    yield "sizeOfFlags(payload.$L())";
+                } else if (param.type.isBitFlag() || param.type.isFlag()) {
+                    throw new IllegalStateException();
                 } else {
                     yield "sizeOf(payload.$L())";
                 }
