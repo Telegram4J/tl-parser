@@ -10,7 +10,7 @@ junit = "5.9.0"
 junit = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit" }
 
 netty-bom = { module = "io.netty:netty-bom", version.ref = "netty-bom" }
-netty-handler = { module = "io.netty:netty-handler" }
+netty-buffer = { module = "io.netty:netty-buffer" }
 
 reactor-bom = { module = "io.projectreactor:reactor-bom", version.ref = "reactor-bom" }
 reactor-core = { module = "io.projectreactor:reactor-core" }

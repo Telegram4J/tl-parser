@@ -41,7 +41,7 @@ allprojects {
 }
 
 dependencies {
-    implementation(libs.netty.handler)
+    implementation(libs.netty.buffer)
 
     compileOnly(project(":parser"))
     annotationProcessor(project(":parser"))
