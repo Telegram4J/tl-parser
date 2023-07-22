@@ -23,21 +23,25 @@ class SchemaUpdater {
             .setDefaultPrettyPrinter(new CorrectPrettyPrinter());
 
     static final String pathPrefix = "./src/main/resources/";
-    static final String url = "https://raw.githubusercontent.com/telegramdesktop/tdesktop/dev/Telegram/Resources/tl/api.tl";
+    static final String baseUri = "https://raw.githubusercontent.com/telegramdesktop/tdesktop/dev/Telegram/SourceFiles/mtproto/scheme/";
+    static final String api = baseUri + "api.tl";
+    static final String layer = baseUri + "layer.tl";
 
-    static final Pattern layer = Pattern.compile(".*// LAYER (\\d+).*");
+    static final Pattern LAYER_PATTERN = Pattern.compile(".*// LAYER (\\d+).*");
 
     public static void main(String[] args) throws Exception {
         HttpClient client = HttpClient.newHttpClient();
 
-        var res = client.send(HttpRequest.newBuilder().GET().uri(URI.create(url)).build(),
+        var apiSchemeResponse = client.send(HttpRequest.newBuilder().GET().uri(URI.create(api)).build(),
                 HttpResponse.BodyHandlers.ofString());
-        var m = layer.matcher(res.body());
-        if (!m.find()) {
+        var layerSchemeResponse = client.send(HttpRequest.newBuilder().GET().uri(URI.create(layer)).build(),
+                HttpResponse.BodyHandlers.ofString());
+        var matcher = LAYER_PATTERN.matcher(layerSchemeResponse.body());
+        if (!matcher.find()) {
             throw new IllegalArgumentException("No '// LAYER N' notation found in schema");
         }
-        String version = m.group(1);
-        handleScheme(res.body(), version, "api");
+        String version = matcher.group(1);
+        handleScheme(apiSchemeResponse.body(), version, "api");
     }
 
     private static void handleScheme(String data, String version, String filename) throws IOException {

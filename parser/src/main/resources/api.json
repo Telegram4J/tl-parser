@@ -1,5 +1,5 @@
 {
-  "version": "158",
+  "version": "160",
   "constructors": [
     {
       "predicate": "boolFalse",
@@ -607,6 +607,21 @@
       "type": "InputMedia"
     },
     {
+      "predicate": "inputMediaStory",
+      "id": "9a86b58f",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "InputUser"
+        },
+        {
+          "name": "id",
+          "type": "int"
+        }
+      ],
+      "type": "InputMedia"
+    },
+    {
       "predicate": "inputChatPhotoEmpty",
       "id": "1ca48f57",
       "type": "InputChatPhoto"
@@ -1001,7 +1016,7 @@
     },
     {
       "predicate": "user",
-      "id": "8f97c628",
+      "id": "abb5f120",
       "params": [
         {
           "name": "flags",
@@ -1088,6 +1103,18 @@
           "type": "flags2.1?true"
         },
         {
+          "name": "close_friend",
+          "type": "flags2.2?true"
+        },
+        {
+          "name": "stories_hidden",
+          "type": "flags2.3?true"
+        },
+        {
+          "name": "stories_unavailable",
+          "type": "flags2.4?true"
+        },
+        {
           "name": "id",
           "type": "long"
         },
@@ -1142,6 +1169,10 @@
         {
           "name": "usernames",
           "type": "flags2.0?Vector<Username>"
+        },
+        {
+          "name": "stories_max_id",
+          "type": "flags2.5?int"
         }
       ],
       "type": "User"
@@ -2194,7 +2225,7 @@
     },
     {
       "predicate": "messageMediaDocument",
-      "id": "9cb070d7",
+      "id": "4cf4d72d",
       "params": [
         {
           "name": "flags",
@@ -2211,6 +2242,10 @@
         {
           "name": "document",
           "type": "flags.0?Document"
+        },
+        {
+          "name": "alt_document",
+          "type": "flags.5?Document"
         },
         {
           "name": "ttl_seconds",
@@ -2376,6 +2411,33 @@
         {
           "name": "emoticon",
           "type": "string"
+        }
+      ],
+      "type": "MessageMedia"
+    },
+    {
+      "predicate": "messageMediaStory",
+      "id": "cbb20d88",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "via_mention",
+          "type": "flags.1?true"
+        },
+        {
+          "name": "user_id",
+          "type": "long"
+        },
+        {
+          "name": "id",
+          "type": "int"
+        },
+        {
+          "name": "story",
+          "type": "flags.0?StoryItem"
         }
       ],
       "type": "MessageMedia"
@@ -3399,7 +3461,7 @@
     },
     {
       "predicate": "inputPeerNotifySettings",
-      "id": "df1f002b",
+      "id": "cacb6ae2",
       "params": [
         {
           "name": "flags",
@@ -3420,13 +3482,25 @@
         {
           "name": "sound",
           "type": "flags.3?NotificationSound"
+        },
+        {
+          "name": "stories_muted",
+          "type": "flags.6?Bool"
+        },
+        {
+          "name": "stories_hide_sender",
+          "type": "flags.7?Bool"
+        },
+        {
+          "name": "stories_sound",
+          "type": "flags.8?NotificationSound"
         }
       ],
       "type": "InputPeerNotifySettings"
     },
     {
       "predicate": "peerNotifySettings",
-      "id": "a83b0426",
+      "id": "99622c0c",
       "params": [
         {
           "name": "flags",
@@ -3455,6 +3529,26 @@
         {
           "name": "other_sound",
           "type": "flags.5?NotificationSound"
+        },
+        {
+          "name": "stories_muted",
+          "type": "flags.6?Bool"
+        },
+        {
+          "name": "stories_hide_sender",
+          "type": "flags.7?Bool"
+        },
+        {
+          "name": "stories_ios_sound",
+          "type": "flags.8?NotificationSound"
+        },
+        {
+          "name": "stories_android_sound",
+          "type": "flags.9?NotificationSound"
+        },
+        {
+          "name": "stories_other_sound",
+          "type": "flags.10?NotificationSound"
         }
       ],
       "type": "PeerNotifySettings"
@@ -3644,7 +3738,7 @@
     },
     {
       "predicate": "userFull",
-      "id": "93eadb53",
+      "id": "4fe1cc86",
       "params": [
         {
           "name": "flags",
@@ -3681,6 +3775,10 @@
         {
           "name": "translations_disabled",
           "type": "flags.23?true"
+        },
+        {
+          "name": "stories_pinned_available",
+          "type": "flags.26?true"
         },
         {
           "name": "id",
@@ -3753,6 +3851,10 @@
         {
           "name": "wallpaper",
           "type": "flags.24?WallPaper"
+        },
+        {
+          "name": "stories",
+          "type": "flags.25?UserStories"
         }
       ],
       "type": "UserFull"
@@ -5494,15 +5596,15 @@
     },
     {
       "predicate": "updateMessagePollVote",
-      "id": "106395c9",
+      "id": "24f40e77",
       "params": [
         {
           "name": "poll_id",
           "type": "long"
         },
         {
-          "name": "user_id",
-          "type": "long"
+          "name": "peer",
+          "type": "Peer"
         },
         {
           "name": "options",
@@ -6233,6 +6335,51 @@
       "params": [
         {
           "name": "user_id",
+          "type": "long"
+        }
+      ],
+      "type": "Update"
+    },
+    {
+      "predicate": "updateStory",
+      "id": "205a4133",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "long"
+        },
+        {
+          "name": "story",
+          "type": "StoryItem"
+        }
+      ],
+      "type": "Update"
+    },
+    {
+      "predicate": "updateReadStories",
+      "id": "feb5345a",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "long"
+        },
+        {
+          "name": "max_id",
+          "type": "int"
+        }
+      ],
+      "type": "Update"
+    },
+    {
+      "predicate": "updateStoryID",
+      "id": "1bf335b9",
+      "params": [
+        {
+          "name": "id",
+          "type": "int"
+        },
+        {
+          "name": "random_id",
           "type": "long"
         }
       ],
@@ -7750,6 +7897,11 @@
       "type": "InputPrivacyKey"
     },
     {
+      "predicate": "inputPrivacyKeyAbout",
+      "id": "3823cc40",
+      "type": "InputPrivacyKey"
+    },
+    {
       "predicate": "privacyKeyStatusTimestamp",
       "id": "bc2eab30",
       "type": "PrivacyKey"
@@ -7792,6 +7944,11 @@
     {
       "predicate": "privacyKeyVoiceMessages",
       "id": "697f414",
+      "type": "PrivacyKey"
+    },
+    {
+      "predicate": "privacyKeyAbout",
+      "id": "a486b761",
       "type": "PrivacyKey"
     },
     {
@@ -7859,6 +8016,11 @@
       "type": "InputPrivacyRule"
     },
     {
+      "predicate": "inputPrivacyValueAllowCloseFriends",
+      "id": "2f453e49",
+      "type": "InputPrivacyRule"
+    },
+    {
       "predicate": "privacyValueAllowContacts",
       "id": "fffe1bac",
       "type": "PrivacyRule"
@@ -7920,6 +8082,11 @@
           "type": "Vector<long>"
         }
       ],
+      "type": "PrivacyRule"
+    },
+    {
+      "predicate": "privacyValueAllowCloseFriends",
+      "id": "f7e8d89b",
       "type": "PrivacyRule"
     },
     {
@@ -8001,7 +8168,7 @@
     },
     {
       "predicate": "documentAttributeVideo",
-      "id": "ef02ce6",
+      "id": "d38ff1c2",
       "params": [
         {
           "name": "flags",
@@ -8016,8 +8183,12 @@
           "type": "flags.1?true"
         },
         {
+          "name": "nosound",
+          "type": "flags.3?true"
+        },
+        {
           "name": "duration",
-          "type": "int"
+          "type": "double"
         },
         {
           "name": "w",
@@ -8026,6 +8197,10 @@
         {
           "name": "h",
           "type": "int"
+        },
+        {
+          "name": "preload_prefix_size",
+          "type": "flags.2?int"
         }
       ],
       "type": "DocumentAttribute"
@@ -15775,7 +15950,7 @@
     },
     {
       "predicate": "pollResults",
-      "id": "dcb82ea3",
+      "id": "7adf2420",
       "params": [
         {
           "name": "flags",
@@ -15795,7 +15970,7 @@
         },
         {
           "name": "recent_voters",
-          "type": "flags.3?Vector<long>"
+          "type": "flags.3?Vector<Peer>"
         },
         {
           "name": "solution",
@@ -16129,7 +16304,7 @@
     },
     {
       "predicate": "autoDownloadSettings",
-      "id": "8efab953",
+      "id": "baa57628",
       "params": [
         {
           "name": "flags",
@@ -16152,6 +16327,10 @@
           "type": "flags.3?true"
         },
         {
+          "name": "stories_preload",
+          "type": "flags.4?true"
+        },
+        {
           "name": "photo_size_max",
           "type": "int"
         },
@@ -16165,6 +16344,14 @@
         },
         {
           "name": "video_upload_maxbitrate",
+          "type": "int"
+        },
+        {
+          "name": "small_queue_active_operations_max",
+          "type": "int"
+        },
+        {
+          "name": "large_queue_active_operations_max",
           "type": "int"
         }
       ],
@@ -16759,61 +16946,31 @@
       "type": "WebPageAttribute"
     },
     {
-      "predicate": "messageUserVote",
-      "id": "34d247b4",
+      "predicate": "webPageAttributeStory",
+      "id": "939a4671",
       "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
         {
           "name": "user_id",
           "type": "long"
         },
         {
-          "name": "option",
-          "type": "bytes"
+          "name": "id",
+          "type": "int"
         },
         {
-          "name": "date",
-          "type": "int"
+          "name": "story",
+          "type": "flags.0?StoryItem"
         }
       ],
-      "type": "MessageUserVote"
-    },
-    {
-      "predicate": "messageUserVoteInputOption",
-      "id": "3ca5b0ec",
-      "params": [
-        {
-          "name": "user_id",
-          "type": "long"
-        },
-        {
-          "name": "date",
-          "type": "int"
-        }
-      ],
-      "type": "MessageUserVote"
-    },
-    {
-      "predicate": "messageUserVoteMultiple",
-      "id": "8a65e557",
-      "params": [
-        {
-          "name": "user_id",
-          "type": "long"
-        },
-        {
-          "name": "options",
-          "type": "Vector<bytes>"
-        },
-        {
-          "name": "date",
-          "type": "int"
-        }
-      ],
-      "type": "MessageUserVote"
+      "type": "WebPageAttribute"
     },
     {
       "predicate": "messages.votesList",
-      "id": "823f649",
+      "id": "4899484e",
       "params": [
         {
           "name": "flags",
@@ -16825,7 +16982,11 @@
         },
         {
           "name": "votes",
-          "type": "Vector<MessageUserVote>"
+          "type": "Vector<MessagePeerVote>"
+        },
+        {
+          "name": "chats",
+          "type": "Vector<Chat>"
         },
         {
           "name": "users",
@@ -17411,7 +17572,7 @@
     },
     {
       "predicate": "globalPrivacySettings",
-      "id": "bea2f424",
+      "id": "734c4ccb",
       "params": [
         {
           "name": "flags",
@@ -17419,7 +17580,15 @@
         },
         {
           "name": "archive_and_mute_new_noncontact_peers",
-          "type": "flags.0?Bool"
+          "type": "flags.0?true"
+        },
+        {
+          "name": "keep_archived_unmuted",
+          "type": "flags.1?true"
+        },
+        {
+          "name": "keep_archived_folders",
+          "type": "flags.2?true"
         }
       ],
       "type": "GlobalPrivacySettings"
@@ -17606,6 +17775,21 @@
         {
           "name": "reply_to_top_id",
           "type": "flags.1?int"
+        }
+      ],
+      "type": "MessageReplyHeader"
+    },
+    {
+      "predicate": "messageReplyStoryHeader",
+      "id": "9c98bfc1",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "long"
+        },
+        {
+          "name": "story_id",
+          "type": "int"
         }
       ],
       "type": "MessageReplyHeader"
@@ -18345,7 +18529,7 @@
     },
     {
       "predicate": "sponsoredMessage",
-      "id": "fc25b828",
+      "id": "daafff6b",
       "params": [
         {
           "name": "flags",
@@ -18382,6 +18566,10 @@
         {
           "name": "start_param",
           "type": "flags.0?string"
+        },
+        {
+          "name": "webpage",
+          "type": "flags.9?SponsoredWebPage"
         },
         {
           "name": "message",
@@ -18781,6 +18969,10 @@
         {
           "name": "unread",
           "type": "flags.1?true"
+        },
+        {
+          "name": "my",
+          "type": "flags.2?true"
         },
         {
           "name": "peer_id",
@@ -20370,6 +20562,407 @@
         }
       ],
       "type": "bots.BotInfo"
+    },
+    {
+      "predicate": "messagePeerVote",
+      "id": "b6cc2d5c",
+      "params": [
+        {
+          "name": "peer",
+          "type": "Peer"
+        },
+        {
+          "name": "option",
+          "type": "bytes"
+        },
+        {
+          "name": "date",
+          "type": "int"
+        }
+      ],
+      "type": "MessagePeerVote"
+    },
+    {
+      "predicate": "messagePeerVoteInputOption",
+      "id": "74cda504",
+      "params": [
+        {
+          "name": "peer",
+          "type": "Peer"
+        },
+        {
+          "name": "date",
+          "type": "int"
+        }
+      ],
+      "type": "MessagePeerVote"
+    },
+    {
+      "predicate": "messagePeerVoteMultiple",
+      "id": "4628f6e6",
+      "params": [
+        {
+          "name": "peer",
+          "type": "Peer"
+        },
+        {
+          "name": "options",
+          "type": "Vector<bytes>"
+        },
+        {
+          "name": "date",
+          "type": "int"
+        }
+      ],
+      "type": "MessagePeerVote"
+    },
+    {
+      "predicate": "sponsoredWebPage",
+      "id": "3db8ec63",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "url",
+          "type": "string"
+        },
+        {
+          "name": "site_name",
+          "type": "string"
+        },
+        {
+          "name": "photo",
+          "type": "flags.0?Photo"
+        }
+      ],
+      "type": "SponsoredWebPage"
+    },
+    {
+      "predicate": "storyViews",
+      "id": "d36760cf",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "views_count",
+          "type": "int"
+        },
+        {
+          "name": "recent_viewers",
+          "type": "flags.0?Vector<long>"
+        }
+      ],
+      "type": "StoryViews"
+    },
+    {
+      "predicate": "storyItemDeleted",
+      "id": "51e6ee4f",
+      "params": [
+        {
+          "name": "id",
+          "type": "int"
+        }
+      ],
+      "type": "StoryItem"
+    },
+    {
+      "predicate": "storyItemSkipped",
+      "id": "ffadc913",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "close_friends",
+          "type": "flags.8?true"
+        },
+        {
+          "name": "id",
+          "type": "int"
+        },
+        {
+          "name": "date",
+          "type": "int"
+        },
+        {
+          "name": "expire_date",
+          "type": "int"
+        }
+      ],
+      "type": "StoryItem"
+    },
+    {
+      "predicate": "storyItem",
+      "id": "562aa637",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "pinned",
+          "type": "flags.5?true"
+        },
+        {
+          "name": "public",
+          "type": "flags.7?true"
+        },
+        {
+          "name": "close_friends",
+          "type": "flags.8?true"
+        },
+        {
+          "name": "min",
+          "type": "flags.9?true"
+        },
+        {
+          "name": "noforwards",
+          "type": "flags.10?true"
+        },
+        {
+          "name": "edited",
+          "type": "flags.11?true"
+        },
+        {
+          "name": "contacts",
+          "type": "flags.12?true"
+        },
+        {
+          "name": "selected_contacts",
+          "type": "flags.13?true"
+        },
+        {
+          "name": "id",
+          "type": "int"
+        },
+        {
+          "name": "date",
+          "type": "int"
+        },
+        {
+          "name": "expire_date",
+          "type": "int"
+        },
+        {
+          "name": "caption",
+          "type": "flags.0?string"
+        },
+        {
+          "name": "entities",
+          "type": "flags.1?Vector<MessageEntity>"
+        },
+        {
+          "name": "media",
+          "type": "MessageMedia"
+        },
+        {
+          "name": "privacy",
+          "type": "flags.2?Vector<PrivacyRule>"
+        },
+        {
+          "name": "views",
+          "type": "flags.3?StoryViews"
+        }
+      ],
+      "type": "StoryItem"
+    },
+    {
+      "predicate": "userStories",
+      "id": "8611a200",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "user_id",
+          "type": "long"
+        },
+        {
+          "name": "max_read_id",
+          "type": "flags.0?int"
+        },
+        {
+          "name": "stories",
+          "type": "Vector<StoryItem>"
+        }
+      ],
+      "type": "UserStories"
+    },
+    {
+      "predicate": "stories.allStoriesNotModified",
+      "id": "47e0a07e",
+      "params": [
+        {
+          "name": "state",
+          "type": "string"
+        }
+      ],
+      "type": "stories.AllStories"
+    },
+    {
+      "predicate": "stories.allStories",
+      "id": "839e0428",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "has_more",
+          "type": "flags.0?true"
+        },
+        {
+          "name": "count",
+          "type": "int"
+        },
+        {
+          "name": "state",
+          "type": "string"
+        },
+        {
+          "name": "user_stories",
+          "type": "Vector<UserStories>"
+        },
+        {
+          "name": "users",
+          "type": "Vector<User>"
+        }
+      ],
+      "type": "stories.AllStories"
+    },
+    {
+      "predicate": "stories.stories",
+      "id": "4fe57df1",
+      "params": [
+        {
+          "name": "count",
+          "type": "int"
+        },
+        {
+          "name": "stories",
+          "type": "Vector<StoryItem>"
+        },
+        {
+          "name": "users",
+          "type": "Vector<User>"
+        }
+      ],
+      "type": "stories.Stories"
+    },
+    {
+      "predicate": "stories.userStories",
+      "id": "37a6ff5f",
+      "params": [
+        {
+          "name": "stories",
+          "type": "UserStories"
+        },
+        {
+          "name": "users",
+          "type": "Vector<User>"
+        }
+      ],
+      "type": "stories.UserStories"
+    },
+    {
+      "predicate": "storyView",
+      "id": "a71aacc2",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "long"
+        },
+        {
+          "name": "date",
+          "type": "int"
+        }
+      ],
+      "type": "StoryView"
+    },
+    {
+      "predicate": "stories.storyViewsList",
+      "id": "fb3f77ac",
+      "params": [
+        {
+          "name": "count",
+          "type": "int"
+        },
+        {
+          "name": "views",
+          "type": "Vector<StoryView>"
+        },
+        {
+          "name": "users",
+          "type": "Vector<User>"
+        }
+      ],
+      "type": "stories.StoryViewsList"
+    },
+    {
+      "predicate": "stories.storyViews",
+      "id": "de9eed1d",
+      "params": [
+        {
+          "name": "views",
+          "type": "Vector<StoryViews>"
+        },
+        {
+          "name": "users",
+          "type": "Vector<User>"
+        }
+      ],
+      "type": "stories.StoryViews"
+    },
+    {
+      "predicate": "inputReplyToMessage",
+      "id": "9c5386e4",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "reply_to_msg_id",
+          "type": "int"
+        },
+        {
+          "name": "top_msg_id",
+          "type": "flags.0?int"
+        }
+      ],
+      "type": "InputReplyTo"
+    },
+    {
+      "predicate": "inputReplyToStory",
+      "id": "15b0f283",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "InputUser"
+        },
+        {
+          "name": "story_id",
+          "type": "int"
+        }
+      ],
+      "type": "InputReplyTo"
+    },
+    {
+      "predicate": "exportedStoryLink",
+      "id": "3fc9053b",
+      "params": [
+        {
+          "name": "link",
+          "type": "string"
+        }
+      ],
+      "type": "ExportedStoryLink"
     }
   ],
   "methods": [
@@ -21500,6 +22093,10 @@
           "type": "flags.1?true"
         },
         {
+          "name": "compare_stories",
+          "type": "flags.2?true"
+        },
+        {
           "name": "peer",
           "type": "flags.0?InputNotifyPeer"
         }
@@ -22070,6 +22667,17 @@
       "type": "Bool"
     },
     {
+      "method": "account.invalidateSignInCodes",
+      "id": "ca8ae8ba",
+      "params": [
+        {
+          "name": "codes",
+          "type": "Vector<string>"
+        }
+      ],
+      "type": "Bool"
+    },
+    {
       "method": "users.getUsers",
       "id": "d91a548",
       "params": [
@@ -22105,6 +22713,17 @@
         }
       ],
       "type": "Bool"
+    },
+    {
+      "method": "users.getStoriesMaxIDs",
+      "id": "ca1cb9ab",
+      "params": [
+        {
+          "name": "id",
+          "type": "Vector<InputUser>"
+        }
+      ],
+      "type": "Vector<int>"
     },
     {
       "method": "contacts.getContactIDs",
@@ -22440,6 +23059,32 @@
       "type": "User"
     },
     {
+      "method": "contacts.editCloseFriends",
+      "id": "ba6705f0",
+      "params": [
+        {
+          "name": "id",
+          "type": "Vector<long>"
+        }
+      ],
+      "type": "Bool"
+    },
+    {
+      "method": "contacts.toggleStoriesHidden",
+      "id": "753fb865",
+      "params": [
+        {
+          "name": "id",
+          "type": "InputUser"
+        },
+        {
+          "name": "hidden",
+          "type": "Bool"
+        }
+      ],
+      "type": "Bool"
+    },
+    {
       "method": "messages.getMessages",
       "id": "63c66506",
       "params": [
@@ -22696,7 +23341,7 @@
     },
     {
       "method": "messages.sendMessage",
-      "id": "1cc20387",
+      "id": "280d096f",
       "params": [
         {
           "name": "flags",
@@ -22731,12 +23376,8 @@
           "type": "InputPeer"
         },
         {
-          "name": "reply_to_msg_id",
-          "type": "flags.0?int"
-        },
-        {
-          "name": "top_msg_id",
-          "type": "flags.9?int"
+          "name": "reply_to",
+          "type": "flags.0?InputReplyTo"
         },
         {
           "name": "message",
@@ -22767,7 +23408,7 @@
     },
     {
       "method": "messages.sendMedia",
-      "id": "7547c966",
+      "id": "72ccc23d",
       "params": [
         {
           "name": "flags",
@@ -22798,12 +23439,8 @@
           "type": "InputPeer"
         },
         {
-          "name": "reply_to_msg_id",
-          "type": "flags.0?int"
-        },
-        {
-          "name": "top_msg_id",
-          "type": "flags.9?int"
+          "name": "reply_to",
+          "type": "flags.0?InputReplyTo"
         },
         {
           "name": "media",
@@ -23679,7 +24316,7 @@
     },
     {
       "method": "messages.sendInlineBotResult",
-      "id": "d3fbdccb",
+      "id": "f7bc68ba",
       "params": [
         {
           "name": "flags",
@@ -23706,12 +24343,8 @@
           "type": "InputPeer"
         },
         {
-          "name": "reply_to_msg_id",
-          "type": "flags.0?int"
-        },
-        {
-          "name": "top_msg_id",
-          "type": "flags.9?int"
+          "name": "reply_to",
+          "type": "flags.0?InputReplyTo"
         },
         {
           "name": "random_id",
@@ -24190,17 +24823,6 @@
       "type": "messages.Chats"
     },
     {
-      "method": "messages.getAllChats",
-      "id": "875f74be",
-      "params": [
-        {
-          "name": "except_ids",
-          "type": "Vector<long>"
-        }
-      ],
-      "type": "messages.Chats"
-    },
-    {
       "method": "messages.getWebPage",
       "id": "32ca8f91",
       "params": [
@@ -24331,15 +24953,15 @@
     },
     {
       "method": "messages.sendScreenshotNotification",
-      "id": "c97df020",
+      "id": "a1405817",
       "params": [
         {
           "name": "peer",
           "type": "InputPeer"
         },
         {
-          "name": "reply_to_msg_id",
-          "type": "int"
+          "name": "reply_to",
+          "type": "InputReplyTo"
         },
         {
           "name": "random_id",
@@ -24453,7 +25075,7 @@
     },
     {
       "method": "messages.sendMultiMedia",
-      "id": "b6f11a1c",
+      "id": "456e8987",
       "params": [
         {
           "name": "flags",
@@ -24484,12 +25106,8 @@
           "type": "InputPeer"
         },
         {
-          "name": "reply_to_msg_id",
-          "type": "flags.0?int"
-        },
-        {
-          "name": "top_msg_id",
-          "type": "flags.9?int"
+          "name": "reply_to",
+          "type": "flags.0?InputReplyTo"
         },
         {
           "name": "multi_media",
@@ -25803,7 +26421,7 @@
     },
     {
       "method": "messages.requestWebView",
-      "id": "178b480b",
+      "id": "269dc2c1",
       "params": [
         {
           "name": "flags",
@@ -25842,12 +26460,8 @@
           "type": "string"
         },
         {
-          "name": "reply_to_msg_id",
-          "type": "flags.0?int"
-        },
-        {
-          "name": "top_msg_id",
-          "type": "flags.9?int"
+          "name": "reply_to",
+          "type": "flags.0?InputReplyTo"
         },
         {
           "name": "send_as",
@@ -25858,7 +26472,7 @@
     },
     {
       "method": "messages.prolongWebView",
-      "id": "7ff34309",
+      "id": "b0d81a83",
       "params": [
         {
           "name": "flags",
@@ -25881,12 +26495,8 @@
           "type": "long"
         },
         {
-          "name": "reply_to_msg_id",
-          "type": "flags.0?int"
-        },
-        {
-          "name": "top_msg_id",
-          "type": "flags.9?int"
+          "name": "reply_to",
+          "type": "flags.0?InputReplyTo"
         },
         {
           "name": "send_as",
@@ -26294,7 +26904,7 @@
     },
     {
       "method": "updates.getDifference",
-      "id": "25939651",
+      "id": "19c2f763",
       "params": [
         {
           "name": "flags",
@@ -26303,6 +26913,10 @@
         {
           "name": "pts",
           "type": "int"
+        },
+        {
+          "name": "pts_limit",
+          "type": "flags.1?int"
         },
         {
           "name": "pts_total_limit",
@@ -26315,6 +26929,10 @@
         {
           "name": "qts",
           "type": "int"
+        },
+        {
+          "name": "qts_limit",
+          "type": "flags.2?int"
         }
       ],
       "type": "updates.Difference"
@@ -27812,6 +28430,21 @@
         }
       ],
       "type": "Updates"
+    },
+    {
+      "method": "channels.clickSponsoredMessage",
+      "id": "18afbc93",
+      "params": [
+        {
+          "name": "channel",
+          "type": "InputChannel"
+        },
+        {
+          "name": "random_id",
+          "type": "bytes"
+        }
+      ],
+      "type": "Bool"
     },
     {
       "method": "bots.sendCustomRequest",
@@ -29349,6 +29982,307 @@
         }
       ],
       "type": "Updates"
+    },
+    {
+      "method": "stories.sendStory",
+      "id": "424cd47a",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "pinned",
+          "type": "flags.2?true"
+        },
+        {
+          "name": "noforwards",
+          "type": "flags.4?true"
+        },
+        {
+          "name": "media",
+          "type": "InputMedia"
+        },
+        {
+          "name": "caption",
+          "type": "flags.0?string"
+        },
+        {
+          "name": "entities",
+          "type": "flags.1?Vector<MessageEntity>"
+        },
+        {
+          "name": "privacy_rules",
+          "type": "Vector<InputPrivacyRule>"
+        },
+        {
+          "name": "random_id",
+          "type": "long"
+        },
+        {
+          "name": "period",
+          "type": "flags.3?int"
+        }
+      ],
+      "type": "Updates"
+    },
+    {
+      "method": "stories.editStory",
+      "id": "2aae7a41",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "id",
+          "type": "int"
+        },
+        {
+          "name": "media",
+          "type": "flags.0?InputMedia"
+        },
+        {
+          "name": "caption",
+          "type": "flags.1?string"
+        },
+        {
+          "name": "entities",
+          "type": "flags.1?Vector<MessageEntity>"
+        },
+        {
+          "name": "privacy_rules",
+          "type": "flags.2?Vector<InputPrivacyRule>"
+        }
+      ],
+      "type": "Updates"
+    },
+    {
+      "method": "stories.deleteStories",
+      "id": "b5d501d7",
+      "params": [
+        {
+          "name": "id",
+          "type": "Vector<int>"
+        }
+      ],
+      "type": "Vector<int>"
+    },
+    {
+      "method": "stories.togglePinned",
+      "id": "51602944",
+      "params": [
+        {
+          "name": "id",
+          "type": "Vector<int>"
+        },
+        {
+          "name": "pinned",
+          "type": "Bool"
+        }
+      ],
+      "type": "Vector<int>"
+    },
+    {
+      "method": "stories.getAllStories",
+      "id": "eeb0d625",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "next",
+          "type": "flags.1?true"
+        },
+        {
+          "name": "hidden",
+          "type": "flags.2?true"
+        },
+        {
+          "name": "state",
+          "type": "flags.0?string"
+        }
+      ],
+      "type": "stories.AllStories"
+    },
+    {
+      "method": "stories.getUserStories",
+      "id": "96d528e0",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "InputUser"
+        }
+      ],
+      "type": "stories.UserStories"
+    },
+    {
+      "method": "stories.getPinnedStories",
+      "id": "b471137",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "InputUser"
+        },
+        {
+          "name": "offset_id",
+          "type": "int"
+        },
+        {
+          "name": "limit",
+          "type": "int"
+        }
+      ],
+      "type": "stories.Stories"
+    },
+    {
+      "method": "stories.getStoriesArchive",
+      "id": "1f5bc5d2",
+      "params": [
+        {
+          "name": "offset_id",
+          "type": "int"
+        },
+        {
+          "name": "limit",
+          "type": "int"
+        }
+      ],
+      "type": "stories.Stories"
+    },
+    {
+      "method": "stories.getStoriesByID",
+      "id": "6a15cf46",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "InputUser"
+        },
+        {
+          "name": "id",
+          "type": "Vector<int>"
+        }
+      ],
+      "type": "stories.Stories"
+    },
+    {
+      "method": "stories.toggleAllStoriesHidden",
+      "id": "7c2557c4",
+      "params": [
+        {
+          "name": "hidden",
+          "type": "Bool"
+        }
+      ],
+      "type": "Bool"
+    },
+    {
+      "method": "stories.getAllReadUserStories",
+      "id": "729c562c",
+      "type": "Updates"
+    },
+    {
+      "method": "stories.readStories",
+      "id": "edc5105b",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "InputUser"
+        },
+        {
+          "name": "max_id",
+          "type": "int"
+        }
+      ],
+      "type": "Vector<int>"
+    },
+    {
+      "method": "stories.incrementStoryViews",
+      "id": "22126127",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "InputUser"
+        },
+        {
+          "name": "id",
+          "type": "Vector<int>"
+        }
+      ],
+      "type": "Bool"
+    },
+    {
+      "method": "stories.getStoryViewsList",
+      "id": "4b3b5e97",
+      "params": [
+        {
+          "name": "id",
+          "type": "int"
+        },
+        {
+          "name": "offset_date",
+          "type": "int"
+        },
+        {
+          "name": "offset_id",
+          "type": "long"
+        },
+        {
+          "name": "limit",
+          "type": "int"
+        }
+      ],
+      "type": "stories.StoryViewsList"
+    },
+    {
+      "method": "stories.getStoriesViews",
+      "id": "9a75d6a6",
+      "params": [
+        {
+          "name": "id",
+          "type": "Vector<int>"
+        }
+      ],
+      "type": "stories.StoryViews"
+    },
+    {
+      "method": "stories.exportStoryLink",
+      "id": "16e443ce",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "InputUser"
+        },
+        {
+          "name": "id",
+          "type": "int"
+        }
+      ],
+      "type": "ExportedStoryLink"
+    },
+    {
+      "method": "stories.report",
+      "id": "c95be06a",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "InputUser"
+        },
+        {
+          "name": "id",
+          "type": "Vector<int>"
+        },
+        {
+          "name": "reason",
+          "type": "ReportReason"
+        },
+        {
+          "name": "message",
+          "type": "string"
+        }
+      ],
+      "type": "Bool"
     }
   ]
 }
