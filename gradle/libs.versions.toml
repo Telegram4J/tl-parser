@@ -1,10 +1,10 @@
 [versions]
-reactor-bom = "2022.0.7"
-netty-bom = "4.1.93.Final"
+reactor-bom = "2022.0.10"
+netty-bom = "4.1.96.Final"
 
 jackson = "2.15.2"
-immutables = "2.9.3"
-junit = "5.9.0"
+immutables = "2.10.0-rc0"
+junit = "5.10.0"
 
 [libraries]
 junit = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit" }

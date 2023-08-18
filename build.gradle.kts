@@ -1,3 +1,4 @@
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import java.nio.file.FileVisitResult
 import java.nio.file.Path
 import java.nio.file.Files
@@ -29,7 +30,10 @@ allprojects {
         testImplementation(rootProject.libs.junit)
     }
 
-    tasks.withType<JavaCompile> {
+    tasks.compileJava {
+        options.compilerArgs.add(
+            "-Xlint:cast,rawtypes,static,unchecked,varargs,overrides,deprecation"
+        )
         options.javaModuleVersion.set(version.toString())
         options.encoding = "UTF-8"
         options.release.set(17)
@@ -37,6 +41,10 @@ allprojects {
 
     tasks.test {
         useJUnitPlatform()
+
+        testLogging {
+            exceptionFormat = TestExceptionFormat.FULL
+        }
     }
 }
 
@@ -127,12 +135,12 @@ java {
 }
 
 tasks.named<Jar>("sourcesJar") {
-    dependsOn("compileJava")
-    from("$buildDir/generated/sources/annotationProcessor/java/main")
+    dependsOn(tasks.compileJava)
+    from(tasks.compileJava.flatMap { it.options.generatedSourceOutputDirectory })
 }
 
 val updateModuleInfo by tasks.registering {
-    mustRunAfter("compileJava")
+    mustRunAfter(tasks.compileJava)
 
     doLast {
 
@@ -182,16 +190,15 @@ tasks.classes {
 }
 
 tasks.javadoc {
-    source += fileTree("$buildDir/generated/sources/annotationProcessor/java/main/")
+    source += fileTree(tasks.compileJava.flatMap { it.options.generatedSourceOutputDirectory })
 
     title = "Telegram4J TL API reference ($version)"
 
     options {
         encoding = "UTF-8"
         locale = "en_US"
-        val opt = this as StandardJavadocDocletOptions
-        opt.addBooleanOption("html5", true)
-        opt.addStringOption("encoding", "UTF-8")
+
+        this as StandardJavadocDocletOptions
 
         tags = listOf(
             "apiNote:a:API Note:",
