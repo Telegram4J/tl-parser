@@ -1,5 +1,5 @@
 {
-  "version": "160",
+  "version": "161",
   "constructors": [
     {
       "predicate": "boolFalse",
@@ -3781,6 +3781,10 @@
           "type": "flags.26?true"
         },
         {
+          "name": "blocked_my_stories_from",
+          "type": "flags.27?true"
+        },
+        {
           "name": "id",
           "type": "long"
         },
@@ -5738,15 +5742,23 @@
     },
     {
       "predicate": "updatePeerBlocked",
-      "id": "246a4b22",
+      "id": "ebe07752",
       "params": [
         {
-          "name": "peer_id",
-          "type": "Peer"
+          "name": "flags",
+          "type": "#"
         },
         {
           "name": "blocked",
-          "type": "Bool"
+          "type": "flags.0?true"
+        },
+        {
+          "name": "blocked_my_stories_from",
+          "type": "flags.1?true"
+        },
+        {
+          "name": "peer_id",
+          "type": "Peer"
         }
       ],
       "type": "Update"
@@ -6381,6 +6393,36 @@
         {
           "name": "random_id",
           "type": "long"
+        }
+      ],
+      "type": "Update"
+    },
+    {
+      "predicate": "updateStoriesStealthMode",
+      "id": "2c084dc1",
+      "params": [
+        {
+          "name": "stealth_mode",
+          "type": "StoriesStealthMode"
+        }
+      ],
+      "type": "Update"
+    },
+    {
+      "predicate": "updateSentStoryReaction",
+      "id": "e3a73d20",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "long"
+        },
+        {
+          "name": "story_id",
+          "type": "int"
+        },
+        {
+          "name": "reaction",
+          "type": "Reaction"
         }
       ],
       "type": "Update"
@@ -20641,7 +20683,7 @@
     },
     {
       "predicate": "storyViews",
-      "id": "d36760cf",
+      "id": "c64c0b97",
       "params": [
         {
           "name": "flags",
@@ -20649,6 +20691,10 @@
         },
         {
           "name": "views_count",
+          "type": "int"
+        },
+        {
+          "name": "reactions_count",
           "type": "int"
         },
         {
@@ -20698,7 +20744,7 @@
     },
     {
       "predicate": "storyItem",
-      "id": "562aa637",
+      "id": "44c457ce",
       "params": [
         {
           "name": "flags",
@@ -20761,12 +20807,20 @@
           "type": "MessageMedia"
         },
         {
+          "name": "media_areas",
+          "type": "flags.14?Vector<MediaArea>"
+        },
+        {
           "name": "privacy",
           "type": "flags.2?Vector<PrivacyRule>"
         },
         {
           "name": "views",
           "type": "flags.3?StoryViews"
+        },
+        {
+          "name": "sent_reaction",
+          "type": "flags.15?Reaction"
         }
       ],
       "type": "StoryItem"
@@ -20796,18 +20850,26 @@
     },
     {
       "predicate": "stories.allStoriesNotModified",
-      "id": "47e0a07e",
+      "id": "1158fe3e",
       "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
         {
           "name": "state",
           "type": "string"
+        },
+        {
+          "name": "stealth_mode",
+          "type": "StoriesStealthMode"
         }
       ],
       "type": "stories.AllStories"
     },
     {
       "predicate": "stories.allStories",
-      "id": "839e0428",
+      "id": "519d899e",
       "params": [
         {
           "name": "flags",
@@ -20832,6 +20894,10 @@
         {
           "name": "users",
           "type": "Vector<User>"
+        },
+        {
+          "name": "stealth_mode",
+          "type": "StoriesStealthMode"
         }
       ],
       "type": "stories.AllStories"
@@ -20872,8 +20938,20 @@
     },
     {
       "predicate": "storyView",
-      "id": "a71aacc2",
+      "id": "b0bdeac5",
       "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "blocked",
+          "type": "flags.0?true"
+        },
+        {
+          "name": "blocked_my_stories_from",
+          "type": "flags.1?true"
+        },
         {
           "name": "user_id",
           "type": "long"
@@ -20881,16 +20959,28 @@
         {
           "name": "date",
           "type": "int"
+        },
+        {
+          "name": "reaction",
+          "type": "flags.2?Reaction"
         }
       ],
       "type": "StoryView"
     },
     {
       "predicate": "stories.storyViewsList",
-      "id": "fb3f77ac",
+      "id": "46e9b9ec",
       "params": [
         {
+          "name": "flags",
+          "type": "#"
+        },
+        {
           "name": "count",
+          "type": "int"
+        },
+        {
+          "name": "reactions_count",
           "type": "int"
         },
         {
@@ -20900,6 +20990,10 @@
         {
           "name": "users",
           "type": "Vector<User>"
+        },
+        {
+          "name": "next_offset",
+          "type": "flags.0?string"
         }
       ],
       "type": "stories.StoryViewsList"
@@ -20963,6 +21057,121 @@
         }
       ],
       "type": "ExportedStoryLink"
+    },
+    {
+      "predicate": "storiesStealthMode",
+      "id": "712e27fd",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "active_until_date",
+          "type": "flags.0?int"
+        },
+        {
+          "name": "cooldown_until_date",
+          "type": "flags.1?int"
+        }
+      ],
+      "type": "StoriesStealthMode"
+    },
+    {
+      "predicate": "mediaAreaCoordinates",
+      "id": "3d1ea4e",
+      "params": [
+        {
+          "name": "x",
+          "type": "double"
+        },
+        {
+          "name": "y",
+          "type": "double"
+        },
+        {
+          "name": "w",
+          "type": "double"
+        },
+        {
+          "name": "h",
+          "type": "double"
+        },
+        {
+          "name": "rotation",
+          "type": "double"
+        }
+      ],
+      "type": "MediaAreaCoordinates"
+    },
+    {
+      "predicate": "mediaAreaVenue",
+      "id": "be82db9c",
+      "params": [
+        {
+          "name": "coordinates",
+          "type": "MediaAreaCoordinates"
+        },
+        {
+          "name": "geo",
+          "type": "GeoPoint"
+        },
+        {
+          "name": "title",
+          "type": "string"
+        },
+        {
+          "name": "address",
+          "type": "string"
+        },
+        {
+          "name": "provider",
+          "type": "string"
+        },
+        {
+          "name": "venue_id",
+          "type": "string"
+        },
+        {
+          "name": "venue_type",
+          "type": "string"
+        }
+      ],
+      "type": "MediaArea"
+    },
+    {
+      "predicate": "inputMediaAreaVenue",
+      "id": "b282217f",
+      "params": [
+        {
+          "name": "coordinates",
+          "type": "MediaAreaCoordinates"
+        },
+        {
+          "name": "query_id",
+          "type": "long"
+        },
+        {
+          "name": "result_id",
+          "type": "string"
+        }
+      ],
+      "type": "MediaArea"
+    },
+    {
+      "predicate": "mediaAreaGeoPoint",
+      "id": "df8b3b22",
+      "params": [
+        {
+          "name": "coordinates",
+          "type": "MediaAreaCoordinates"
+        },
+        {
+          "name": "geo",
+          "type": "GeoPoint"
+        }
+      ],
+      "type": "MediaArea"
     }
   ],
   "methods": [
@@ -22787,8 +22996,16 @@
     },
     {
       "method": "contacts.block",
-      "id": "68cc1411",
+      "id": "2e2e8734",
       "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "my_stories_from",
+          "type": "flags.0?true"
+        },
         {
           "name": "id",
           "type": "InputPeer"
@@ -22798,8 +23015,16 @@
     },
     {
       "method": "contacts.unblock",
-      "id": "bea65d50",
+      "id": "b550d328",
       "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "my_stories_from",
+          "type": "flags.0?true"
+        },
         {
           "name": "id",
           "type": "InputPeer"
@@ -22809,8 +23034,16 @@
     },
     {
       "method": "contacts.getBlocked",
-      "id": "f57c350f",
+      "id": "9a868f80",
       "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "my_stories_from",
+          "type": "flags.0?true"
+        },
         {
           "name": "offset",
           "type": "int"
@@ -23080,6 +23313,29 @@
         {
           "name": "hidden",
           "type": "Bool"
+        }
+      ],
+      "type": "Bool"
+    },
+    {
+      "method": "contacts.setBlocked",
+      "id": "94c65c76",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "my_stories_from",
+          "type": "flags.0?true"
+        },
+        {
+          "name": "id",
+          "type": "Vector<InputPeer>"
+        },
+        {
+          "name": "limit",
+          "type": "int"
         }
       ],
       "type": "Bool"
@@ -29985,7 +30241,7 @@
     },
     {
       "method": "stories.sendStory",
-      "id": "424cd47a",
+      "id": "d455fcec",
       "params": [
         {
           "name": "flags",
@@ -30002,6 +30258,10 @@
         {
           "name": "media",
           "type": "InputMedia"
+        },
+        {
+          "name": "media_areas",
+          "type": "flags.5?Vector<MediaArea>"
         },
         {
           "name": "caption",
@@ -30028,7 +30288,7 @@
     },
     {
       "method": "stories.editStory",
-      "id": "2aae7a41",
+      "id": "a9b91ae4",
       "params": [
         {
           "name": "flags",
@@ -30041,6 +30301,10 @@
         {
           "name": "media",
           "type": "flags.0?InputMedia"
+        },
+        {
+          "name": "media_areas",
+          "type": "flags.3?Vector<MediaArea>"
         },
         {
           "name": "caption",
@@ -30214,19 +30478,31 @@
     },
     {
       "method": "stories.getStoryViewsList",
-      "id": "4b3b5e97",
+      "id": "f95f61a4",
       "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "just_contacts",
+          "type": "flags.0?true"
+        },
+        {
+          "name": "reactions_first",
+          "type": "flags.2?true"
+        },
+        {
+          "name": "q",
+          "type": "flags.1?string"
+        },
         {
           "name": "id",
           "type": "int"
         },
         {
-          "name": "offset_date",
-          "type": "int"
-        },
-        {
-          "name": "offset_id",
-          "type": "long"
+          "name": "offset",
+          "type": "string"
         },
         {
           "name": "limit",
@@ -30283,6 +30559,52 @@
         }
       ],
       "type": "Bool"
+    },
+    {
+      "method": "stories.activateStealthMode",
+      "id": "57bbd166",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "past",
+          "type": "flags.0?true"
+        },
+        {
+          "name": "future",
+          "type": "flags.1?true"
+        }
+      ],
+      "type": "Updates"
+    },
+    {
+      "method": "stories.sendReaction",
+      "id": "49aaa9b3",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "add_to_recent",
+          "type": "flags.0?true"
+        },
+        {
+          "name": "user_id",
+          "type": "InputUser"
+        },
+        {
+          "name": "story_id",
+          "type": "int"
+        },
+        {
+          "name": "reaction",
+          "type": "Reaction"
+        }
+      ],
+      "type": "Updates"
     }
   ]
 }

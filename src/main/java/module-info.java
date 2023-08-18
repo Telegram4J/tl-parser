@@ -40,12 +40,14 @@ module telegram4j.tl {
 	exports telegram4j.tl.request.photos;
 	exports telegram4j.tl.request.stats;
 	exports telegram4j.tl.request.stickers;
+	exports telegram4j.tl.request.stories;
 	exports telegram4j.tl.request.updates;
 	exports telegram4j.tl.request.upload;
 	exports telegram4j.tl.request.users;
 	exports telegram4j.tl.stats;
 	exports telegram4j.tl.stickers;
 	exports telegram4j.tl.storage;
+	exports telegram4j.tl.stories;
 	exports telegram4j.tl.updates;
 	exports telegram4j.tl.upload;
 	exports telegram4j.tl.users;
