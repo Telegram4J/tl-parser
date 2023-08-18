@@ -157,7 +157,9 @@ val updateModuleInfo by tasks.registering {
         Files.walkFileTree(rootSrc, PackagesCollector(rootSrc, exports))
 
         val desc = Path.of("src/main/java/module-info.java")
+        val header = Path.of(rootDir.toString(), "parser/src/main/resources/license-header")
         Files.newBufferedWriter(desc).use { w ->
+            w.append(Files.readString(header))
             w.append("import com.fasterxml.jackson.databind.Module;\n")
             w.append("import telegram4j.tl.json.TlModule;\n\n")
             w.append("module telegram4j.tl {\n")
