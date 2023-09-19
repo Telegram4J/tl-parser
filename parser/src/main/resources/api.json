@@ -1,5 +1,5 @@
 {
-  "version": "161",
+  "version": "163",
   "constructors": [
     {
       "predicate": "boolFalse",
@@ -2714,6 +2714,10 @@
           "type": "flags.1?true"
         },
         {
+          "name": "from_request",
+          "type": "flags.3?true"
+        },
+        {
           "name": "domain",
           "type": "flags.0?string"
         },
@@ -4466,6 +4470,37 @@
       "type": "Update"
     },
     {
+      "predicate": "updateNewAuthorization",
+      "id": "8951abef",
+      "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
+        {
+          "name": "unconfirmed",
+          "type": "flags.0?true"
+        },
+        {
+          "name": "hash",
+          "type": "long"
+        },
+        {
+          "name": "date",
+          "type": "flags.0?int"
+        },
+        {
+          "name": "device",
+          "type": "flags.0?string"
+        },
+        {
+          "name": "location",
+          "type": "flags.0?string"
+        }
+      ],
+      "type": "Update"
+    },
+    {
       "predicate": "updateNewEncryptedMessage",
       "id": "12bcbd9a",
       "params": [
@@ -4741,8 +4776,12 @@
     },
     {
       "predicate": "updateReadMessagesContents",
-      "id": "68c13933",
+      "id": "f8227181",
       "params": [
+        {
+          "name": "flags",
+          "type": "#"
+        },
         {
           "name": "messages",
           "type": "Vector<int>"
@@ -4754,6 +4793,10 @@
         {
           "name": "pts_count",
           "type": "int"
+        },
+        {
+          "name": "date",
+          "type": "flags.0?int"
         }
       ],
       "type": "Update"
@@ -8544,6 +8587,10 @@
           "type": "flags.4?true"
         },
         {
+          "name": "unconfirmed",
+          "type": "flags.5?true"
+        },
+        {
           "name": "hash",
           "type": "long"
         },
@@ -8850,6 +8897,18 @@
         {
           "name": "request_needed",
           "type": "flags.6?true"
+        },
+        {
+          "name": "verified",
+          "type": "flags.7?true"
+        },
+        {
+          "name": "scam",
+          "type": "flags.8?true"
+        },
+        {
+          "name": "fake",
+          "type": "flags.9?true"
         },
         {
           "name": "title",
@@ -19116,7 +19175,7 @@
     },
     {
       "predicate": "attachMenuBot",
-      "id": "c8aa2cd2",
+      "id": "d90d8dfe",
       "params": [
         {
           "name": "flags",
@@ -19135,6 +19194,18 @@
           "type": "flags.2?true"
         },
         {
+          "name": "show_in_attach_menu",
+          "type": "flags.3?true"
+        },
+        {
+          "name": "show_in_side_menu",
+          "type": "flags.4?true"
+        },
+        {
+          "name": "side_menu_disclaimer_needed",
+          "type": "flags.5?true"
+        },
+        {
           "name": "bot_id",
           "type": "long"
         },
@@ -19144,7 +19215,7 @@
         },
         {
           "name": "peer_types",
-          "type": "Vector<AttachMenuPeerType>"
+          "type": "flags.3?Vector<AttachMenuPeerType>"
         },
         {
           "name": "icons",
@@ -20394,6 +20465,10 @@
           "type": "flags.1?true"
         },
         {
+          "name": "has_settings",
+          "type": "flags.2?true"
+        },
+        {
           "name": "app",
           "type": "BotApp"
         }
@@ -20688,6 +20763,10 @@
         {
           "name": "flags",
           "type": "#"
+        },
+        {
+          "name": "has_viewers",
+          "type": "flags.1?true"
         },
         {
           "name": "views_count",
@@ -22687,6 +22766,10 @@
         {
           "name": "flags",
           "type": "#"
+        },
+        {
+          "name": "confirmed",
+          "type": "flags.3?true"
         },
         {
           "name": "hash",
@@ -26763,7 +26846,7 @@
     },
     {
       "method": "messages.requestSimpleWebView",
-      "id": "299bec8e",
+      "id": "1a46500a",
       "params": [
         {
           "name": "flags",
@@ -26774,12 +26857,20 @@
           "type": "flags.1?true"
         },
         {
+          "name": "from_side_menu",
+          "type": "flags.2?true"
+        },
+        {
           "name": "bot",
           "type": "InputUser"
         },
         {
           "name": "url",
-          "type": "string"
+          "type": "flags.3?string"
+        },
+        {
+          "name": "start_param",
+          "type": "flags.4?string"
         },
         {
           "name": "theme_params",
@@ -28914,6 +29005,47 @@
       "type": "Bool"
     },
     {
+      "method": "bots.canSendMessage",
+      "id": "1359f4e6",
+      "params": [
+        {
+          "name": "bot",
+          "type": "InputUser"
+        }
+      ],
+      "type": "Bool"
+    },
+    {
+      "method": "bots.allowSendMessage",
+      "id": "f132e3ef",
+      "params": [
+        {
+          "name": "bot",
+          "type": "InputUser"
+        }
+      ],
+      "type": "Updates"
+    },
+    {
+      "method": "bots.invokeWebViewCustomMethod",
+      "id": "87fc5e7",
+      "params": [
+        {
+          "name": "bot",
+          "type": "InputUser"
+        },
+        {
+          "name": "custom_method",
+          "type": "string"
+        },
+        {
+          "name": "params",
+          "type": "DataJSON"
+        }
+      ],
+      "type": "DataJSON"
+    },
+    {
       "method": "payments.getPaymentForm",
       "id": "37148dbb",
       "params": [
@@ -30238,6 +30370,11 @@
         }
       ],
       "type": "Updates"
+    },
+    {
+      "method": "stories.canSendStory",
+      "id": "b100d45d",
+      "type": "Bool"
     },
     {
       "method": "stories.sendStory",
