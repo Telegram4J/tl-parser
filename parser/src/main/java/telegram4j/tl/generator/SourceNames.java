@@ -53,28 +53,32 @@ public final class SourceNames {
     public static String formatFieldName(String name, @Nullable String type) {
         name = camelize(name, true);
 
-        // TODO, replace
-        if (!SourceVersion.isName(name)) {
-            switch (name) {
-                case "default", "static", "public", "final", "private", "short" -> {
-                    if (!"true".equals(type)) {
-                        throw new IllegalStateException("Non-flag parameter with java keyword name, type: " + type);
-                    }
-                    name = camelize("is_" + name);
-                }
-                case "long" -> {
-                    if (!"double".equals(type)) {
-                        throw new IllegalStateException("Non-flag parameter with java keyword name, type: " + type);
-                    }
-
-                    // just use the full form of word
-                    name = "longitude";
-                }
-                default -> throw new IllegalStateException("Unhandled keyword use: " + name + ", type: " + type);
-            }
+        if (SourceVersion.isName(name)) {
+            return name;
         }
 
-        return name;
+        // A keyword can't be a method name, so derive another one from the type
+        if ("true".equals(type)) {
+            return camelize("is_" + name);
+        }
+        if (name.equals("long") && "double".equals(type)) {
+            // just use the full form of word
+            return "longitude";
+        }
+        if (type != null && isNamingType(type)) {
+            String typeName = normalizeName(type);
+            return Character.toLowerCase(typeName.charAt(0)) + typeName.substring(1);
+        }
+        throw new IllegalStateException("Unhandled keyword use: " + name + ", type: " + type);
+    }
+
+    // Boxed types, whose name says what the value is, e.g. PaidReactionPrivacy or storage.FileType,
+    // as opposed to primitives, vectors, generics and Bool/Object/JSONValue
+    private static boolean isNamingType(String type) {
+        return switch (type) {
+            case "Bool", "Object", "JSONValue", "X" -> false;
+            default -> type.matches("([a-z]\\w*\\.)?[A-Z]\\w*");
+        };
     }
 
     public static String parentPackageName(String qualifiedName) {

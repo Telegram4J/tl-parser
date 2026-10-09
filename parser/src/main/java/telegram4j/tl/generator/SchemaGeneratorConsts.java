@@ -85,6 +85,7 @@ final class SchemaGeneratorConsts {
     static final ClassRef TL_OBJECT = ClassRef.of("telegram4j.tl.api", "TlObject");
     static final ClassRef TL_METHOD = ClassRef.of("telegram4j.tl.api", "TlMethod");
     static final ClassRef UTILITY = ClassRef.of("telegram4j.tl.api", "TlEncodingUtil");
+    static final ClassRef TL_SERIAL_UTIL = ClassRef.of(BASE_PACKAGE, "TlSerialUtil");
     static final ClassRef OBJECTS = ClassRef.of(Objects.class);
 
     static final TypeVariableRef genericTypeRef = TypeVariableRef.of("T");
@@ -95,7 +96,10 @@ final class SchemaGeneratorConsts {
 
     static final TlProcessing.Configuration[] configs = {
         new TlProcessing.Configuration("api", null, TL_OBJECT),
-        new TlProcessing.Configuration("mtproto", "mtproto", ClassRef.of("telegram4j.tl.api", "MTProtoObject"))
+        new TlProcessing.Configuration("mtproto", "mtproto", ClassRef.of("telegram4j.tl.api", "MTProtoObject")),
+        // The end-to-end scheme shares 34 constructor ids with the api one and is
+        // serialized separately, see TlProcessing.Configuration#serializationPrefix
+        new TlProcessing.Configuration("secret", "secret", ClassRef.of("telegram4j.tl.api", "SecretObject"), "Secret")
     };
 
     // names style

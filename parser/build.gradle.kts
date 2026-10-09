@@ -20,13 +20,11 @@ dependencies {
     annotationProcessor(libs.immutables.value)
 }
 
+// Maintenance task: downloads the api and end-to-end schemes and rewrites the
+// resources they are generated from. Deliberately not wired into `compileJava`,
+// because a layer bump changes the whole generated API and must be a reviewable
+// commit of its own rather than a side effect of an arbitrary build
 val updateSchemas by tasks.registering(JavaExec::class) {
     mainClass.set("telegram4j.tl.parser.SchemaUpdater")
     classpath = sourceSets.main.get().runtimeClasspath
-}
-
-// TODO update api scheme before processing
-
-tasks.compileJava {
-    finalizedBy(updateSchemas)
 }

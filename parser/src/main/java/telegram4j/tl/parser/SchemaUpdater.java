@@ -40,7 +40,12 @@ class SchemaUpdater {
     static final String pathPrefix = "./src/main/resources/";
     static final String baseUri = "https://raw.githubusercontent.com/telegramdesktop/tdesktop/dev/Telegram/SourceFiles/mtproto/scheme/";
     static final String api = baseUri + "api.tl";
-    static final String layer = baseUri + "layer.tl";
+    // The end-to-end scheme is not distributed by tdesktop, and TDLib is the only
+    // source which publishes it in a machine-readable form
+    static final String secret = "https://raw.githubusercontent.com/tdlib/td/master/td/generate/scheme/secret_api.tl";
+    // Unlike the api scheme, the end-to-end one carries no layer notation;
+    // this is the greatest layer for which constructors are declared in it
+    static final String secretVersion = "144";
 
     static final Pattern LAYER_PATTERN = Pattern.compile(".*// LAYER (\\d+).*");
 
@@ -49,14 +54,16 @@ class SchemaUpdater {
 
         var apiSchemeResponse = client.send(HttpRequest.newBuilder().GET().uri(URI.create(api)).build(),
                 HttpResponse.BodyHandlers.ofString());
-        var layerSchemeResponse = client.send(HttpRequest.newBuilder().GET().uri(URI.create(layer)).build(),
-                HttpResponse.BodyHandlers.ofString());
-        var matcher = LAYER_PATTERN.matcher(layerSchemeResponse.body());
+        var matcher = LAYER_PATTERN.matcher(apiSchemeResponse.body());
         if (!matcher.find()) {
             throw new IllegalArgumentException("No '// LAYER N' notation found in schema");
         }
         String version = matcher.group(1);
         handleScheme(apiSchemeResponse.body(), version, "api");
+
+        var secretSchemeResponse = client.send(HttpRequest.newBuilder().GET().uri(URI.create(secret)).build(),
+                HttpResponse.BodyHandlers.ofString());
+        handleScheme(secretSchemeResponse.body(), secretVersion, "secret");
     }
 
     private static void handleScheme(String data, String version, String filename) throws IOException {

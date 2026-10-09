@@ -59,6 +59,7 @@ module telegram4j.tl {
 	exports telegram4j.tl.request.updates;
 	exports telegram4j.tl.request.upload;
 	exports telegram4j.tl.request.users;
+	exports telegram4j.tl.secret;
 	exports telegram4j.tl.stats;
 	exports telegram4j.tl.stickers;
 	exports telegram4j.tl.storage;
